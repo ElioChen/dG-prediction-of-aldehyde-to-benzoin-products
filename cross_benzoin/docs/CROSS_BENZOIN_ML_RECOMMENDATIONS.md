@@ -99,6 +99,18 @@ Store donor, acceptor and product values separately and add the stoichiometric d
 `feature(P) - feature(D) - feature(A)`. Do not use DFT-derived descriptors as inputs to a
 model whose purpose is to avoid DFT at inference time.
 
+The operational keep/add/prune decisions and donor-versus-acceptor responsibilities are
+specified in [DESCRIPTOR_POLICY_CROSS.md](DESCRIPTOR_POLICY_CROSS.md).
+
+## Product-first computation and aldehyde reuse
+
+The aldehyde simulations should not be repeated for every pair. Canonicalize the two
+SMILES, join their stored GFN2/g-xTB free energies and descriptors, and compute only
+missing species. Before conformer or QM work, generate the directed product with
+`prepare_product_manifest.py`; reject invalid products and preserve the orientation ID.
+`cb_featurize.py --aldehyde-cache ... --require-cache-complete` then guarantees that a
+product batch cannot silently launch expensive aldehyde recalculations.
+
 ## Splits needed for cross-benzoin
 
 One aggregate random-split MAE is insufficient. Keep both orientations of an unordered

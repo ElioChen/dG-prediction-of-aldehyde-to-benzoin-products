@@ -65,8 +65,11 @@ _Last updated: 2026-07-14._
 | `cross_benzoin/ARCHITECTURE.md` | Cross-benzoin package design |
 | `cross_benzoin/slurm/submit_cb_featurize_array.sh` | SLURM array driver for featurize |
 | `cross_benzoin/slurm/fulllib_watch.sh` | Long-poll watch: exits on array drain / quota / mass-fail (re-arm as tracked bg task) |
-| `cross_benzoin/prepare_pair_chunks.py` | Stream the directed v2 CSV.gz into bounded `cb_featurize.py --pairs` manifests |
+| `cross_benzoin/prepare_pair_chunks.py` | Stream a directed candidate CSV.gz into bounded `cb_featurize.py --pairs` manifests |
+| `cross_benzoin/prepare_product_manifest.py` | Cheap directed product-SMILES enumeration and chemistry QC before conformer/QM work |
 | `cross_benzoin/docs/CROSS_BENZOIN_ML_RECOMMENDATIONS.md` | Homo-to-cross transfer, fusion validation, delta-learning and scaling recommendations |
+| `cross_benzoin/docs/DESCRIPTOR_POLICY_CROSS.md` | Donor/acceptor/product/interaction descriptor responsibilities, pruning and ablation rules |
+| `cross_benzoin/docs/NEXT_STEPS.md` | Phased cross-benzoin roadmap with acceptance gates and package/API promotion criteria |
 
 ## Data — `data/`
 | Path | Purpose |
@@ -81,6 +84,7 @@ _Last updated: 2026-07-14._
 | `data/raw/screen_v6/` | xTB screen (triage layer, `dG_xtb_kcal`) |
 | `data/cross_benzoin/homo_v6/` | **Current featurize OUTPUT** — job 24128375 |
 | `data/cross_benzoin/candidates_v2/` | Git-LFS candidate release: 220,859 aldehydes + 1M unordered / 2M directed cross pairs, manifest and QA |
+| `data/cross_benzoin/candidates_v3/` | Current Git-LFS candidate release: 220,859 aldehydes + 2M unordered / 4M directed cross pairs, manifest and QA |
 | ↳ `chunk_NNNN/{products,aldehydes}.csv`, `xyz_prod/`, `xyz_ald/` | Per-chunk results (100 mol/chunk) |
 | ↳ `aldehydes_all.csv`, `products_all.csv` | Concatenated tables (created post-array, RUNBOOK step 4) |
 | ↳ `logs/cb_<jobid>_<task>.out` | Per-task logs (current job 24128375; defunct 23939656 logs removed) |

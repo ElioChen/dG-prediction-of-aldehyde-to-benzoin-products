@@ -1,8 +1,11 @@
-# dG-prediction-of-aldehyde-to-benzoin-products
+# Benzoin ΔG prediction from aldehyde SMILES
 
-Predict the Gibbs free energy **ΔG** of the NHC-catalyzed **homo-benzoin
-condensation** (`2 R-CHO → R-CH(OH)-C(=O)-R`) directly from an aldehyde
-**SMILES**, at DFT accuracy but at a fraction of the DFT cost.
+This repository is evolving into a unified predictor for directed **homo- and
+cross-benzoin** reaction free energies. The intended input is `(donor SMILES,
+acceptor SMILES)`; homo-benzoin is the diagonal special case `(A, A)`. The shipped
+inference model is currently homo-only. The cross extension now includes a 4M-row
+candidate release, deterministic product enumeration/QC, reusable quantum-computation
+workflows and a role-aware modeling plan.
 
 ```
 ΔG_pred = ΔG_g-xTB + model(QM descriptors, ΔG_g-xTB)     # model ≈ ΔG_DFT(r2SCAN-3c) − ΔG_g-xTB
@@ -23,6 +26,11 @@ Mordred descriptors (dispersion/size/shape) + 4 g-xTB bond-dissociation-energy
 features. Ships with an uncertainty-routing head: the confident 85% of
 predictions hit MAE 1.25; the routed 15% (flagged for DFT follow-up) sit at
 MAE ~2.9.
+
+A newer exploratory **GNN (40%) + tabular (60%)** fusion has been reported at
+**MAE 1.427 kcal/mol**. It is treated as a candidate rather than the production claim
+until the blend weight is fitted from out-of-fold predictions and reproduced on an
+untouched molecule-/scaffold-disjoint test set.
 
 Aromatic substrates predict noticeably better than aliphatic (1.33 vs 1.87
 MAE) — historical sampling bias toward aromatics has been confirmed resolved
@@ -69,6 +77,10 @@ benzoin-dg "O=Cc1ccccc1"                 # benzaldehyde
 benzoin-dg "O=Cc1ccccc1" "O=CCC" --json
 ```
 
+The second command evaluates two independent **homo** inputs; it is not yet a directed
+cross pair. The planned pair API is
+`predict_cross_dG(donor_smiles, acceptor_smiles)` after cross-label/model validation.
+
 ```python
 from benzoin_dG import predict_dG
 p = predict_dG("O=Cc1ccccc1")
@@ -102,25 +114,31 @@ See [FILE_MAP.md](FILE_MAP.md) for a more complete file-by-file index and
 
 ## Status (2026-07-13)
 
-Production champion (`MORDREDSLIM271_BDEGXTB`, MAE 1.503) is trained and has
+The homo production champion (`MORDREDSLIM271_BDEGXTB`, MAE 1.503) is trained and has
 scored the full ~220k-molecule filtered library. GNN and pure-SMILES
 alternatives have been explored extensively (see above) and, for this task,
 descriptor-informed Δ-learning on gradient-boosted trees remains the
 strongest approach. Active work: verifying whether GNN+tabular stacking adds
 a real, reproducible gain at full library scale.
 
-## Cross-benzoin candidate extension
+## Cross-benzoin extension
 
 The versioned candidate release under
-[`data/cross_benzoin/candidates_v2/`](data/cross_benzoin/candidates_v2/README.md)
-contains all 220,859 source aldehydes and two million directed cross-benzoin
-candidates (one million unique unordered pairs). It is unlabeled and intended for the
+[`data/cross_benzoin/candidates_v3/`](data/cross_benzoin/candidates_v3/README.md)
+contains all 220,859 source aldehydes and **four million directed** cross-benzoin
+candidates (two million unique unordered pairs). Aliphatic aldehydes are retained. The
+release is unlabeled and intended for the
 existing GFN2/g-xTB/DFT computation workflow. Use
 [`cross_benzoin/prepare_pair_chunks.py`](cross_benzoin/prepare_pair_chunks.py) to create
-bounded `cb_featurize.py --pairs` manifests instead of loading the complete file.
+bounded manifests, then
+[`cross_benzoin/prepare_product_manifest.py`](cross_benzoin/prepare_product_manifest.py)
+to enumerate and validate the directed products before expensive computation.
 
 Model-transfer, fusion-validation and evaluation recommendations are collected in
 [`CROSS_BENZOIN_ML_RECOMMENDATIONS.md`](cross_benzoin/docs/CROSS_BENZOIN_ML_RECOMMENDATIONS.md).
+The executable plan and descriptor decisions are in
+[`NEXT_STEPS.md`](cross_benzoin/docs/NEXT_STEPS.md) and
+[`DESCRIPTOR_POLICY_CROSS.md`](cross_benzoin/docs/DESCRIPTOR_POLICY_CROSS.md).
 
 **Note on git history:** this repository's local `.git` object database was
 found corrupted (silent object-store corruption, not user error) while

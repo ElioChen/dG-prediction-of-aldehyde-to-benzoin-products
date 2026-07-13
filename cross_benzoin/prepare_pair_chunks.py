@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stream the directed v2 candidate CSV(.gz) into cb_featurize-compatible chunks."""
+"""Stream a directed candidate CSV(.gz) into cb_featurize-compatible chunks."""
 
 from __future__ import annotations
 

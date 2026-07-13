@@ -13,7 +13,7 @@
 /data/cross_benzoin/**/xyz_ald/
 /data/cross_benzoin/**/xyz_prod/
 /data/cross_benzoin/*/*_all.csv
-/data/cross_benzoin/candidates_v2/chunks_*/
+/data/cross_benzoin/candidates_*/chunks_*/
 *.xyz
 
 # homo_v6 raw featurization dumps (multi-GB, regenerable via pipeline/compute/*.py +
