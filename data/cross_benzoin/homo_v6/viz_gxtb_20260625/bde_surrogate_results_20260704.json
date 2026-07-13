@@ -1,0 +1,90 @@
+{
+  "ald_bde": {
+    "tag": "ald_bde",
+    "target": "bde_ald_CH_kcal",
+    "n": 214954,
+    "n_feat": 140,
+    "mae": 3.0271719121865552,
+    "rmse": 9.700140051624288,
+    "r2": 0.09363976508794647,
+    "bundle": "/scratch-shared/schen3/benzoin-dg/pipeline/models/bde_surrogate_ald_bde_20260704.joblib",
+    "top_feats": [
+      "mordred_Mor17",
+      "g_nAliphRing",
+      "mordred_Mor07m",
+      "mordred_Mor23p",
+      "mordred_Mor20v",
+      "mordred_Mor25v",
+      "mordred_Mor20se",
+      "mordred_Mor28v",
+      "mordred_Mor15m",
+      "mordred_RPCS"
+    ]
+  },
+  "ald_bdfe": {
+    "tag": "ald_bdfe",
+    "target": "bdfe_xtb_kcal",
+    "n": 213191,
+    "n_feat": 140,
+    "mae": 2.0181951150346653,
+    "rmse": 4.4358416693974325,
+    "r2": 0.7972006117797074,
+    "bundle": "/scratch-shared/schen3/benzoin-dg/pipeline/models/bde_surrogate_ald_bdfe_20260704.joblib",
+    "top_feats": [
+      "xtb_LUMO",
+      "wbo_CO",
+      "fukui_plus_CHO_C",
+      "xtb_EA",
+      "dual_descriptor_CHO_C",
+      "xtb_omega",
+      "pa_CHO_O",
+      "g_nRing",
+      "mulliken_CHO_O",
+      "xtb_gap"
+    ]
+  },
+  "prod_bde": {
+    "tag": "prod_bde",
+    "target": "bde_prod_CC_kcal",
+    "n": 208907,
+    "n_feat": 147,
+    "mae": 3.8776453091389174,
+    "rmse": 10.333593081765233,
+    "r2": 0.6516084448880173,
+    "bundle": "/scratch-shared/schen3/benzoin-dg/pipeline/models/bde_surrogate_prod_bde_20260704.joblib",
+    "top_feats": [
+      "mordred_MOMI-Y",
+      "SASA_total",
+      "mordred_PBF",
+      "sterimol_B5",
+      "mordred_Mor30m",
+      "hb_angle",
+      "g_nRing",
+      "wbo_CC_new",
+      "mordred_RPCG",
+      "mordred_Mor04m"
+    ]
+  },
+  "prod_bdfe": {
+    "tag": "prod_bdfe",
+    "target": "bdfe_xtb_kcal",
+    "n": 205339,
+    "n_feat": 147,
+    "mae": 2.7035230934994123,
+    "rmse": 5.116742602267594,
+    "r2": 0.9011943227371682,
+    "bundle": "/scratch-shared/schen3/benzoin-dg/pipeline/models/bde_surrogate_prod_bdfe_20260704.joblib",
+    "top_feats": [
+      "wbo_CC_new",
+      "wbo_CO_ket",
+      "xtb_LUMO",
+      "hb_angle",
+      "g_nAromRing",
+      "mulliken_carbC",
+      "xtb_omega",
+      "xtb_EA",
+      "xtb_gap",
+      "mulliken_ketC"
+    ]
+  }
+}

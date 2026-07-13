@@ -1,0 +1,2 @@
+GINE Δ-GNN (DFT−g-xTB), random 70/20/10 seed42, n=142755
+TEST  R2=0.644 RMSE=3.91 MAE=2.67  | GBT Δ MAE=2.46 ridge=2.87 raw g-xTB=4.35

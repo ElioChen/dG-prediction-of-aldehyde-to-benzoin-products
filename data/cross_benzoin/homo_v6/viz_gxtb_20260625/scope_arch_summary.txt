@@ -1,0 +1,6 @@
+    scope      n  raw_gxtb  Ridge(linear)      MLP      GBT
+      all 152781  4.205686       2.770893 2.335304 2.378580
+ aromatic  97520  4.203399       2.374547 1.913925 1.951767
+aliphatic  54253  4.118505       3.171839 2.878643 2.808863
+
+Specialization (aromatic test): specialist=1.952  all-trained=2.012

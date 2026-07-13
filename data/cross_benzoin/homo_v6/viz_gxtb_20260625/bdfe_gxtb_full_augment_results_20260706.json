@@ -1,0 +1,50 @@
+{
+  "mordredslim271": {
+    "label": "mordredslim271",
+    "n_feat": 271,
+    "n": 219095,
+    "mae": 1.6117055204845976,
+    "rmse": 2.440560937596642,
+    "r2": 0.8538634594127841,
+    "scope": {
+      "aromatic": 1.4299047081578449,
+      "aliphatic": 1.996139428828925
+    }
+  },
+  "mordredslim271_plus_bdfe_gxtb_both": {
+    "label": "mordredslim271_plus_bdfe_gxtb_both",
+    "n_feat": 273,
+    "n": 219095,
+    "mae": 1.6045480007205526,
+    "rmse": 2.4337837608787747,
+    "r2": 0.8546739436234564,
+    "scope": {
+      "aromatic": 1.4222316028794069,
+      "aliphatic": 1.9900246966964714
+    }
+  },
+  "mordredslim271_plus_bde_gxtb_both": {
+    "label": "mordredslim271_plus_bde_gxtb_both",
+    "n_feat": 273,
+    "n": 219095,
+    "mae": 1.5796538198910284,
+    "rmse": 2.3959952233287587,
+    "r2": 0.8591517659005725,
+    "scope": {
+      "aromatic": 1.3928032994438475,
+      "aliphatic": 1.9740938403015558
+    }
+  },
+  "mordredslim271_plus_bdfe_and_bde_gxtb_both": {
+    "label": "mordredslim271_plus_bdfe_and_bde_gxtb_both",
+    "n_feat": 275,
+    "n": 219095,
+    "mae": 1.5629100223528714,
+    "rmse": 2.373596260448517,
+    "r2": 0.8617728961580369,
+    "scope": {
+      "aromatic": 1.378252871856894,
+      "aliphatic": 1.9525746522833745
+    }
+  }
+}

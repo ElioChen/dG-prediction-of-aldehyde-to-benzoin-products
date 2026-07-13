@@ -1,0 +1,16 @@
+feature_1,feature_2,mean_abs_interaction
+ald_P_int,P_int,0.317230224609375
+prod_bde_gxtb_kcal,ald_bde_gxtb_kcal,0.09904032945632935
+P_int,ald_mordred_Mor02se,0.09467843919992447
+ald_wbo_CO,P_int,0.08291976153850555
+ald_mordred_PNSA3,mordred_PNSA3,0.0775245726108551
+prod_bdfe_gxtb_kcal,prod_bde_gxtb_kcal,0.07284987717866898
+ald_wbo_CO,ald_pa_CHO_O,0.07027537375688553
+P_int,vbur_ketC,0.06489167362451553
+ald_xtb_dipole,xtb_dipole,0.06386169046163559
+vbur_ketC,ald_wbo_CO,0.06367695331573486
+ald_mulliken_CHO_C,ald_wbo_CO,0.05904558673501015
+ald_pa_CHO_O,vbur_ketC,0.05230176821351051
+ald_bde_gxtb_kcal,P_int,0.0519859716296196
+ald_xtb_dipole,P_int,0.04632478207349777
+ald_bdfe_gxtb_kcal,ald_bde_gxtb_kcal,0.04500586912035942

@@ -1,0 +1,60 @@
+{
+  "n": 220520,
+  "counts": {
+    "sulfonyl  S(=O)(=O)": 8483,
+    "sulfonyl fluoride S(=O)2F": 238,
+    "triflate OS(=O)2CF3": 618,
+    "nitro [N+](=O)[O-]": 8492,
+    "N-oxide": 8621,
+    "boron": 1311,
+    "phosphorus": 1393,
+    "selenium": 295,
+    "silicon": 2746
+  },
+  "tail_thr": -17.230909999999998,
+  "tail_share": {
+    "sulfonyl  S(=O)(=O)": 10.99220025394522,
+    "sulfonyl fluoride S(=O)2F": 0.8162524941048431,
+    "triflate OS(=O)2CF3": 1.3694902956647923,
+    "nitro [N+](=O)[O-]": 8.271358606929077,
+    "N-oxide": 8.407400689279884,
+    "boron": 0.9885724650825323,
+    "phosphorus": 1.6143660438962453,
+    "selenium": 0.4444041356793034,
+    "silicon": 0.5441683294032287
+  },
+  "overall_share": {
+    "sulfonyl  S(=O)(=O)": 3.8468166152729912,
+    "sulfonyl fluoride S(=O)2F": 0.10792671866497369,
+    "triflate OS(=O)2CF3": 0.2802466896426628,
+    "nitro [N+](=O)[O-]": 3.850897877743515,
+    "N-oxide": 3.9093959731543624,
+    "boron": 0.5945038998730273,
+    "phosphorus": 0.6316887357155814,
+    "selenium": 0.13377471431162705,
+    "silicon": 1.2452385271177218
+  },
+  "enrich": {
+    "sulfonyl  S(=O)(=O)": 2.8574796652127787,
+    "sulfonyl fluoride S(=O)2F": 7.563025210084034,
+    "triflate OS(=O)2CF3": 4.88673139158576,
+    "nitro [N+](=O)[O-]": 2.1479039095619408,
+    "N-oxide": 2.1505625797471293,
+    "boron": 1.662852784134249,
+    "phosphorus": 2.555635319454415,
+    "selenium": 3.3220338983050848,
+    "silicon": 0.4369992716678805
+  },
+  "median": {
+    "sulfonyl  S(=O)(=O)": -11.3057,
+    "sulfonyl fluoride S(=O)2F": -14.63525,
+    "triflate OS(=O)2CF3": -13.55165,
+    "nitro [N+](=O)[O-]": -11.28575,
+    "N-oxide": -11.2728,
+    "boron": -9.438,
+    "phosphorus": -10.6541,
+    "selenium": -11.5636,
+    "silicon": -8.53205
+  },
+  "baseline_median": -9.521
+}

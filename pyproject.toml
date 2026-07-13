@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "benzoin_dG"
+version = "0.1.0"
+description = "Predict the Gibbs free energy of benzoin condensation (2 R-CHO -> benzoin) from an aldehyde SMILES, via xTB + a Δ-learning correction to DFT (r2SCAN-3c)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "schen3" }]
+keywords = ["chemistry", "benzoin", "delta-learning", "xtb", "dft", "cheminformatics"]
+
+# Core = what the *inference* path needs. The featurizer reproduces the training
+# descriptors, so RDKit is required; xTB/Multiwfn are external binaries discovered
+# at runtime (see benzoin_dG.config), not pip deps.
+dependencies = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "xgboost>=2.0",
+    "joblib",
+    "rdkit",
+]
+
+[project.optional-dependencies]
+# Building the model from scratch (data-gen + training pipeline under pipeline/).
+pipeline = ["mlflow>=3", "optuna>=4", "shap", "matplotlib", "morfeus-ml", "pyarrow", "tqdm"]
+# Hybrid D-MPNN Δ-learning (pipeline/gnn/). Heavy (CUDA torch) — kept out of the
+# default + pipeline extras. Install into a dedicated env (see pipeline/gnn/README.md).
+gnn = ["chemprop>=2.1", "torch", "lightning", "optuna>=4", "mlflow>=3", "pyarrow", "matplotlib"]
+dev = ["pytest", "ruff"]
+
+[project.scripts]
+benzoin-dg = "benzoin_dG.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/schen3/benzoin-dg"
+Issues = "https://github.com/schen3/benzoin-dg/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/benzoin_dG"]
+
+# Ship the trained model with the wheel.
+[tool.hatch.build.targets.wheel.force-include]
+"src/benzoin_dG/models" = "benzoin_dG/models"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

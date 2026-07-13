@@ -1,0 +1,89 @@
+{
+  "model": "xgb",
+  "target": "dG_orca_kcal (direct)",
+  "tier": "2d_surrogate",
+  "n_samples": 1634,
+  "n_features": 26,
+  "features": [
+    "MW",
+    "ExactMW",
+    "LogP",
+    "MolMR",
+    "TPSA",
+    "HBD",
+    "HBA",
+    "RotBonds",
+    "ArRings",
+    "ArHetRings",
+    "AlRings",
+    "Rings",
+    "Heteroatoms",
+    "FractionCSP3",
+    "BertzCT",
+    "Chi0v",
+    "Chi1v",
+    "Kappa1",
+    "Kappa2",
+    "LabuteASA",
+    "NumStereocenters",
+    "n_CHO",
+    "gasteiger_CHO_C",
+    "gasteiger_CHO_O",
+    "gasteiger_maxpos",
+    "gasteiger_minneg"
+  ],
+  "feature_medians": {
+    "MW": 366.503,
+    "ExactMW": 366.161654,
+    "LogP": 3.4143999999999997,
+    "MolMR": 94.17045,
+    "TPSA": 62.84,
+    "HBD": 1.0,
+    "HBA": 4.0,
+    "RotBonds": 4.0,
+    "ArRings": 2.0,
+    "ArHetRings": 1.0,
+    "AlRings": 1.0,
+    "Rings": 3.0,
+    "Heteroatoms": 7.0,
+    "FractionCSP3": 0.272727,
+    "BertzCT": 864.393939,
+    "Chi0v": 14.754949499999999,
+    "Chi1v": 8.568591,
+    "Kappa1": 17.723983,
+    "Kappa2": 6.9014585,
+    "LabuteASA": 149.88506,
+    "NumStereocenters": 0.0,
+    "n_CHO": 1.0,
+    "gasteiger_CHO_C": 0.15257949999999998,
+    "gasteiger_CHO_O": -0.29778,
+    "gasteiger_maxpos": 0.2641385,
+    "gasteiger_minneg": -0.396278
+  },
+  "cv": {
+    "MAE": 2.940180613408166,
+    "RMSE": 3.9277479321847815,
+    "max": 14.283293619766235
+  },
+  "cv_all": {
+    "xgb": {
+      "MAE": 2.940180613408166,
+      "RMSE": 3.9277479321847815,
+      "max": 14.283293619766235
+    },
+    "ridge": {
+      "MAE": 3.1881014182092966,
+      "RMSE": 4.1876270681161465,
+      "max": 15.146983548743302
+    },
+    "gpr": {
+      "MAE": 3.1790768253211117,
+      "RMSE": 4.184807981103464,
+      "max": 14.972496843372141
+    }
+  },
+  "folds": 5,
+  "repeats": 4,
+  "seed": 42,
+  "note": "Pure-SMILES RDKit-2D surrogate (no xTB); predicts DFT dG_orca directly. Fast/no-quantum tier of the prediction hierarchy."
+}

@@ -1,0 +1,14 @@
+{
+  "n": 220520,
+  "n_ewg": 16666,
+  "cov_now": 51.17604704188168,
+  "cov_proposed": 100.0,
+  "missed_now": 8137,
+  "missed_proposed": 0,
+  "tail_thr": -17.230909999999998,
+  "tail_n": 11026,
+  "tail_clean": 8981,
+  "tail_caught": 922,
+  "tail_missed": 1123,
+  "tail_missed_pct": 10.185017231997097
+}

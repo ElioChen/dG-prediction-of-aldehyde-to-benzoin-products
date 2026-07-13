@@ -1,0 +1,74 @@
+# Generated data (regenerable from the pipeline; too big / not source)
+/data/labels/
+/data/descriptors/
+/data/library/*.parquet
+/data/chunks/
+/data/raw/
+*.parquet
+
+# Cross-benzoin featurization outputs (huge, inode-heavy, regenerable from homo_pairs.csv)
+# Keep the small input manifests (homo_pairs.csv) tracked; ignore per-chunk results,
+# xyz geometries, and concatenated tables.
+/data/cross_benzoin/*/chunk_*/
+/data/cross_benzoin/**/xyz_ald/
+/data/cross_benzoin/**/xyz_prod/
+/data/cross_benzoin/*/*_all.csv
+*.xyz
+
+# homo_v6 raw featurization dumps (multi-GB, regenerable via pipeline/compute/*.py +
+# pipeline/slurm/submit_*.sh) -- keep the small manifests, reports, figures, and
+# reasonably-sized prediction/result CSVs that live alongside them.
+/data/cross_benzoin/homo_v6/*_descriptors.csv
+/data/cross_benzoin/homo_v6/*_morfeus_extra.csv
+/data/cross_benzoin/homo_v6/products_clean.csv
+/data/cross_benzoin/homo_v6/*_aldehydes/
+/data/cross_benzoin/homo_v6/*_products/
+/data/cross_benzoin/homo_v6/mordred_pilot_test/
+/data/cross_benzoin/homo_v6/bdfe_test_pilot/
+/data/cross_benzoin/homo_v6_backfill/
+*.pt
+
+# Trained model bundles (regenerable via pipeline/analysis/finalize_*.py; many
+# multi-hundred-MB joblib experiments accumulate here -- not source)
+/pipeline/models/
+
+# Scratch
+/tmp/
+
+# MLflow tracking store + artifacts
+/mlflow.db
+/mlartifacts/
+/mlruns/
+
+# Training outputs (the SHIPPED model lives in src/benzoin_dG/models/, not here)
+/runs/
+
+# SLURM logs / scratch
+*.out
+*.log
+**/logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+
+# Notebooks / editors
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Old corrupted git object database, kept aside for forensics (2026-07-13) -- not source
+/.git.corrupted-backup-20260713/

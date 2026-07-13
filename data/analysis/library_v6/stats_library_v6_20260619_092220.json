@@ -1,0 +1,43 @@
+{
+  "n_clean": 220859,
+  "n_rejected": 229328,
+  "keep_rate": 49.059390875347354,
+  "cho_class": {
+    "aromatic_carbo": 87987,
+    "aromatic_hetero": 58981,
+    "aliphatic": 73891
+  },
+  "n_aromatic_inscope": 146968,
+  "MW": {
+    "mean": 290.24773792329046,
+    "median": 275.56,
+    "min": 44.05,
+    "max": 500.0
+  },
+  "xtb_risk_clean": 209272,
+  "xtb_risk_tags": {
+    "nitro": 8492,
+    "phosphorus": 1396,
+    "boron": 1311,
+    "selenium": 295,
+    "n_oxide": 132
+  },
+  "xtb_risk_multi": 39,
+  "reject_reason": {
+    "multi_component": 63500,
+    "mw_too_high": 63179,
+    "not_single_aldehyde": 53842,
+    "enal": 22342,
+    "aliphatic_too_large": 8695,
+    "multi_aldehyde": 6149,
+    "net_charged": 3826,
+    "alpha_dicarbonyl": 2442,
+    "reactive_group": 1462,
+    "vinyl_conj": 930,
+    "isotope": 891,
+    "ynal": 732,
+    "zwitterion_or_ylide": 590,
+    "malformed_boron": 424,
+    "disallowed_element": 324
+  }
+}

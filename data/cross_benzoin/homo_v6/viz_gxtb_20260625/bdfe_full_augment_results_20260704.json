@@ -1,0 +1,26 @@
+{
+  "mordredslim271": {
+    "label": "mordredslim271",
+    "n_feat": 271,
+    "n": 219095,
+    "mae": 1.6117055204845976,
+    "rmse": 2.440560937596642,
+    "r2": 0.8538634594127841,
+    "scope": {
+      "aromatic": 1.4299047081578449,
+      "aliphatic": 1.996139428828925
+    }
+  },
+  "mordredslim271_plus_bdfe_both": {
+    "label": "mordredslim271_plus_bdfe_both",
+    "n_feat": 273,
+    "n": 219095,
+    "mae": 1.6046783735125238,
+    "rmse": 2.4341467692153413,
+    "r2": 0.854630588494617,
+    "scope": {
+      "aromatic": 1.4264393495348855,
+      "aliphatic": 1.981883114935798
+    }
+  }
+}

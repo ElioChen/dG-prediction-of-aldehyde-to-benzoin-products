@@ -1,0 +1,7 @@
+{
+  "model": "XGB Morgan2048+16global",
+  "target": "dG_orca direct",
+  "test_mae": 2.75360158969103,
+  "test_r2": 0.5847982825134661,
+  "n": 214190
+}
