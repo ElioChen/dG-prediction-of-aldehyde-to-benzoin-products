@@ -83,3 +83,16 @@ cb_featurize.py  (funnel_v3, --multiwfn, --emit-aldehydes)
 - Old scripts kept for provenance; `backfill_multiwfn`/`merge_multiwfn` are
   deprecated (plain-geometry, method-inconsistent).
 - See [[cross-benzoin-pipeline-handoff]], [[multiwfn-env-and-screen-gap]].
+
+## Directed candidate library v2
+
+`data/cross_benzoin/candidates_v2/` contains one million unique unordered pairs expanded
+to two million donor/acceptor orientations, with complete coverage of the 220,859-source
+aldehyde library. The compressed source manifest is intentionally unlabeled.
+
+Use `prepare_pair_chunks.py` to stream the `.csv.gz` into bounded, uncompressed manifests
+with the `donor_id,acceptor_id,donor_smiles,acceptor_smiles` schema consumed by
+`cb_featurize.py --pairs`. Generated chunks are execution artifacts and are not tracked.
+
+Modeling and validation recommendations for transferring the homo model to this directed
+cross space are documented in `docs/CROSS_BENZOIN_ML_RECOMMENDATIONS.md`.

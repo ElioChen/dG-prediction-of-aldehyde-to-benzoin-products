@@ -109,6 +109,19 @@ descriptor-informed Δ-learning on gradient-boosted trees remains the
 strongest approach. Active work: verifying whether GNN+tabular stacking adds
 a real, reproducible gain at full library scale.
 
+## Cross-benzoin candidate extension
+
+The versioned candidate release under
+[`data/cross_benzoin/candidates_v2/`](data/cross_benzoin/candidates_v2/README.md)
+contains all 220,859 source aldehydes and two million directed cross-benzoin
+candidates (one million unique unordered pairs). It is unlabeled and intended for the
+existing GFN2/g-xTB/DFT computation workflow. Use
+[`cross_benzoin/prepare_pair_chunks.py`](cross_benzoin/prepare_pair_chunks.py) to create
+bounded `cb_featurize.py --pairs` manifests instead of loading the complete file.
+
+Model-transfer, fusion-validation and evaluation recommendations are collected in
+[`CROSS_BENZOIN_ML_RECOMMENDATIONS.md`](cross_benzoin/docs/CROSS_BENZOIN_ML_RECOMMENDATIONS.md).
+
 **Note on git history:** this repository's local `.git` object database was
 found corrupted (silent object-store corruption, not user error) while
 preparing this upload; history was restarted from the current, verified-intact

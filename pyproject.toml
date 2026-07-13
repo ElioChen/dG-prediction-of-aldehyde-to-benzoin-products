@@ -36,8 +36,8 @@ dev = ["pytest", "ruff"]
 benzoin-dg = "benzoin_dG.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/schen3/benzoin-dg"
-Issues = "https://github.com/schen3/benzoin-dg/issues"
+Homepage = "https://github.com/ElioChen/dG-prediction-of-aldehyde-to-benzoin-products"
+Issues = "https://github.com/ElioChen/dG-prediction-of-aldehyde-to-benzoin-products/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/benzoin_dG"]
