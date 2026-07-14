@@ -49,10 +49,6 @@ TAG=$(printf "chunk_%04d" "$ID")
 TASK_OUT="$OUTDIR/$TAG"
 mkdir -p "$TASK_OUT" "$OUTDIR/logs"
 [[ -f "$INPUT" ]] || { echo "ERROR: INPUT $INPUT not found"; exit 1; }
-# Resume-safe: a chunk that already produced products.csv is done — skip it. Lets a
-# re-submit of the same array mop up only failed/missing chunks instead of recomputing
-# the whole 220k (important for the multi-day %128 run / node-failure requeues).
-[[ -s "$TASK_OUT/products.csv" ]] && { echo "chunk $ID already done ($TAG) — skip"; exit 0; }
 
 source /etc/profile 2>/dev/null
 module load 2023 2>/dev/null
@@ -64,7 +60,8 @@ export GXTB_BIN="${GXTB_BIN:-/gpfs/scratch1/shared/schen3/software/g-xtb/linux/x
 export GXTB_SOLV="${GXTB_SOLV:-cosmo dmso}"
 export OMP_NUM_THREADS=$XTB_CORES MKL_NUM_THREADS=$XTB_CORES OMP_STACKSIZE=2G KMP_STACKSIZE=2G
 
-# Slice this task's chunk of pairs.
+# Slice this task's chunk of pairs (always -- cheap, deterministic, idempotent -- so the
+# resume check below can compare against the TRUE expected row count for this chunk).
 PAIRS_CSV="$TASK_OUT/pairs.csv"
 python - "$INPUT" "$ID" "$CHUNK" "$PAIRS_CSV" <<'PY'
 import sys, pandas as pd
@@ -74,6 +71,21 @@ lo, hi = i*chunk, min((i+1)*chunk, len(df))
 (df.iloc[lo:hi] if lo < len(df) else df.iloc[0:0]).to_csv(out, index=False)
 print(f"chunk {i}: pairs {lo}:{hi}")
 PY
+
+# Resume-safe: only skip if products.csv has a row for EVERY pair in this chunk. A
+# products.csv that is merely non-empty is NOT sufficient -- cb_featurize.py flushes
+# each row as it completes, so a task that hits the 12h wall clock (products at this
+# scale can run well over an hour each; see cross_pilot_v1) leaves a partial, non-empty
+# products.csv that the old `-s` (non-empty) check would have wrongly treated as fully
+# done, permanently losing the un-run pairs on any resubmit/requeue.
+N_EXPECT=$(($(wc -l < "$PAIRS_CSV") - 1))
+N_DONE=0
+[[ -f "$TASK_OUT/products.csv" ]] && N_DONE=$(($(wc -l < "$TASK_OUT/products.csv") - 1))
+if [[ "$N_EXPECT" -gt 0 && "$N_DONE" -ge "$N_EXPECT" ]]; then
+    echo "chunk $ID already done ($TAG): $N_DONE/$N_EXPECT rows — skip"
+    exit 0
+fi
+[[ "$N_DONE" -gt 0 ]] && echo "chunk $ID resuming ($TAG): $N_DONE/$N_EXPECT rows previously written will be RECOMPUTED (cb_featurize.py has no row-level resume yet)"
 
 # self-heal: clear this node's dead-job orphan scratch before generating our own. The
 # per-user inode quota on the shared nodespecific tree is the bottleneck at %64/%128;

@@ -70,6 +70,8 @@ _Last updated: 2026-07-14._
 | `cross_benzoin/docs/CROSS_BENZOIN_ML_RECOMMENDATIONS.md` | Homo-to-cross transfer, fusion validation, delta-learning and scaling recommendations |
 | `cross_benzoin/docs/DESCRIPTOR_POLICY_CROSS.md` | Donor/acceptor/product/interaction descriptor responsibilities, pruning and ablation rules |
 | `cross_benzoin/docs/NEXT_STEPS.md` | Phased cross-benzoin roadmap with acceptance gates and package/API promotion criteria |
+| `cross_benzoin/select_cross_pilot_sample.py` | Draws a stratified, aldehyde-cache-hit-only directed cross pilot sample (6 category combos, both orientations, no self-pairs) straight from `aldehydes_clean_v6.csv`, no LFS needed |
+| `cross_benzoin/docs/REPORT_codex_gap_analysis_20260714_{EN,ZH}.md` | Gap analysis: codex's GitHub-side cross-benzoin session vs. actual repo state; documents the PR-merge data-loss bug found+fixed, README staleness fix, g-xTB silent-failure fix, the array resume-skip bug found+fixed, and the first real cross-benzoin pilot compute run |
 
 ## Data — `data/`
 | Path | Purpose |
@@ -85,6 +87,7 @@ _Last updated: 2026-07-14._
 | `data/cross_benzoin/homo_v6/` | **Current featurize OUTPUT** — job 24128375 |
 | `data/cross_benzoin/candidates_v2/` | Git-LFS candidate release: 220,859 aldehydes + 1M unordered / 2M directed cross pairs, manifest and QA |
 | `data/cross_benzoin/candidates_v3/` | Current Git-LFS candidate release: 220,859 aldehydes + 2M unordered / 4M directed cross pairs, manifest and QA |
+| `data/cross_benzoin/cross_pilot_v1/` | **FIRST real cross-benzoin compute** — job 24607515: 300 unordered / 600 directed pairs, aldehyde side 100% cache-hit from `homo_v6/aldehydes_all.csv` (product-only compute); `chunk_NNNN/products.csv` per SLURM array task |
 | ↳ `chunk_NNNN/{products,aldehydes}.csv`, `xyz_prod/`, `xyz_ald/` | Per-chunk results (100 mol/chunk) |
 | ↳ `aldehydes_all.csv`, `products_all.csv` | Concatenated tables (created post-array, RUNBOOK step 4) |
 | ↳ `logs/cb_<jobid>_<task>.out` | Per-task logs (current job 24128375; defunct 23939656 logs removed) |
