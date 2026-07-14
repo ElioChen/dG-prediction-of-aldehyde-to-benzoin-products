@@ -52,6 +52,19 @@ echo "Orphan candidates (jobid not in live set): $(wc -l < /tmp/_orphan_candidat
 # Final per-id gate: a BULK scontrol dump can be partial under load, so confirm EACH
 # candidate's job is really gone before deleting. Only an explicit per-id "Invalid job id"
 # is definitive; timeout / throttle / a returned record all mean "maybe alive" -> keep.
+#
+# PERFORMANCE FIX (2026-07-14): this used to be a SERIAL `while read` loop calling
+# scontrol once per candidate. At full-library scale there are 30k-40k+ orphan
+# candidates, and a serial ~0.3-1s-per-call scontrol RPC to the controller cannot
+# possibly finish within the cron job's 40-minute time limit (~2.5-11 hours needed).
+# The result: every single run of orphan_cleanup_cron.sh silently timed out at this
+# gate for its entire operational history, deleting NOTHING (orphan-candidate count
+# stayed essentially flat across weeks of "successful" 3-hourly resubmissions) -- a
+# longstanding no-op, not just a broken chain. Fixed by parallelizing the SAME per-id
+# definitive check (no safety weakened, just concurrent instead of serial): export -f +
+# xargs -P instead of a background-job pool, so each candidate's result is a single
+# atomic `echo` (one write() call, under PIPE_BUF) -- safe to fan into one shared output
+# file even at high parallelism.
 is_dead() {
     # scontrol exits NON-ZERO for BOTH a timeout AND an invalid job id, so we must NOT
     # gate on the exit code (the old `... || return 1` swallowed the invalid-id case and
@@ -62,16 +75,22 @@ is_dead() {
     [ "$rc" -eq 124 ] && return 1
     grep -qiE 'Invalid job id' <<<"$out"
 }
-: > /tmp/_orphan_scratch.txt
-while IFS= read -r d; do
+export -f is_dead
+check_one() {
     # jobid = the dir name AFTER the "<user>." prefix, up to the first . or _ (array task
     # suffix). MUST NOT use `grep -oE '[0-9]+' | head -1`: the username "schen3" contains a
     # digit, so that grabbed "3" for EVERY dir — the per-id gate then checked bogus job 3
     # (always "Invalid job id" -> everything "dead"), which would delete live scratch.
+    local d="$1" jid
     jid=$(basename "$d"); jid=${jid#*.}; jid=${jid%%[._]*}
-    [ -n "$jid" ] || continue
-    is_dead "$jid" && printf '%s\n' "$d" >> /tmp/_orphan_scratch.txt
-done < /tmp/_orphan_candidates.txt
+    [ -n "$jid" ] || return 0
+    is_dead "$jid" && printf '%s\n' "$d"
+    return 0
+}
+export -f check_one
+CHECK_PARALLEL="${ORPHAN_CHECK_PARALLEL:-16}"   # moderate: don't hammer the controller
+xargs -a /tmp/_orphan_candidates.txt -d '\n' -P "$CHECK_PARALLEL" -I{} bash -c 'check_one "$@"' _ {} \
+    > /tmp/_orphan_scratch.txt
 N=$(wc -l < /tmp/_orphan_scratch.txt)
 echo "Confirmed dead-job orphan dirs: $N"
 
