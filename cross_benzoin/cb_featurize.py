@@ -228,12 +228,24 @@ def featurize_pair(rec, *, g_cache, xyz_dir, work_dir, xtb_bin, mwf_bin, do_mult
         Ga, Ga_g = g_cache.get(Chem.CanonSmiles(acc)) or (None, None)
         row["G_donor"], row["G_acceptor"], row["G_xtb"] = Gd, Ga, Gp
         row["G_donor_gxtb"], row["G_acceptor_gxtb"], row["G_gxtb"] = Gd_g, Ga_g, Gp_g
+
+        def _flag(extra: str) -> None:
+            row["error"] = (row["error"] + ";" if row["error"] else "") + extra
+
         if None not in (Gp, Gd, Ga):
             row["dG_xtb_kcal"] = round((Gp - Gd - Ga) * HARTREE_TO_KCAL, 4)
         else:
-            row["error"] = (row["error"] + ";" if row["error"] else "") + "dG_failed"
+            _flag("dG_failed")
         if None not in (Gp_g, Gd_g, Ga_g):
             row["dG_gxtb_kcal"] = round((Gp_g - Gd_g - Ga_g) * HARTREE_TO_KCAL, 4)
+        else:
+            # Distinguish WHERE the g-xTB chain broke: the product SP itself vs a
+            # missing/failed g-xTB value on a cached donor or acceptor (the GFN2 side
+            # can still be fine, so this must not clobber a successful dG_xtb_kcal above).
+            if Gp_g is None:
+                _flag("gxtb_sp_failed")
+            if Gd_g is None or Ga_g is None:
+                _flag("gxtb_dG_failed_reactant")
         return row
     finally:
         shutil.rmtree(wd, ignore_errors=True)

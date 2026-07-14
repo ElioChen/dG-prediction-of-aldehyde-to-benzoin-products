@@ -37,6 +37,12 @@ CONFORMER="${CONFORMER:-funnel_v3}"
 # for ΔG = G(prod) - 2·G(ald), independent of whether product descriptors help the ML.
 MULTIWFN="${MULTIWFN:-0}"; EMIT_ALD="${EMIT_ALD:-1}"
 WORKERS="${WORKERS:-12}"; XTB_CORES="${XTB_CORES:-2}"
+# ALD_CACHE: existing aldehyde CSV(.gz) with smiles,G_xtb[,G_gxtb] (e.g. homo_v6's
+# aldehydes_all.csv). Cached species skip the funnel_v3 aldehyde geometry+G recompute
+# entirely -- only the (new) product side is computed. REQUIRE_CACHE_COMPLETE=1 turns a
+# cache miss into a hard failure instead of silently falling back to computing it, so a
+# pilot that's supposed to be product-only-compute can't quietly balloon in cost.
+ALD_CACHE="${ALD_CACHE:-}"; REQUIRE_CACHE_COMPLETE="${REQUIRE_CACHE_COMPLETE:-0}"
 
 ID=$SLURM_ARRAY_TASK_ID
 TAG=$(printf "chunk_%04d" "$ID")
@@ -79,13 +85,16 @@ trap 'rm -rf "$TMPDIR"' EXIT TERM INT
 
 MWF_ARGS=""; [[ "$MULTIWFN" == "1" ]] && MWF_ARGS="--multiwfn --multiwfn-bin $MWF_BIN"
 ALD_ARGS=""; [[ "$EMIT_ALD" == "1" ]] && ALD_ARGS="--emit-aldehydes"
+CACHE_ARGS=""
+[[ -n "$ALD_CACHE" ]] && CACHE_ARGS="--aldehyde-cache $ALD_CACHE"
+[[ "$REQUIRE_CACHE_COMPLETE" == "1" ]] && CACHE_ARGS="$CACHE_ARGS --require-cache-complete"
 
-echo "cb_feat ${SLURM_ARRAY_JOB_ID}[$ID] $TAG node=${SLURMD_NODENAME} conformer=$CONFORMER mwf=$MULTIWFN emit_ald=$EMIT_ALD $(date)"
+echo "cb_feat ${SLURM_ARRAY_JOB_ID}[$ID] $TAG node=${SLURMD_NODENAME} conformer=$CONFORMER mwf=$MULTIWFN emit_ald=$EMIT_ALD ald_cache=${ALD_CACHE:-none} $(date)"
 cd "$PKG"
 python cb_featurize.py \
     --pairs "$PAIRS_CSV" --out "$TASK_OUT" \
     --xtb-bin "$XTB_BIN" --solvent "$SOLVENT" --n-confs "$N_CONFS" \
     --conformer "$CONFORMER" --workers "$WORKERS" --xtb-cores "$XTB_CORES" --parallel-jobs 1 \
-    $MWF_ARGS $ALD_ARGS \
+    $MWF_ARGS $ALD_ARGS $CACHE_ARGS \
     2>&1 | tee "$TASK_OUT/run.log"
 echo "Done $TAG $(date) exit=${PIPESTATUS[0]}"
