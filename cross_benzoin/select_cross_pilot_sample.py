@@ -78,6 +78,10 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--clean-v6", default=str(CLEAN_V6))
     ap.add_argument("--aldehyde-cache", default=str(ALD_CACHE))
+    ap.add_argument("--exclude-pairs-csv", action="append", default=[],
+                     help="prior pairs CSV(s) (donor_smiles,acceptor_smiles) to exclude, "
+                          "so a follow-up batch doesn't recompute already-labeled pairs; "
+                          "repeatable")
     args = ap.parse_args()
 
     rng = random.Random(args.seed)
@@ -86,13 +90,27 @@ def main() -> int:
     for cat in CATEGORIES:
         print(f"  pool[{cat}] = {len(by_cat[cat])} (cache-hit molecules)")
 
+    exclude: set[tuple[str, str]] = set()
+    from rdkit import Chem as _Chem
+    for excl_path in args.exclude_pairs_csv:
+        with open(excl_path, encoding="utf-8-sig", newline="") as fh:
+            for row in csv.DictReader(fh):
+                try:
+                    a = _Chem.MolToSmiles(_Chem.MolFromSmiles(row["donor_smiles"]), canonical=True)
+                    b = _Chem.MolToSmiles(_Chem.MolFromSmiles(row["acceptor_smiles"]), canonical=True)
+                except Exception:
+                    continue
+                exclude.add(tuple(sorted((a, b))))
+    if exclude:
+        print(f"  excluding {len(exclude)} already-sampled unordered pairs")
+
     combos = list(itertools.combinations_with_replacement(CATEGORIES, 2))
     unordered_pairs: list[tuple[dict, dict]] = []
     for cat_a, cat_b in combos:
         pool_a, pool_b = by_cat[cat_a], by_cat[cat_b]
         if not pool_a or not pool_b:
             continue
-        seen = set()
+        seen = set(exclude)
         attempts = 0
         picked = 0
         while picked < args.n_per_combo and attempts < args.n_per_combo * 50:
