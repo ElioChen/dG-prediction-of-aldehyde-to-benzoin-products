@@ -73,11 +73,13 @@ print(f"chunk {i}: pairs {lo}:{hi}")
 PY
 
 # Resume-safe: only skip if products.csv has a row for EVERY pair in this chunk. A
-# products.csv that is merely non-empty is NOT sufficient -- cb_featurize.py flushes
-# each row as it completes, so a task that hits the 12h wall clock (products at this
-# scale can run well over an hour each; see cross_pilot_v1) leaves a partial, non-empty
-# products.csv that the old `-s` (non-empty) check would have wrongly treated as fully
-# done, permanently losing the un-run pairs on any resubmit/requeue.
+# products.csv that is merely non-empty is NOT sufficient -- cb_featurize.py flushes each
+# row as it completes, so a task that is preempted, requeued, or hits the 12h wall clock
+# mid-chunk leaves a partial, non-empty products.csv. The old (`-s`, non-empty) check
+# would have silently treated that as fully done on any resubmit, permanently losing the
+# un-run pairs -- plausibly the source of some of the ~0.15% (333/220,859) of aldehydes
+# missing from aldehydes_all.csv after the original 220k campaign's multi-day, multi-
+# requeue run.
 N_EXPECT=$(($(wc -l < "$PAIRS_CSV") - 1))
 N_DONE=0
 [[ -f "$TASK_OUT/products.csv" ]] && N_DONE=$(($(wc -l < "$TASK_OUT/products.csv") - 1))
