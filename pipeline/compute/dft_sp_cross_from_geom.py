@@ -146,6 +146,10 @@ def main() -> int:
     ap.add_argument("--clean-v6", default=None)
     ap.add_argument("--aldehyde-cache", default=None)
     ap.add_argument("--dft-sp-dir", default=None)
+    ap.add_argument("--manifest-cache", default=None,
+                    help="cache the built manifest here (CSV); an array of tasks sharing "
+                         "one products-csv should point at the SAME cache path so only the "
+                         "first task pays for rebuilding the ~220k-row aldehyde lookups")
     ap.add_argument("--skip", type=int, default=0)
     ap.add_argument("--max", type=int, default=50)
     ap.add_argument("--out-csv", required=True)
@@ -164,25 +168,48 @@ def main() -> int:
     ald_cache = Path(args.aldehyde_cache or repo / "data/cross_benzoin/homo_v6/aldehydes_all.csv")
     dft_sp_dir = Path(args.dft_sp_dir or repo / "data/raw/dft_sp_funnelv3")
 
-    print("building aldehyde id map / thermal / DFT-SP-energy lookups ...")
-    id_map = build_aldehyde_id_map(clean_v6)
-    thermal = build_aldehyde_thermal(ald_cache)
-    ald_e = build_aldehyde_orca_e(dft_sp_dir)
-    print(f"  {len(id_map)} aldehyde ids, {len(thermal)} thermal corrections, "
-          f"{len(ald_e)} existing DFT-SP energies")
-
-    m = build_manifest(Path(args.products_csv), id_map, thermal, ald_e)
+    manifest_cache = Path(args.manifest_cache) if args.manifest_cache else None
+    if manifest_cache and manifest_cache.exists():
+        print(f"loading cached manifest from {manifest_cache}")
+        with open(manifest_cache, encoding="utf-8-sig", newline="") as fh:
+            m = [{**row, "thermal_prod": float(row["thermal_prod"]),
+                  "G_donor_orca_Eh": float(row["G_donor_orca_Eh"]),
+                  "G_acceptor_orca_Eh": float(row["G_acceptor_orca_Eh"])}
+                 for row in csv.DictReader(fh)]
+    else:
+        print("building aldehyde id map / thermal / DFT-SP-energy lookups ...")
+        id_map = build_aldehyde_id_map(clean_v6)
+        thermal = build_aldehyde_thermal(ald_cache)
+        ald_e = build_aldehyde_orca_e(dft_sp_dir)
+        print(f"  {len(id_map)} aldehyde ids, {len(thermal)} thermal corrections, "
+              f"{len(ald_e)} existing DFT-SP energies")
+        m = build_manifest(Path(args.products_csv), id_map, thermal, ald_e)
+        if manifest_cache:
+            # Array tasks can all start before any of them sees the cache file and race to
+            # build it concurrently. Write-to-temp + atomic os.replace means whichever task
+            # finishes last simply overwrites with an equally-valid, complete file -- never
+            # a half-written or interleaved one that a slower task could read mid-write.
+            manifest_cache.parent.mkdir(parents=True, exist_ok=True)
+            tmp = manifest_cache.with_suffix(f".tmp{os.getpid()}")
+            with open(tmp, "w", newline="", encoding="utf-8") as fh:
+                w = csv.DictWriter(fh, fieldnames=list(m[0].keys()) if m else
+                                    ["id", "smiles", "prod_xyz", "thermal_prod",
+                                     "G_donor_orca_Eh", "G_acceptor_orca_Eh"])
+                w.writeheader(); w.writerows(m)
+            os.replace(tmp, manifest_cache)
+            print(f"cached manifest -> {manifest_cache}")
     print(f"manifest: {len(m)} cross products with a fully cached aldehyde side")
     sl = m[args.skip: args.skip + args.max]
     if args.smoke:
         sl = sl[:3]
 
-    # Resume-safe: an ORCA SP on a benzoin-sized product can take tens of minutes, and
-    # this is NOT array-chunked like cb_featurize.py (one task can cover hundreds of
-    # molecules), so losing everything to a wall-clock timeout would be a much bigger
-    # blast radius than the homo campaign's per-chunk (~96-molecule) exposure. Skip ids
-    # already present in an existing out-csv and flush each row as it completes instead
-    # of collecting in memory and writing once at the end.
+    # Resume-safe (per array task / chunk): an ORCA SP on a benzoin-sized product can take
+    # tens of minutes, so losing an in-flight chunk's already-completed rows to a wall-clock
+    # timeout or preemption would be costly. Skip ids already present in this task's own
+    # out-csv and flush each row as it completes instead of collecting in memory and writing
+    # once at the end. Use --skip/--max (see slurm/submit_dft_sp_cross_array.sh) to run this
+    # as a CHUNK-based array across multiple nodes for large manifests, same pattern as
+    # cb_featurize.py / dft_sp_from_geom.py.
     out_path = Path(args.out_csv)
     done_ids: set[str] = set()
     if out_path.exists():
