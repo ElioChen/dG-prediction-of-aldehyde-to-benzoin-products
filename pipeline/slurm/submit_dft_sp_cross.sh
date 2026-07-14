@@ -33,7 +33,10 @@ export PATH="/home/schen3/orca:$PATH"
 export LD_LIBRARY_PATH="/home/schen3/orca:${LD_LIBRARY_PATH:-}"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 
-[[ -s "$OUT" ]] && { echo "already done ($OUT exists) — skip"; exit 0; }
+# No submit-script-level resume skip here: dft_sp_cross_from_geom.py now does its own
+# row-level resume (skips ids already present in $OUT, appends+flushes incrementally),
+# so a re-submit after a timeout/preemption is safe and cheap even if $OUT is non-empty
+# but incomplete -- unlike the old all-at-once-write version this replaced.
 
 echo "dftsp_cross workers=$WORKERS node=${SLURMD_NODENAME} $(date)"
 $PY -u "$REPO/pipeline/compute/dft_sp_cross_from_geom.py" \

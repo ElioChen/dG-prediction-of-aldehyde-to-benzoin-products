@@ -176,25 +176,40 @@ def main() -> int:
     sl = m[args.skip: args.skip + args.max]
     if args.smoke:
         sl = sl[:3]
-    print(f"scoring {len(sl)} products (skip={args.skip}) workers={args.workers}")
 
+    # Resume-safe: an ORCA SP on a benzoin-sized product can take tens of minutes, and
+    # this is NOT array-chunked like cb_featurize.py (one task can cover hundreds of
+    # molecules), so losing everything to a wall-clock timeout would be a much bigger
+    # blast radius than the homo campaign's per-chunk (~96-molecule) exposure. Skip ids
+    # already present in an existing out-csv and flush each row as it completes instead
+    # of collecting in memory and writing once at the end.
+    out_path = Path(args.out_csv)
+    done_ids: set[str] = set()
+    if out_path.exists():
+        with open(out_path, encoding="utf-8-sig", newline="") as fh:
+            done_ids = {row["id"] for row in csv.DictReader(fh) if row.get("dG_orca_kcal")}
+    sl = [r for r in sl if r["id"] not in done_ids]
+    print(f"scoring {len(sl)} products (skip={args.skip}, {len(done_ids)} already done) "
+          f"workers={args.workers}")
+
+    fieldnames = ["id", "smiles", "E_prod_orca_Eh", "dG_orca_kcal", "error"]
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    write_header = not (out_path.exists() and out_path.stat().st_size > 0)
     tasks = [(r, args.method, args.basis, args.solvent, args.maxcore, args.orca_bin, args.timeout)
              for r in sl]
-    results = []
-    with ProcessPoolExecutor(max_workers=args.workers) as ex:
-        futs = [ex.submit(_one, t) for t in tasks]
-        for f in as_completed(futs):
-            results.append(f.result())
-
-    Path(args.out_csv).parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["id", "smiles", "E_prod_orca_Eh", "dG_orca_kcal", "error"]
-    with open(args.out_csv, "w", newline="", encoding="utf-8") as fh:
+    n_ok = 0
+    with open(out_path, "a", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=fieldnames)
-        w.writeheader()
-        for r in results:
-            w.writerow({k: r.get(k) for k in fieldnames})
-    ok = sum(1 for r in results if r.get("dG_orca_kcal") is not None)
-    print(f"wrote {args.out_csv}  {ok}/{len(results)} ok")
+        if write_header:
+            w.writeheader()
+        with ProcessPoolExecutor(max_workers=args.workers) as ex:
+            futs = [ex.submit(_one, t) for t in tasks]
+            for f in as_completed(futs):
+                r = f.result()
+                w.writerow({k: r.get(k) for k in fieldnames}); fh.flush()
+                n_ok += r.get("dG_orca_kcal") is not None
+    print(f"wrote {out_path}  {n_ok}/{len(tasks)} new ok  "
+          f"({len(done_ids) + n_ok}/{len(m)} total)")
     return 0
 
 
