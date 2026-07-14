@@ -85,22 +85,31 @@ genuinely new part — product conformer search, GFN2 optimization/frequency,
 and g-xTB single point — with zero aldehyde recompute (verified: the array
 did not raise the hard-fail-on-cache-miss check).
 
-**Status at time of writing: SLURM job 24607515 (array 0–5, one 100-pair
-chunk per task, genoa, 6 nodes) is running and progressing quickly** — 88/600
-rows done after ~9 minutes (~10 rows/min aggregate across 6×12=72 concurrent
-workers), projecting full completion in roughly an hour, comfortably inside
-the 12h task limit. All rows so far are **zero-error**, giving the
-first-ever real cross-benzoin ΔG values in this project (previously exactly
-zero cross, donor≠acceptor, rows had ever been computed — all prior compute
-here was homo/diagonal-only):
+**COMPLETE: SLURM job 24607515 (array 0–5, genoa, 6 nodes) finished in ~48
+minutes, 600/600 rows, zero errors.** This gives the first-ever real
+cross-benzoin ΔG values in this project (previously exactly zero cross,
+donor≠acceptor, rows had ever been computed — all prior compute here was
+homo/diagonal-only):
 
-- `dG_xtb_kcal` (n=57 snapshot): mean −11.4, sd 2.9, range [−18.2, −1.9] kcal/mol.
-- `dG_gxtb_kcal` (n=57 snapshot): mean +2.1, sd 3.0, range [−3.1, +10.4] kcal/mol.
-- AB/BA orientation sanity check passes on inspection: swapping donor/acceptor
-  changes `dG_xtb_kcal` substantially (e.g. one pair: −5.96 one direction,
-  −11.35 the other) — confirms the two directed rows are genuinely different
-  regioisomers, not metadata-swapped duplicates, consistent with codex's
-  earlier 250/250 AB≠BA product-enumeration check.
+- `dG_xtb_kcal`: n=600, mean −10.62, sd 3.69, range [−22.16, +7.13] kcal/mol.
+- `dG_gxtb_kcal`: n=600, mean +2.74, sd 4.37, range [−13.43, +29.19] kcal/mol.
+- Structural integrity: 300/300 unordered pairs have exactly 2 directed rows
+  (no duplicates, no missing directions).
+- **AB/BA orientation check, full sample**: `|dG_xtb(A→B) − dG_xtb(B→A)|`
+  has mean 2.64, median 2.16, max 9.37 kcal/mol across all 300 pairs; only
+  1.7% of pairs (5/300) have a near-zero (<0.05 kcal/mol) direction delta.
+  This is a strong, quantitative confirmation (not just spot-checked
+  examples) that donor/acceptor direction is a first-order effect on ΔG,
+  not metadata — see the new methods doc §7 for the mechanistic reason
+  (different carbon becomes ketone vs. carbinol depending on direction).
+- By category-pair (`dG_xtb_kcal`, n=100 each): aliphatic/aliphatic −11.96
+  (sd 3.29), aliphatic/aromatic_carbo −10.81 (2.54), aliphatic/
+  aromatic_hetero −11.96 (4.08), aromatic_carbo/aromatic_carbo −8.82 (2.88),
+  aromatic_carbo/aromatic_hetero −9.79 (3.63), aromatic_hetero/
+  aromatic_hetero −10.36 (4.33). Aliphatic-involving pairs are more
+  exergonic than aromatic-only pairs by ~2–3 kcal/mol on average — plausible
+  and consistent with known steric/electronic trends, not an artifact (no
+  category shows a degenerate/constant distribution).
 
 While watching this run, a genuine (if here non-triggered) bug was found and
 fixed in `submit_cb_featurize_array.sh`: the array's resume check only
@@ -118,13 +127,16 @@ reprocessed in full (row-level resume inside `cb_featurize.py` itself
 doesn't exist yet, so a resumed chunk redoes its product-side compute, but
 not the aldehyde side, which stays cache-hit).
 
-This report will be updated with the final `dG_xtb_kcal`/`dG_gxtb_kcal`
-distribution and a by-category-pair breakdown once the array drains. Check
-current progress with:
+Re-run the validation with:
 
 ```bash
-squeue -u schen3 -j 24607515
-wc -l /scratch-shared/schen3/benzoin-dg/data/cross_benzoin/cross_pilot_v1/chunk_*/products.csv
+cd /scratch-shared/schen3/benzoin-dg && python3 -c "
+import csv, glob
+rows = []
+for f in sorted(glob.glob('data/cross_benzoin/cross_pilot_v1/chunk_*/products.csv')):
+    rows.extend(csv.DictReader(open(f, encoding='utf-8')))
+print(len(rows), 'rows,', sum(1 for r in rows if r['error']), 'errors')
+"
 ```
 
 ## What's still genuinely missing (priority order)
