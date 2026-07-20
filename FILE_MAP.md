@@ -11,7 +11,7 @@
 > - **One standalone figure per file** (no multi-panel composites).
 > - **Never delete/overwrite prior outputs** — new results go to new filenames.
 
-_Last updated: 2026-07-14._
+_Last updated: 2026-07-15._
 
 ## Roots
 | Path | What | Notes |
@@ -138,3 +138,44 @@ _Last updated: 2026-07-14._
 | `pipeline/analysis/gnn3d_schnet_dimenet.py` + `slurm/submit_gnn3d.sh` | 3D GNNs (SchNet/DimeNet++/equivariant) on product xyz, Δ-learning, 60k; pure-torch radius_graph patch (env lacks torch-cluster); fair same-subset MLP baseline (job 24217134) |
 | `pipeline/compute/conformer_noise_worker.py` + `slurm/submit_confnoise.sh` + `analysis/collect_confnoise.py` | LABEL-NOISE FLOOR: K=5 conformers × DFT(r2SCAN-3c) SP per product, per-mol ΔG std/range = irreducible single-conformer label noise bounding the ~1.6 MAE (job 24225782, 36-mol sample; PRODUCT side only). collect_confnoise → results csv + summary md + std hist |
 | `pipeline/compute/boltz_relabel_worker.py` + `slurm/submit_boltz_relabel.sh` + `analysis/collect_boltz_relabel.py` | BETTER-LABEL probe (job 24226784, 120 test mols): per mol recompute ΔE=E_prod−2·E_ald 3 ways — r2SCAN-3c single-conf vs **xTB-Boltzmann K=5** (both ald+prod) vs **wB97X-3c** single-conf; form corrected labels, re-score frozen model preds → does multi-conformer / higher-functional re-labeling lower the 1.6 MAE floor? collect → results/summary/2 hists |
+
+## Cross-benzoin active-learning rounds 2-3 + ENSEMBLE72 packaging (2026-07-14/15)
+
+**Living status doc — read this first for current state**: `cross_benzoin/docs/STATUS_{EN,ZH}.md`.
+
+| Path | Purpose |
+|---|---|
+| `cross_benzoin/select_cross_round2_diverse.py` | Round-2 candidate sampling (product-fingerprint diversity, 4200 pairs) |
+| `cross_benzoin/assemble_cross_round2_features.py`, `assemble_cross_round_features.py` (`--round N`, generalized for round 3+) | Feature assembly for a round's unlabeled candidates (no DFT join) |
+| `cross_benzoin/score_round2_active_learning.py`, `score_round_active_learning.py` (`--round N --train-table ... --feature-list ...`, generalized) | Bootstrap-ensemble uncertainty scoring + top-N pair selection for DFT-SP. Fixed 2026-07-15 to exclude `candidates_v3` test/validation-split rows from the scoring ensemble's own training data |
+| `cross_benzoin/assemble_cross_training_table_combined.py` (round1+2) / `_combined_v2.py` (round1+2+3) | Merge N rounds of DFT-labeled data into one 150-feature training table; `load_round()` is the reusable per-round loader |
+| `cross_benzoin/sample_round3_from_candidates_v3.py` | Samples DIRECTLY from `candidates_v3`'s own train-split pairs (fixes the split-consistency data loss rounds 1-2 had) — the model for all future rounds' candidate sampling |
+| `cross_benzoin/train_cross_delta.py` | Trains the cross Δ-model; `pair_split_labels()` (added 2026-07-15) is the single shared definition of "which rows touch candidates_v3's held-out split," used both by the frozen-holdout eval and to keep the shipped `final` model leakage-free |
+| `cross_benzoin/learning_curve_check.py` | Diagnostic: CV MAE vs. training-data fraction (no new DFT compute) — used 2026-07-15, found a plateau from 50%→100% of the current 4120-row table |
+| `data/cross_benzoin/cross_round2/` | Round 2: 4200-pair candidate pool, 900 pairs DFT-SP'd (job 24620959), `cross_train_table_combined.parquet` (round1+2, 2354 rows) |
+| `data/cross_benzoin/cross_round3/` | Round 3: 4200-pair pool sampled from `candidates_v3`, 900 pairs DFT-SP'd (job 24625984, 1766/1766 zero errors), `cross_train_table_3rounds.parquet` (4120 rows), `train_3rounds_v2_leakfix/` (current champion, leakage-fixed), `learning_curve.csv` |
+| `data/raw/dft_sp_cross/cross_round2/`, `cross_round3/` | Real r2SCAN-3c DFT labels per round |
+| `src/benzoin_dG/_ensemble72_inference.py` + `_ensemble72_predict_subprocess.py` | Packages the REAL homo champion (`ENSEMBLE72`, test MAE 1.503) as `predict_dG_champion()` — was previously deferred twice as "a real refactor, not a file swap." The bundle needs numpy≥2 to unpickle (main venv has 1.26.4); the scaler/predict/quantile step runs in a subprocess under `envs/bde_lite` (numpy 2.4.6) rather than touching the main venv's numpy |
+| `cross_benzoin/docs/REPORT_cross_round2_active_learning_20260714_{EN,ZH}.md`, `REPORT_cross_round3_active_learning_20260715_{EN,ZH}.md` | Per-round deep-dive reports |
+
+## Cross-benzoin rounds 4-6, mordred/architecture, homo+cross unification (2026-07-15/16)
+
+| Path | Purpose |
+|---|---|
+| `cross_benzoin/assemble_cross_training_table_v3.py` | Production table assembly, generalized to any `--rounds N...` list, folds in mordred (aldehyde-side free, product-side from `add_mordred_cross_products.py`). Champion feature selection = `all_raw_blocks+mordred` (interaction terms dropped, confirmed useless 3x) |
+| `cross_benzoin/shap_slim_cross_mordred.py` | SHAP-rank + corr-prune mordred 423→120 feats (mirrors homo's method); the slim120 table is the current default training table |
+| `cross_benzoin/architecture_ensemble_experiment.py` | CV-only proof that MLP(128,64)+XGB(d5)+XGB(d7) beats single-XGB, gain grows with scale (superseded for shipping by `train_cross_ensemble.py` below) |
+| `cross_benzoin/train_cross_ensemble.py` | **Ships** the MLP+XGB ensemble: frozen-holdout eval (same split machinery as `train_cross_delta.py`) + joblib-packaged `MLPXGBEnsemble` class. Frozen holdout MAE 2.633/R²0.898 vs single-XGB champion's 2.983/0.865 |
+| `cross_benzoin/slurm/submit_train_cross_ensemble.sh` | SLURM wrapper for the above |
+| `cross_benzoin/build_homo_for_unification.py` | Stratified 30k-row homo subsample (equal per category), reused unchanged across both unification tests |
+| `cross_benzoin/assemble_cross_training_table_unified_v2.py` | Homo+cross unification at rounds1-5 scale (generalizes the old rounds1-3-only, no-mordred `_unified.py`) |
+| `cross_benzoin/score_round_active_learning.py` (`--tag` for non-round-numbered pools, e.g. `screen10k`/`cross_round6`) | Reused unchanged for round6: rescored screen10k's unspent 7,677-pair remainder against the new round1-5 champion |
+| `data/cross_benzoin/cross_round4/` | Round 4: full 8,400-pair pool (no selection), 8,383/8,400 error-free, DFT-SP'd entirely (external job 24645782) |
+| `data/cross_benzoin/screen10k/` | 10,200-pair no-DFT reservoir; round5 spent top 2,500 by uncertainty (`screen10k_dft_selection.csv`), 7,677 left for round6 |
+| `data/cross_benzoin/cross_round5/cross_train_table_5rounds_mordred_slim120.parquet` | Current cross-only production table: 17,270 rows/8,642 pairs, 260-feat champion schema |
+| `data/cross_benzoin/cross_round5/train_5rounds_mordred_slim120_v1/` | Single-XGB champion artifact (CV MAE 2.397, frozen holdout 2.983/R²0.865) |
+| `data/cross_benzoin/cross_round5/train_ensemble_slim120_v1/` | **New best model**: MLP+XGB ensemble artifact (CV MAE 2.176, frozen holdout 2.633/R²0.898) |
+| `data/cross_benzoin/homo_unify/cross_train_table_unified_v2_slim120_matched.parquet` | 47,270-row (17,270 cross + 30,000 homo) table, schema-matched to the champion's 260 feats for a clean comparison |
+| `data/cross_benzoin/homo_unify/train_unified_v2_slim120/` | Re-test result: cross-row-only CV MAE 2.374 vs cross-only's 2.397 (-1.0%, down from -1.9% at the 4120-row scale) |
+| `data/cross_benzoin/cross_round6/` | Round 6: 4,000 pairs selected by uncertainty from screen10k's remainder, `cross_round6_dft_products.csv` (7,996 rows) submitted as DFT-SP array job 24667830 |
+| `cross_benzoin/docs/REPORT_cross_ensemble_and_unification_20260716_{EN,ZH}.md` | This session's deep-dive report |

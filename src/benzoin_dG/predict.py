@@ -192,6 +192,30 @@ def predict_dG_fast(smiles: str, *, models_dir: str | None = None) -> Prediction
                       method="surrogate_2d")
 
 
+def predict_dG_champion(smiles: str, *, xtb_bin: str | None = None,
+                        n_confs: int = 10, xtb_cores: int = 2):
+    """CHAMPION tier: the real full-library validated model (test MAE 1.503
+    kcal/mol on 219k r2SCAN-3c labels), NOT the same artifact as the default
+    `predict_dG()` (which uses the older/stale `models/delta_model.joblib` —
+    see memory `cross-benzoin-push-20260714` / `gxtb-dft-correction-champion`
+    for why the two diverged and why this was shipped separately rather than
+    silently replacing the default).
+
+    Slower than `predict_dG()`: computes a full funnel_v3 xTB+morfeus pass on
+    both the aldehyde and its self-condensation product (no Multiwfn needed).
+    Returns a `_ensemble72_inference.ChampionPrediction` with `dG_pred`,
+    `dG_gxtb` baseline, `dG_correction`, a quantile-PI `uncertainty`, and a
+    `route_to_dft` flag (the shipped model's own most-uncertain-15% cutoff).
+    """
+    from . import _ensemble72_inference as _e72
+    if not _e72.available():
+        from ._ensemble72_inference import ChampionPrediction
+        return ChampionPrediction(smiles, None, None, None, None,
+                                  error="champion_model_unavailable")
+    return _e72.predict_dG_champion(smiles, xtb_bin=xtb_bin, n_confs=n_confs,
+                                    xtb_cores=xtb_cores)
+
+
 def _format(p: Prediction) -> str:
     if not p.benzoin_relevant:
         return (f"{p.smiles}\n  out of scope ({p.cho_class or 'non-aromatic'}) — "
