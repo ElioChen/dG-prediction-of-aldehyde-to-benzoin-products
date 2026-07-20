@@ -1,0 +1,3 @@
+error,E_acyl_sp_gfn2geom_Eh,id,sample_group,smiles,bde_gxtb_kcal,bde_alfabet_kcal,E_parent_sp_gfn2geom_Eh,E_h_Eh,E_acyl_opt_dftgeom_Eh,E_parent_opt_dftgeom_Eh,bde_dft_sp_gfn2geom_kcal,bde_dft_opt_dftgeom_kcal,Delta_SP,Delta_geom,Delta_tot
+orca_opt_acyl_failed,-5649.22740148547,112299,selenium,C1=CC=C(C=C1)C(C=O)([Se]C2=CC=CC=C2)[Se]C3=CC=CC=C3,77.267,,-5649.866441981449,-0.497326434673,,,,,,,
+,-1629.102542151882,94250,nitro,CNC(C1=C(C=CC(=C1)CF)Cl)C2=C(C=C3CCCC3=C2C=O)[N+](=O)[O-],70.3,,-1629.747309450912,-0.497326434673,-1629.115597607252,-1629.759215646588,92.52053923884318,91.79936789270751,-22.220539238843187,0.7211713461356766,-21.49936789270751

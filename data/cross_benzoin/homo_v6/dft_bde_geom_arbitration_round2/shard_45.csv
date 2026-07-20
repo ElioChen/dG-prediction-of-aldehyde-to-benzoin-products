@@ -1,0 +1,3 @@
+error,E_acyl_sp_gfn2geom_Eh,id,sample_group,smiles,bde_gxtb_kcal,bde_alfabet_kcal,E_parent_sp_gfn2geom_Eh,E_h_Eh
+orca_opt_acyl_failed,-1065.079369925508,113309,imine,CN1CCN(C1=NC2=C(C=C(C=C2)C=O)N=C3N(CCN3C)C)C,81.777,,-1065.748828773763,-0.497326434673
+orca_opt_acyl_failed,-2757.015585392385,53331,phosphorus,CCCOP1(=NP(=NP(=NP(=N1)(CCC=O)F)(OCCC)F)(OCCC)F)F,78.642,,-2757.6808821339,-0.497326434673

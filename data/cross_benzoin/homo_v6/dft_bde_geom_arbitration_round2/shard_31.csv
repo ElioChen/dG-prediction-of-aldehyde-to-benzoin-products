@@ -1,0 +1,3 @@
+error,E_acyl_sp_gfn2geom_Eh,id,sample_group,smiles,bde_gxtb_kcal,bde_alfabet_kcal,E_parent_sp_gfn2geom_Eh,E_h_Eh,E_acyl_opt_dftgeom_Eh,E_parent_opt_dftgeom_Eh,bde_dft_sp_gfn2geom_kcal,bde_dft_opt_dftgeom_kcal,Delta_SP,Delta_geom,Delta_tot
+orca_opt_acyl_failed,-1956.321249090454,84776,sulfonyl,C1CN(CCN1)S(=O)(=O)C2=NC3=CC(=NC=C3C=C2)NC4=C(C=C(C=C4)N5C=CC(=N5)C=O)F,75.44,,-1956.994037207814,-0.497326434673,,,,,,,
+,-1266.408354246001,47301,n_oxide,COC1=C(C=CC=C1C2=C(C(=[N+](C=C2)[O-])C3=C(C=CC=C3F)F)N)C=O,75.664,,-1267.06639161869,-0.497326434673,-1266.413984574787,-1267.071093779994,100.84763618053525,100.26520229211157,-25.183636180535245,0.5824338884236795,-24.601202292111566

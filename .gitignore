@@ -87,3 +87,4 @@ venv/
 /data/cross_benzoin/cross_round8/cross_round8_features.csv
 /data/cross_benzoin/screen10k/screen10k_features_screen10k_products_final.csv
 /data/cross_benzoin/screen10k/screen10k_products_mordred.csv
+/data/cross_benzoin/homo_v6/aldehydes_mordred_slim102.csv
