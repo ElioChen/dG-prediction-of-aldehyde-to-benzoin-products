@@ -1,0 +1,14 @@
+{
+  "n_unified_total": 62456,
+  "n_cross_rows": 32456,
+  "n_homo_rows": 30000,
+  "n_features_used": 260,
+  "n_features_missing_from_table": 0,
+  "unified_cv_mae_all_rows": 2.1812873084022626,
+  "unified_cv_mae_cross_rows_only": 2.129462464740802,
+  "unified_cv_mae_homo_rows_only": 2.2373548792648084,
+  "cross_only_standalone_cv_mae_reference": 2.122136494840926,
+  "unification_gain_abs_kcal": -0.007325969899876217,
+  "unification_gain_rel_pct": -0.3452167152153598,
+  "verdict": "helpful (negative=harmful convention: positive gain_abs means unification HELPS)"
+}

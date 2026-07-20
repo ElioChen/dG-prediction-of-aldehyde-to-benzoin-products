@@ -1,0 +1,7 @@
+,candidates_v3_frac,fresh_unrestricted_frac
+aliphatic__aliphatic,0.1592,0.1022
+aliphatic__aromatic_carbo,0.1692,0.267
+aliphatic__aromatic_hetero,0.1632,0.176
+aromatic_carbo__aromatic_carbo,0.166,0.1596
+aromatic_carbo__aromatic_hetero,0.1686,0.2172
+aromatic_hetero__aromatic_hetero,0.1738,0.078

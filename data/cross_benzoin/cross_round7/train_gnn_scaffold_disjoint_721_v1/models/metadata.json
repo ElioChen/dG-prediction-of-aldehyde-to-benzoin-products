@@ -1,0 +1,14 @@
+{
+  "model": "triple_gnn_gine_h128_l4_scaffold_disjoint",
+  "init_from_homo": null,
+  "extra_val_frac": 0.1,
+  "n_train": 13387,
+  "n_val": 3081,
+  "n_test": 450,
+  "gnn_scaffold_disjoint_holdout_mae": 2.8663580417633057,
+  "stacking_common_n": 450,
+  "ensemble_only_mae": 2.6632555989459696,
+  "gnn_only_mae": 2.8663580417633057,
+  "best_blend_w_gnn": 0.3,
+  "best_blend_mae": 2.6141536438574047
+}

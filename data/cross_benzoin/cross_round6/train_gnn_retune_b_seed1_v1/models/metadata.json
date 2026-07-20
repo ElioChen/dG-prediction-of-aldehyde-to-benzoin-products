@@ -1,0 +1,16 @@
+{
+  "model": "triple_gnn_gine_h128_l4",
+  "init_from_homo": "data/cross_benzoin/homo_v6/viz_gxtb_20260625/gnn_dual_champion275_ALIGNEDV2_state_20260713.pt",
+  "extra_val_frac": 0.15,
+  "n_train": 25007,
+  "n_val": 140,
+  "n_test": 29,
+  "gnn_frozen_holdout_mae": 2.390188694000244,
+  "stacking_common_n": 29,
+  "ensemble_only_mae": 2.547449930030179,
+  "gnn_only_mae": 2.390188694000244,
+  "best_blend_w_gnn": 0.9500000000000001,
+  "best_blend_mae": 2.3825424984007895,
+  "reference_single_xgb_frozen_holdout_mae": 2.983,
+  "reference_ensemble_frozen_holdout_mae": 2.633
+}

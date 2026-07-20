@@ -1,0 +1,14 @@
+{
+  "model": "triple_gnn_gine_h128_l4",
+  "n_train": 17219,
+  "n_val": 22,
+  "n_test": 29,
+  "gnn_frozen_holdout_mae": 3.400674819946289,
+  "stacking_common_n": 29,
+  "ensemble_only_mae": 2.776536479292646,
+  "gnn_only_mae": 3.400674819946289,
+  "best_blend_w_gnn": 0.0,
+  "best_blend_mae": 2.776536479292646,
+  "reference_single_xgb_frozen_holdout_mae": 2.983,
+  "reference_ensemble_frozen_holdout_mae": 2.633
+}

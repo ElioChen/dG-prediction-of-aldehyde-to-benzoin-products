@@ -1,0 +1,9 @@
+,0
+n_fresh_molecules,5000.0
+n_v3_sample_molecules,5000.0
+fresh_unique_scaffolds,2029.0
+v3_unique_scaffolds,2092.0
+fresh_scaffold_frac,0.4058
+v3_scaffold_frac,0.4184
+fresh_mean_pairwise_tanimoto_distance,0.8447057323515723
+v3_mean_pairwise_tanimoto_distance,0.8466951402163941
