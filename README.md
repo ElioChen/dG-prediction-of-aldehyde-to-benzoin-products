@@ -38,8 +38,9 @@ features: 72 QM/steric descriptors (xTB + Multiwfn ADCH/QTAIM, reactant +
 product) + 199 SHAP/correlation-pruned Mordred descriptors (dispersion/size/
 shape) + 4 g-xTB bond-dissociation-energy features. Ships with an
 uncertainty-routing head: the confident 85% of predictions hit MAE 1.25; the
-routed 15% (flagged for DFT follow-up) sit at MAE ~2.9. This is the model
-actually shipped in `src/benzoin_dG/models/`.
+routed 15% (flagged for DFT follow-up) sit at MAE ~2.9. This is available through the
+research/pipeline artifact path and the `--champion` adapter; the default
+`src/benzoin_dG/models/` artifact is older and kept for compatibility.
 
 Aromatic substrates predict noticeably better than aliphatic (1.33 vs 1.87
 MAE) — historical sampling bias toward aromatics has been confirmed resolved
@@ -84,6 +85,7 @@ Without Multiwfn the ADCH/QTAIM descriptors fall back to training medians.
 
 ```bash
 benzoin-dg "O=Cc1ccccc1"                 # benzaldehyde
+benzoin-dg "O=Cc1ccccc1" --champion      # full-library champion path
 benzoin-dg "O=Cc1ccccc1" "O=CCC" --json
 ```
 
@@ -120,15 +122,17 @@ tests/
 ```
 
 See [FILE_MAP.md](FILE_MAP.md) for a more complete file-by-file index and
-[ARCHITECTURE.md](ARCHITECTURE.md) for the pipeline architecture.
+[ARCHITECTURE.md](ARCHITECTURE.md) for the pipeline architecture. See
+[STATUS.md](STATUS.md) for the authoritative production/candidate/legacy split.
 
 ## Status (2026-07-14)
 
 The homo GNN+tabular stacking blend (MAE 1.427) is confirmed at full-library
 scale and is the current best *research* estimate; the shipped
-`benzoin-dg` package still returns the tabular-only champion
-(`MORDREDSLIM271_BDEGXTB`, MAE 1.503) because the blend isn't packaged for
-single-molecule inference yet. Pure-SMILES alternatives (SELFIES, ECFP,
+`benzoin-dg --champion` exposes the tabular-only champion
+(`MORDREDSLIM271_BDEGXTB`, MAE 1.503), while default `benzoin-dg` remains the
+older compatibility artifact. The blend is not packaged for single-molecule
+inference yet. Pure-SMILES alternatives (SELFIES, ECFP,
 from-scratch GINE, fine-tuned ChemBERTa) have all been benchmarked at full
 library scale and land at 2.7–3.3 MAE — well short of descriptor-informed
 Δ-learning, confirming the QM/xTB descriptor layer (not model architecture)

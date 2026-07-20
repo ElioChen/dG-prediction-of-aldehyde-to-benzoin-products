@@ -40,6 +40,8 @@ class Prediction:
     benzoin_relevant: bool = True  # False => off-target (aliphatic/vinyl); not predicted
     method: str = "delta"          # "delta" (xTB + Δ-correction) | "surrogate_2d" (no xTB)
     error: str = ""
+    model_version: str = ""
+    scope_note: str = "aromatic aldehyde homo-benzoin"
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -75,11 +77,17 @@ def _load_model(models_dir: str | None = None):
     feats, medians = _feat.load_feature_spec(d)
     ad = ADReference.load(d)          # optional; None if not shipped
     baseline = "gfn2"
+    model_version = "delta_model"
     mj = d / "metadata.json"
     if mj.exists():
         import json
-        baseline = json.loads(mj.read_text()).get("baseline", "gfn2")
-    return model, feats, medians, ad, baseline
+        meta = json.loads(mj.read_text())
+        baseline = meta.get("baseline", "gfn2")
+        model_version = (
+            f"{meta.get('model', 'model')}:n{meta.get('n_samples', '?')}:"
+            f"f{meta.get('n_features', len(feats))}:{baseline}"
+        )
+    return model, feats, medians, ad, baseline, model_version
 
 
 @functools.lru_cache(maxsize=1)
@@ -115,7 +123,7 @@ def predict_dG(smiles: str, *, xtb_bin: str | None = None,
         return Prediction(smiles, None, None, None, None, cho_class=cls,
                           benzoin_relevant=False,
                           error=f"out_of_scope:{cls} (model is aromatic-aldehyde only)")
-    model, feats, medians, ad, baseline = _load_model(models_dir)
+    model, feats, medians, ad, baseline, model_version = _load_model(models_dir)
 
     # The g-xTB-baseline model needs the funnel_v3 geometry for the descriptors AND a
     # g-xTB COSMO-DMSO baseline ΔG — both identical to training (see _gxtb_inference).
@@ -124,7 +132,10 @@ def predict_dG(smiles: str, *, xtb_bin: str | None = None,
         from . import _gxtb_inference as _gi
         if not _gi.available():
             return Prediction(smiles, None, None, None, None, cho_class=cls,
-                              error="gxtb_baseline_unavailable (needs pipeline/compute)")
+                              error=("gxtb_baseline_unavailable: this model needs the "
+                                     "local pipeline/compute bridge for g-xTB COSMO-DMSO. "
+                                     "Run from the full research checkout or use --fast."),
+                              model_version=model_version)
         _gi.align_funnel_v3()
 
     # Descriptors + GFN2 dG_xtb on ONE shared dmso-opt geometry (identical to training).
@@ -135,14 +146,17 @@ def predict_dG(smiles: str, *, xtb_bin: str | None = None,
                                           n_confs=0 if gxtb else n_confs)
     if row.get("error"):
         return Prediction(smiles, bz, None, dG_xtb, None, cho_class=cls,
-                          error=f"featurize:{row['error']}")
+                          error=f"featurize:{row['error']}", model_version=model_version)
     # For the g-xTB model the baseline IS the g-xTB ΔG (the descriptor geometry above is
     # only used for the feature vector; the baseline feature slot carries g-xTB).
     if gxtb:
         dG_xtb = _gi.gxtb_baseline_dG(smiles)
     if dG_xtb is None:
         return Prediction(smiles, bz, None, None, None, cho_class=cls,
-                          error="gxtb_dG_failed" if gxtb else "xtb_dG_failed")
+                          error=("gxtb_dG_failed: verify g-xTB runtime and XTB_BIN"
+                                 if gxtb else
+                                 "xtb_dG_failed: verify XTB_BIN points to an executable xTB"),
+                          model_version=model_version)
     # NB: a positive xTB ΔG is NOT an error — benzoin condensation is genuinely
     # unfavourable for many aldehydes. The AD flag handles out-of-domain inputs.
 
@@ -158,7 +172,8 @@ def predict_dG(smiles: str, *, xtb_bin: str | None = None,
                       favorable=bool(dG_pred < 0),
                       confidence=_confidence(ad_flag, row.get("RotBonds")),
                       ad_flag=ad_flag, ad_distance=ad_dist,
-                      cho_class=cls, benzoin_relevant=True, method="delta")
+                      cho_class=cls, benzoin_relevant=True, method="delta",
+                      model_version=model_version)
 
 
 def predict_dG_fast(smiles: str, *, models_dir: str | None = None) -> Prediction:
@@ -189,7 +204,7 @@ def predict_dG_fast(smiles: str, *, models_dir: str | None = None) -> Prediction
                       favorable=bool(dG_pred < 0),
                       confidence=_confidence("unknown", row.get("RotBonds")),
                       ad_flag="surrogate", cho_class=cls, benzoin_relevant=True,
-                      method="surrogate_2d")
+                      method="surrogate_2d", model_version="surrogate_2d")
 
 
 def predict_dG_champion(smiles: str, *, xtb_bin: str | None = None,
@@ -224,11 +239,13 @@ def _format(p: Prediction) -> str:
         return f"{p.smiles}\n  ERROR: {p.error}"
     verdict = "FAVORABLE  (ΔG<0)" if p.favorable else "unfavorable (ΔG>0)"
     if p.method == "surrogate_2d":
-        tail = "   [2D surrogate — pure SMILES, no xTB]"
+        tail = "   [2D surrogate — screening tier, pure SMILES, no xTB]"
     else:
         tail = (f"   [xTB baseline {p.dG_xtb:+.1f}, Δ-correction {p.dG_correction:+.1f}]")
     return (f"{p.smiles}\n"
             f"  ΔG = {p.dG_pred:+6.1f} kcal/mol   {verdict}\n"
             f"  confidence: {p.confidence}   (AD: {p.ad_flag}"
             + (f", dist {p.ad_distance:.2f}" if p.ad_distance is not None else "")
-            + ")" + tail)
+            + ")"
+            + (f"\n  model: {p.model_version}" if p.model_version else "")
+            + tail)
