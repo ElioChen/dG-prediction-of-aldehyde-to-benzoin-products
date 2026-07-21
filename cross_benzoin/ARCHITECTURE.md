@@ -71,10 +71,12 @@ H-bond `hb_dist` `hb_angle` `qtaim_rho_HB`. ΔG column `dG_xtb_kcal`.
 aldehyde library CSV (index, SMILES, ...)
         │   pairs CSV: donor_id, acceptor_id, donor_smiles, acceptor_smiles
         ▼
-cb_featurize.py  (funnel_v3, --multiwfn, --emit-aldehydes)
-        ├─ per unique aldehyde → aldehydes.csv row + xyz_ald/ald_<id>.xyz
-        └─ per pair            → products.csv row  + xyz_prod/prod_<did>__<aid>.xyz
-                                 ΔG = G(prod) − G(donor) − G(acceptor)  (G reused from aldehydes)
+prepare_product_manifest.py  (directed product generation + sanitation/QC)
+        ▼ valid products only
+cb_featurize.py --aldehyde-cache existing_aldehydes.csv --require-cache-complete
+        ├─ existing aldehydes  → reuse GFN2/g-xTB free energies and descriptors
+        └─ per directed pair   → products.csv row + xyz_prod/prod_<did>__<aid>.xyz
+                                 ΔG = G(prod) − G(donor) − G(acceptor)
 ```
 
 ## Migration / status
@@ -83,3 +85,22 @@ cb_featurize.py  (funnel_v3, --multiwfn, --emit-aldehydes)
 - Old scripts kept for provenance; `backfill_multiwfn`/`merge_multiwfn` are
   deprecated (plain-geometry, method-inconsistent).
 - See [[cross-benzoin-pipeline-handoff]], [[multiwfn-env-and-screen-gap]].
+
+## Directed candidate library v3
+
+`data/cross_benzoin/candidates_v3/` contains two million unique unordered pairs expanded
+to four million donor/acceptor orientations, with complete coverage of the 220,859-source
+aldehyde library. The compressed source manifest is intentionally unlabeled.
+
+Use `prepare_pair_chunks.py` to stream the `.csv.gz` into bounded, uncompressed manifests
+with the `donor_id,acceptor_id,donor_smiles,acceptor_smiles` schema consumed by
+`cb_featurize.py --pairs`. Generated chunks are execution artifacts and are not tracked.
+
+Run `prepare_product_manifest.py` on each chunk before QM. This explicitly validates the
+two directed regioisomers and prevents invalid products from entering the expensive
+conformer/frequency workflow.
+
+Modeling and validation recommendations for transferring the homo model to this directed
+cross space are documented in `docs/CROSS_BENZOIN_ML_RECOMMENDATIONS.md`; implementation
+gates and descriptor roles are in `docs/NEXT_STEPS.md` and
+`docs/DESCRIPTOR_POLICY_CROSS.md`.

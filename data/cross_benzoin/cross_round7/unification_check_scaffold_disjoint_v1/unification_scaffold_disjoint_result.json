@@ -1,0 +1,13 @@
+{
+  "n_clean_train_total": 41654,
+  "n_clean_train_cross": 19687,
+  "n_clean_train_homo": 21967,
+  "n_clean_test": 450,
+  "n_features_used": 260,
+  "unified_scaffold_disjoint_holdout_MAE": 2.477913991820765,
+  "unified_scaffold_disjoint_holdout_R2": 0.721090300266364,
+  "gxtb_baseline_holdout_MAE": 5.019879208509724,
+  "cross_only_scaffold_disjoint_holdout_MAE_reference": 2.448,
+  "unification_gain_abs_kcal": -0.02991399182076515,
+  "unification_gain_rel_pct": -1.221976790063936
+}

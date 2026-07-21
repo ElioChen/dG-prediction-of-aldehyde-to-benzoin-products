@@ -1,5 +1,10 @@
 # benzoin_dG — architecture & data/script map
 
+> **Status note (2026-07-20):** this file preserves the historical pipeline
+> architecture. For the current production/candidate/legacy split, use
+> [STATUS.md](STATUS.md). In particular, older production-model statements below
+> are superseded by `STATUS.md`.
+
 Predict benzoin-condensation **ΔG** from an aldehyde SMILES: cheap xTB ΔG + a
 **Δ-learning** correction to DFT. **Canonical DFT level = r2SCAN-3c** (composite,
 CPCM/DMSO, conformer-ensemble `k=3`), computed by the **unified featurizer**.

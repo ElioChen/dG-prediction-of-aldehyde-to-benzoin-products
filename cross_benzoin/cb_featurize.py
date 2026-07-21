@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import logging
 import os
 import re
@@ -269,6 +270,37 @@ def load_pairs(args) -> list[dict]:
     return rows
 
 
+def load_aldehyde_cache(path: str | None) -> dict[str, tuple[float | None, float | None]]:
+    """Load previously computed aldehyde free energies keyed by canonical SMILES.
+
+    Accepted columns are ``smiles``/``SMILES`` plus ``G_xtb`` (or ``G_ald_xtb``)
+    and optional ``G_gxtb``.  This prevents product jobs from repeating the already
+    completed aldehyde geometry/frequency calculations.
+    """
+    if not path:
+        return {}
+
+    def number(value: str | None) -> float | None:
+        try:
+            return float(value) if value not in (None, "") else None
+        except (TypeError, ValueError):
+            return None
+
+    opener = gzip.open if str(path).lower().endswith(".gz") else open
+    cache: dict[str, tuple[float | None, float | None]] = {}
+    with opener(path, "rt", encoding="utf-8-sig", newline="") as handle:
+        for row in csv.DictReader(handle):
+            smiles = (row.get("smiles") or row.get("SMILES") or "").strip()
+            mol = Chem.MolFromSmiles(smiles) if smiles else None
+            if mol is None:
+                continue
+            g_xtb = number(row.get("G_xtb") or row.get("G_ald_xtb"))
+            g_gxtb = number(row.get("G_gxtb"))
+            if g_xtb is not None:
+                cache[Chem.MolToSmiles(mol, canonical=True)] = (g_xtb, g_gxtb)
+    return cache
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -278,6 +310,10 @@ def main() -> int:
     ap.add_argument("--out", required=True, help="run output directory")
     ap.add_argument("--emit-aldehydes", action="store_true",
                     help="also featurize+save each unique aldehyde (funnel_v3)")
+    ap.add_argument("--aldehyde-cache",
+                    help="existing aldehyde CSV(.gz) with smiles,G_xtb[,G_gxtb]; cached species are reused")
+    ap.add_argument("--require-cache-complete", action="store_true",
+                    help="fail instead of computing any aldehyde missing from --aldehyde-cache")
     ap.add_argument("--xtb-bin", default=shutil.which("xtb") or "/home/schen3/xtb/bin/xtb")
     ap.add_argument("--multiwfn", action="store_true")
     ap.add_argument("--multiwfn-bin", default="/home/schen3/mutiwfn/Multiwfn_noGUI")
@@ -321,15 +357,20 @@ def main() -> int:
                 continue
             uniq.setdefault(Chem.CanonSmiles(smi), (str(r.get(f"{role}_id") or "a"), smi))
 
-    g_cache: dict[str, float | None] = {}
+    g_cache = load_aldehyde_cache(args.aldehyde_cache)
 
     # ── aldehyde phase ────────────────────────────────────────────────────────
     akw = dict(xyz_dir=xyz_ald, work_dir=work_dir, xtb_bin=xtb_bin, mwf_bin=args.multiwfn_bin,
                do_multiwfn=do_multiwfn, solvent=solvent, n_confs=args.n_confs, T=args.T, P=args.P,
                cores=args.xtb_cores, jobs=args.parallel_jobs, timeout=args.ohess_timeout,
                conformer=args.conformer)
-    items = list(uniq.items())  # [(canon, (id, smi)), ...]
-    log.info("unique aldehydes: %d", len(items))
+    items = [(canon, value) for canon, value in uniq.items() if canon not in g_cache]
+    log.info("unique aldehydes: %d (%d cached, %d missing)",
+             len(uniq), len(uniq) - len(items), len(items))
+    if args.require_cache_complete and items:
+        raise SystemExit(
+            f"aldehyde cache is incomplete: {len(items)} of {len(uniq)} pair molecules missing"
+        )
     if args.emit_aldehydes:
         with open(out / "aldehydes.csv", "w", newline="", encoding="utf-8") as afh:
             aw = csv.DictWriter(afh, fieldnames=ALD_FIELDS, extrasaction="ignore")
@@ -343,7 +384,9 @@ def main() -> int:
                         prow, gpair = fut.result()      # gpair = (G_gfn2, G_gxtb)
                     except Exception as exc:
                         prow, gpair = {"smiles": canon, "error": f"exception:{exc}"}, None
-                    aw.writerow(prow); afh.flush(); g_cache[canon] = gpair
+                    aw.writerow(prow)
+                    afh.flush()
+                    g_cache[canon] = gpair
                     if n % 25 == 0 or n == len(items):
                         log.info("  ald %d/%d", n, len(items))
     else:  # only need G for ΔG (GFN2 only; g-xTB unavailable on this path → None)
@@ -375,8 +418,11 @@ def main() -> int:
                     row = fut.result()
                 except Exception as exc:
                     row = {"id": str(futs[fut]), "error": f"exception:{exc}"}
-                pw.writerow(row); pfh.flush()
-                n_ok += 1; n_dg += row.get("dG_xtb_kcal") is not None; n_err += bool(row.get("error"))
+                pw.writerow(row)
+                pfh.flush()
+                n_ok += 1
+                n_dg += row.get("dG_xtb_kcal") is not None
+                n_err += bool(row.get("error"))
     shutil.rmtree(work_dir, ignore_errors=True)
     log.info("done: %d products (%d with dG, %d errors) -> %s/products.csv", n_ok, n_dg, n_err, out)
     return 0

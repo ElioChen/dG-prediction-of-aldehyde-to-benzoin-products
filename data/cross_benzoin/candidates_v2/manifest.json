@@ -1,0 +1,76 @@
+{
+  "source_file": "data/library/aldehydes_clean_v6.csv",
+  "source_molecules": 220859,
+  "source_class_counts": {
+    "aromatic_hetero": 58981,
+    "aromatic_carbo": 87987,
+    "aliphatic": 73891
+  },
+  "source_provenance_counts": {
+    "PubChem": 220859
+  },
+  "unordered_pairs": 1000000,
+  "directed_reaction_rows": 2000000,
+  "split_unordered_pairs": {
+    "train": 800000,
+    "validation": 100000,
+    "test": 100000
+  },
+  "split_directed_rows": {
+    "train": 1600000,
+    "validation": 200000,
+    "test": 200000
+  },
+  "pair_counts": {
+    "test|aliphatic__aliphatic": 16667,
+    "test|aliphatic__aromatic_carbo": 16667,
+    "test|aliphatic__aromatic_hetero": 16667,
+    "test|aromatic_carbo__aromatic_carbo": 16667,
+    "test|aromatic_carbo__aromatic_hetero": 16666,
+    "test|aromatic_hetero__aromatic_hetero": 16666,
+    "train|aliphatic__aliphatic": 133334,
+    "train|aliphatic__aromatic_carbo": 133334,
+    "train|aliphatic__aromatic_hetero": 133333,
+    "train|aromatic_carbo__aromatic_carbo": 133333,
+    "train|aromatic_carbo__aromatic_hetero": 133333,
+    "train|aromatic_hetero__aromatic_hetero": 133333,
+    "validation|aliphatic__aliphatic": 16667,
+    "validation|aliphatic__aromatic_carbo": 16667,
+    "validation|aliphatic__aromatic_hetero": 16667,
+    "validation|aromatic_carbo__aromatic_carbo": 16667,
+    "validation|aromatic_carbo__aromatic_hetero": 16666,
+    "validation|aromatic_hetero__aromatic_hetero": 16666
+  },
+  "used_unique_molecules": 220859,
+  "source_molecule_coverage": 1.0,
+  "missing_source_molecules": 0,
+  "cross_split_molecule_overlap": {
+    "train_validation": 0,
+    "train_test": 0,
+    "validation_test": 0
+  },
+  "reaction_columns": [
+    "reaction_id",
+    "pair_id",
+    "split",
+    "orientation",
+    "class_pair",
+    "donor_InChIKey",
+    "donor_SMILES",
+    "donor_class",
+    "acceptor_InChIKey",
+    "acceptor_SMILES",
+    "acceptor_class",
+    "reactants_SMILES",
+    "dG_kcal_mol",
+    "dG_status",
+    "selection_rule_version",
+    "random_seed"
+  ],
+  "rule_version": "cross_benzoin_dG_pairing_v2",
+  "seed": 20260713,
+  "reaction_file": "data/cross_benzoin/candidates_v2/cross_benzoin_dG_candidates_v2.csv.gz",
+  "reaction_file_sha256": "ce6add948a8f65d06293cd6e8109e9243b2b5bbda1f27f5ede128c6f34aafa86",
+  "molecule_file": "data/cross_benzoin/candidates_v2/cross_benzoin_aldehydes_v2.csv.gz",
+  "molecule_file_sha256": "501315da40d097bcc4ad16d77a0aa95040e86ad41bcf3ebedaeee0777c5d5712"
+}

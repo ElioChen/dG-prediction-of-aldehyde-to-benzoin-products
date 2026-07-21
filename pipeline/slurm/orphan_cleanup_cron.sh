@@ -1,16 +1,32 @@
 #!/bin/bash
 #SBATCH --job-name=orphan_cron
-#SBATCH --partition=staging
+#SBATCH --partition=genoa
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --time=01:00:00
+#SBATCH --time=04:00:00
 #SBATCH --output=/scratch-shared/schen3/benzoin-dg/slurm_logs/orphan_cron-%j.out
 #
 # PERIODIC orphan-scratch cleanup (scrontab/crontab are unavailable on this cluster).
 # Self-resubmitting SLURM job: each run cleans dead-job scratch under
 # /gpfs/scratch1/nodespecific/schen3.* (clean_orphan_scratch.sh protects LIVE jobs),
-# then re-queues itself to run again CADENCE later. Runs on the cheap `staging`
-# (I/O) partition so it doesn't burn genoa 24-core units.
+# then re-queues itself to run again CADENCE later. Originally ran on the cheap
+# `staging` (I/O) partition to avoid burning genoa 24-core units, but switched to
+# genoa 2026-07-15 after a single run sat PENDING(Priority) 5+ hours on staging's
+# only ~10 nodes (all occupied by other users) -- genoa is far larger and this
+# job's own footprint (16 cores) is trivial next to genoa's total capacity.
+#
+# TIME/CADENCE widened 2026-07-15 (1h/3h -> 4h/6h): clean_orphan_scratch.sh's
+# per-id confirm gate is all-or-nothing (writes results to a temp file and only
+# enters the delete branch AFTER the full xargs confirm pass finishes) -- a
+# walltime kill mid-confirm deletes NOTHING, not a partial cleanup. Under today's
+# heavy concurrent cluster load (many other array jobs hammering the same SLURM
+# controller), confirming ~23k candidates blew past 1h with zero progress to show
+# for it. 4h matches the prior successful oneshot run (job 24637666, 29,899
+# candidates, completed and deleted 7,691) at a comparable scale. CADENCE moved
+# to 6h (was 3h) so a run taking close to its full 4h walltime can never overlap
+# with its own self-resubmitted successor -- two concurrent passes would only add
+# MORE simultaneous scontrol load on an already-slow controller, worsening the
+# exact problem being fixed.
 #
 # Start the chain:   sbatch pipeline/slurm/orphan_cleanup_cron.sh
 # Stop it:           scancel --name=orphan_cron     (also cancels the pending next run)
@@ -24,7 +40,7 @@
 # log, and nothing resubmitted it after.
 REPO="/scratch-shared/schen3/benzoin-dg"
 SELF="$REPO/pipeline/slurm/orphan_cleanup_cron.sh"
-CADENCE="${ORPHAN_CADENCE:-3hours}"
+CADENCE="${ORPHAN_CADENCE:-6hours}"
 
 # Re-queue self FIRST so a cleanup failure can never break the chain. Retry once on
 # failure (transient scheduler hiccups happen); if BOTH attempts fail, say so loudly in

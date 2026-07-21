@@ -1,0 +1,3 @@
+E_acyl_sp_gfn2geom_Eh,E_acyl_opt_dftgeom_Eh,E_parent_opt_dftgeom_Eh,bde_dft_sp_gfn2geom_kcal,bde_dft_opt_dftgeom_kcal,id,sample_group,smiles,bde_gxtb_kcal,bde_alfabet_kcal,E_parent_sp_gfn2geom_Eh,E_h_Eh,Delta_SP,Delta_geom,Delta_tot,error
+-1415.456442600096,-1415.475574849113,-1416.142023546331,113.47721764401918,106.12582201143812,98093,imine,C1=CC=C(C=C1)COC(=O)NC2C(NC3=CC=CC=C3C(=N2)C4=CC=C(C=C4)F)C=O,76.503,,-1416.134606491964,-0.497326434673,-36.97421764401918,7.35139563258106,-29.622822011438117,
+-1649.279370724893,,,,,57423,control,CC(C)(C)OC(=O)N1CCCC2C1CN(C2)C3=C(C=C4C(=C3OC)N(C=C(C4=O)C=O)C5CC5)F,77.098,,-1649.948668085614,-0.497326434673,,,,orca_opt_acyl_failed

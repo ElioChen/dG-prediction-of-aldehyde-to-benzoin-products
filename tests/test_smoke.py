@@ -31,3 +31,30 @@ def test_predict_without_model_raises_clearly(tmp_path):
     from benzoin_dG.predict import predict_dG
     with pytest.raises(FileNotFoundError):
         predict_dG("O=Cc1ccccc1", models_dir=str(tmp_path))
+
+def test_package_model_metadata_matches_feature_list():
+    import json
+    from pathlib import Path
+
+    models = Path(__file__).resolve().parents[1] / "src" / "benzoin_dG" / "models"
+    feats = json.loads((models / "feature_list.json").read_text())
+    meta = json.loads((models / "metadata.json").read_text())
+    assert meta["n_features"] == len(feats)
+    assert meta["baseline"] == "gxtb_cosmo_dmso"
+
+
+def test_out_of_scope_short_circuits_without_model(tmp_path):
+    from benzoin_dG.predict import predict_dG
+
+    p = predict_dG("O=CCC", models_dir=str(tmp_path))
+    assert p.benzoin_relevant is False
+    assert p.cho_class == "aliphatic"
+    assert p.error.startswith("out_of_scope:")
+
+
+def test_cli_rejects_conflicting_tiers(capsys):
+    from benzoin_dG.cli import main
+
+    assert main(["O=Cc1ccccc1", "--fast", "--champion"]) == 2
+    assert "choose only one" in capsys.readouterr().err
+

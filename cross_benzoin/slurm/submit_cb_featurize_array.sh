@@ -11,10 +11,30 @@
 # PAIRS -> cb_featurize.py (funnel_v3, Multiwfn, --emit-aldehydes). Per chunk writes
 # chunk_XXXX/{aldehydes.csv,products.csv,xyz_ald/,xyz_prod/}. genoa 24-core unit.
 #
+# BEFORE submitting with REQUIRE_CACHE_COMPLETE=1: run
+# `cross_benzoin/check_aldehyde_cache_coverage.py --pairs <this round's pairs.csv>
+# --cache <ALD_CACHE>` first. Found 2026-07-20 (round8): the aldehyde cache has a small
+# (~334/220,859) coverage gap vs the full library, so any freshly-drawn pool has a nonzero
+# chance of hitting it -- REQUIRE_CACHE_COMPLETE=1 then hard-fails the WHOLE chunk
+# containing the miss (round8 lost 8/81 chunks this way, needed a manual retry pass).
+# Checking first turns that into a known, bounded, pre-launch number.
+#
+# CHUNK size recommendation (revised 2026-07-20, was 100): prefer CHUNK=25-40 for new
+# rounds. Root cause: funnel_v3's per-molecule conformer search time is highly variable
+# (a flexible, many-rotatable-bond molecule can take 1h+ across its multi-stage funnel,
+# vs ~1min for an easy one) -- ProcessPoolExecutor.submit() already load-balances WITHIN
+# a chunk (as_completed-driven, not static batching), but a large CHUNK=100 still means
+# the array-level tail latency (the slowest chunk gates the array's apparent completion
+# under a fixed %throttle) can stretch to 2h+ if that chunk happens to contain one hard
+# molecule (observed directly: round8 retry chunk 24762608_2 took 2h+ for a 100-pair
+# chunk vs the ~85min typical, the difference being a single slow conformer search).
+# Smaller chunks bound the "one hard molecule ruins this chunk's wall-clock" blast radius
+# and let %throttle backfill freed slots faster instead of idling behind one straggler.
+#
 # Submit (PAIRS csv: donor_id,acceptor_id,donor_smiles,acceptor_smiles):
 #   IN=/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6/homo_pairs.csv
 #   OUT=/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6
-#   N=$(($(wc -l < "$IN")-1)); CHUNK=100; NCH=$(( (N+CHUNK-1)/CHUNK )); mkdir -p "$OUT/logs"
+#   N=$(($(wc -l < "$IN")-1)); CHUNK=30; NCH=$(( (N+CHUNK-1)/CHUNK )); mkdir -p "$OUT/logs"
 #   sbatch --array=0-$((NCH-1))%64 --output="$OUT/logs/cb_%A_%a.out" \
 #     --export=ALL,INPUT="$IN",OUTDIR="$OUT",CHUNK=$CHUNK submit_cb_featurize_array.sh
 #
@@ -22,7 +42,7 @@ PROJ="/scratch-shared/schen3"; REPO="$PROJ/benzoin-dg"
 PKG="$REPO/cross_benzoin"
 INPUT="${INPUT:?set INPUT=/abs/pairs.csv}"
 OUTDIR="${OUTDIR:-$REPO/data/cross_benzoin/run}"
-CHUNK="${CHUNK:-100}"
+CHUNK="${CHUNK:-30}"
 
 VENV="/home/schen3/venv/nhc-workflow"
 XTB_BIN="/home/schen3/xtb/bin/xtb"
@@ -37,6 +57,12 @@ CONFORMER="${CONFORMER:-funnel_v3}"
 # for ΔG = G(prod) - 2·G(ald), independent of whether product descriptors help the ML.
 MULTIWFN="${MULTIWFN:-0}"; EMIT_ALD="${EMIT_ALD:-1}"
 WORKERS="${WORKERS:-12}"; XTB_CORES="${XTB_CORES:-2}"
+# ALD_CACHE: existing aldehyde CSV(.gz) with smiles,G_xtb[,G_gxtb] (e.g. homo_v6's
+# aldehydes_all.csv). Cached species skip the funnel_v3 aldehyde geometry+G recompute
+# entirely -- only the (new) product side is computed. REQUIRE_CACHE_COMPLETE=1 turns a
+# cache miss into a hard failure instead of silently falling back to computing it, so a
+# pilot that's supposed to be product-only-compute can't quietly balloon in cost.
+ALD_CACHE="${ALD_CACHE:-}"; REQUIRE_CACHE_COMPLETE="${REQUIRE_CACHE_COMPLETE:-0}"
 
 ID=$SLURM_ARRAY_TASK_ID
 TAG=$(printf "chunk_%04d" "$ID")
@@ -93,13 +119,24 @@ trap 'rm -rf "$TMPDIR"' EXIT TERM INT
 
 MWF_ARGS=""; [[ "$MULTIWFN" == "1" ]] && MWF_ARGS="--multiwfn --multiwfn-bin $MWF_BIN"
 ALD_ARGS=""; [[ "$EMIT_ALD" == "1" ]] && ALD_ARGS="--emit-aldehydes"
+CACHE_ARGS=""
+[[ -n "$ALD_CACHE" ]] && CACHE_ARGS="--aldehyde-cache $ALD_CACHE"
+[[ "$REQUIRE_CACHE_COMPLETE" == "1" ]] && CACHE_ARGS="$CACHE_ARGS --require-cache-complete"
 
-echo "cb_feat ${SLURM_ARRAY_JOB_ID}[$ID] $TAG node=${SLURMD_NODENAME} conformer=$CONFORMER mwf=$MULTIWFN emit_ald=$EMIT_ALD $(date)"
+echo "cb_feat ${SLURM_ARRAY_JOB_ID}[$ID] $TAG node=${SLURMD_NODENAME} conformer=$CONFORMER mwf=$MULTIWFN emit_ald=$EMIT_ALD ald_cache=${ALD_CACHE:-none} $(date)"
 cd "$PKG"
 python cb_featurize.py \
     --pairs "$PAIRS_CSV" --out "$TASK_OUT" \
     --xtb-bin "$XTB_BIN" --solvent "$SOLVENT" --n-confs "$N_CONFS" \
     --conformer "$CONFORMER" --workers "$WORKERS" --xtb-cores "$XTB_CORES" --parallel-jobs 1 \
-    $MWF_ARGS $ALD_ARGS \
+    $MWF_ARGS $ALD_ARGS $CACHE_ARGS \
     2>&1 | tee "$TASK_OUT/run.log"
-echo "Done $TAG $(date) exit=${PIPESTATUS[0]}"
+RC=${PIPESTATUS[0]}
+echo "Done $TAG $(date) exit=$RC"
+# Propagate cb_featurize.py's real exit code to SLURM/sacct -- without this, `tee` makes
+# the script's own exit status always 0 (the last command run), so a hard-fail (e.g.
+# --require-cache-complete tripping on ANY missing aldehyde in the chunk) shows as
+# sacct State=COMPLETED with zero output rows instead of FAILED. Found 2026-07-14 on
+# cross_round3: 16/84 chunks lost their whole 100-row chunk this way and it was
+# invisible without grepping every run.log for "incomplete".
+exit "$RC"

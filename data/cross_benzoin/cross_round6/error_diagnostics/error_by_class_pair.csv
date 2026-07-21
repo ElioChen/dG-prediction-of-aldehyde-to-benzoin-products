@@ -1,0 +1,7 @@
+class_pair,mean,count
+aliphatic__aliphatic,2.63578327545881,5265
+aliphatic__aromatic_carbo,2.479917318994064,4390
+aliphatic__aromatic_hetero,2.3816354303611855,4534
+aromatic_carbo__aromatic_carbo,1.9832529433365087,3478
+aromatic_carbo__aromatic_hetero,1.98028984130882,3684
+aromatic_hetero__aromatic_hetero,1.9726044897103965,3825

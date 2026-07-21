@@ -90,8 +90,20 @@ HARTREE_TO_KCAL = 627.509474
 VBUR_RADIUS = 3.5
 
 # donor (reactant 1) -> ketone ; acceptor (reactant 2) -> carbinol
+#
+# Both aldehyde carbons are constrained to be carbon-bound ([#6:5]/[#6:6]): the
+# unconstrained "[CX3H1:1](=[O:2])" alone also matches an N-/O-formyl group
+# (amide/formate CHO), so a molecule carrying a spurious formyl group anywhere
+# besides its real aldehyde could get coupled through the WRONG site -- and
+# build_product() takes RunReactants()'s first match, no guarantee it's the
+# real one. Confirmed reproducible pre-fix on O=CN(C)CCC=O (N-formyl + real
+# aliphatic CHO): the unconstrained SMARTS' first match reacted through the
+# N-formyl. See memory benzoin-generator-formyl-bug /
+# smiles-check-workflow-gate -- this is the same class of bug check_smiles.py
+# guards against for the homo workflow, now fixed at the source for cross too.
 PROD_RXN = AllChem.ReactionFromSmarts(
-    "[CX3H1:1](=[O:2]).[CX3H1:3](=[O:4])>>[C:1](=[O:2])[CH1:3]([OX2H1:4])"
+    "[CX3H1:1](=[O:2])[#6:5].[CX3H1:3](=[O:4])[#6:6]"
+    ">>[C:5][C:1](=[O:2])[CH1:3]([OX2H1:4])[C:6]"
 )
 
 # ── Output schema ───────────────────────────────────────────────────────────
