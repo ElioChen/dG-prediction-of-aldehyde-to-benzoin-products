@@ -1,0 +1,19 @@
+{
+  "arch": "attentive2d",
+  "hidden": 128,
+  "layers": 4,
+  "n_dist_layers": 2,
+  "n_heads": 4,
+  "lr": 0.0003,
+  "seed": 0,
+  "matched_subset_n": 28508,
+  "n_train": 25294,
+  "n_val": 3026,
+  "n_test": 188,
+  "n_params": 830468,
+  "gnn_holdout_mae": 2.328508138656616,
+  "ensemble_only_mae": 2.3082338963146425,
+  "gnn_only_mae": 2.328508138656616,
+  "best_blend_w_gnn": 0.4,
+  "best_blend_mae": 2.178959594665053
+}

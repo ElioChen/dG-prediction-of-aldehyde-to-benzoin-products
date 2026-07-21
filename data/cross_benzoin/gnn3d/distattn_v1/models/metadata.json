@@ -1,0 +1,19 @@
+{
+  "arch": "distattn",
+  "hidden": 128,
+  "layers": 4,
+  "n_dist_layers": 2,
+  "n_heads": 4,
+  "lr": 0.0003,
+  "seed": 0,
+  "matched_subset_n": 28508,
+  "n_train": 25294,
+  "n_val": 3026,
+  "n_test": 188,
+  "n_params": 1096108,
+  "gnn_holdout_mae": 2.2948668003082275,
+  "ensemble_only_mae": 2.3082338963146425,
+  "gnn_only_mae": 2.2948668003082275,
+  "best_blend_w_gnn": 0.5,
+  "best_blend_mae": 2.1777296423202257
+}
