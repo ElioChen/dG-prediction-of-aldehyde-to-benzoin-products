@@ -25,6 +25,7 @@ side-by-side comparison; use via featurize_funnel_v2.py.
 """
 from __future__ import annotations
 
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -129,8 +130,10 @@ def rank_conformers_funnel_v2(
     # 1+2: GFN-FF optimise every conformer
     def _ff(i_xyz):
         i, xyz = i_xyz
-        return _xtb_gfnff_opt(xyz, work_dir / f"ff{i:03d}", xtb_bin,
-                              solvent=solvent, cores=cores)
+        d = work_dir / f"ff{i:03d}"
+        out = _xtb_gfnff_opt(xyz, d, xtb_bin, solvent=solvent, cores=cores)
+        shutil.rmtree(d, ignore_errors=True)  # opt xyz/energy already captured in `out`
+        return out
     ff = _map(_ff, enumerate(xyz_list))
 
     # 3+4: GFN2 single-point on each FF-opt geometry, keep the L lowest
@@ -138,8 +141,9 @@ def rank_conformers_funnel_v2(
         i, xyz = i_xyz
         if xyz is None:
             return None
-        E = _xtb_gfn2_sp(xyz, work_dir / f"sp{i:03d}", xtb_bin,
-                         solvent=solvent, cores=cores)
+        d = work_dir / f"sp{i:03d}"
+        E = _xtb_gfn2_sp(xyz, d, xtb_bin, solvent=solvent, cores=cores)
+        shutil.rmtree(d, ignore_errors=True)  # energy already captured in `E`
         return (xyz, E) if E is not None else None
     sp = [r for r in _map(_spj, ((i, o) for i, (o, _) in enumerate(ff))) if r]
     if not sp:
