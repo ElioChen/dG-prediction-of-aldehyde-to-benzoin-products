@@ -1,0 +1,16 @@
+{
+  "arch": "attentive",
+  "hidden": 128,
+  "layers": 4,
+  "lr": 0.0003,
+  "seed": 2,
+  "n_train": 17720,
+  "n_val": 2450,
+  "n_test": 450,
+  "n_params": 830468,
+  "gnn_holdout_mae": 2.3033978939056396,
+  "ensemble_only_mae": 2.2564226416342543,
+  "gnn_only_mae": 2.3033978939056396,
+  "best_blend_w_gnn": 0.5,
+  "best_blend_mae": 2.152840043763504
+}

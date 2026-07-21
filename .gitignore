@@ -10,6 +10,7 @@
 # Keep the small input manifests (homo_pairs.csv) tracked; ignore per-chunk results,
 # xyz geometries, and concatenated tables.
 /data/cross_benzoin/*/chunk_*/
+/data/cross_benzoin/**/chunk_*/
 /data/cross_benzoin/**/xyz_ald/
 /data/cross_benzoin/**/xyz_prod/
 /data/cross_benzoin/*/*_all.csv
@@ -85,6 +86,7 @@ venv/
 /data/cross_benzoin/homo_unify/cross_train_table_unified_v2_*.csv
 /data/cross_benzoin/cross_round5/cross_train_table_5rounds_mordred_slim120.csv
 /data/cross_benzoin/cross_round8/cross_round8_features.csv
+/data/cross_benzoin/cross_round9/cross_round9_features_cross_round9_products_merged.csv
 /data/cross_benzoin/screen10k/screen10k_features_screen10k_products_final.csv
 /data/cross_benzoin/screen10k/screen10k_products_mordred.csv
 /data/cross_benzoin/homo_v6/aldehydes_mordred_slim102.csv

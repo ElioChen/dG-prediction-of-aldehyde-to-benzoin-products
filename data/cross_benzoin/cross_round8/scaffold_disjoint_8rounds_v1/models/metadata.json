@@ -1,0 +1,28 @@
+{
+  "n_total": 40352,
+  "n_clean_train": 27583,
+  "n_clean_test": 450,
+  "n_excluded_validation": 483,
+  "n_excluded_mixed": 11836,
+  "n_features": 260,
+  "clean_train_cv_xgb": {
+    "MAE": 1.9514718350351499,
+    "RMSE": 3.976662824875737,
+    "R2": 0.4009028132448943
+  },
+  "scaffold_disjoint_holdout_xgb": {
+    "MAE": 2.4977564803807497,
+    "RMSE": 3.318403917568832,
+    "R2": 0.7114041399479472
+  },
+  "scaffold_disjoint_holdout_ensemble": {
+    "MAE": 2.201205626804834,
+    "RMSE": 2.9144817339403937,
+    "R2": 0.7773850751500557
+  },
+  "scaffold_disjoint_holdout_gxtb_baseline": {
+    "MAE": 5.019879208509724,
+    "RMSE": 6.594980278556213,
+    "R2": -0.13987861047871464
+  }
+}

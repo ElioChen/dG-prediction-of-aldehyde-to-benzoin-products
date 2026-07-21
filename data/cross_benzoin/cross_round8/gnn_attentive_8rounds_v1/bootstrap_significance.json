@@ -1,0 +1,12 @@
+{
+  "n": 450,
+  "point_mae_ensemble": 2.201205626804834,
+  "point_mae_blend": 2.1064525541329218,
+  "point_delta": 0.09475307267191235,
+  "bootstrap_90ci_delta": [
+    0.030664050766264685,
+    0.1593322806577216
+  ],
+  "p_blend_better_than_ensemble": 0.9923,
+  "blend_w_gnn": 0.6000000000000001
+}

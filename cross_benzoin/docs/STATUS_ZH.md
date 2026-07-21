@@ -277,3 +277,27 @@ test/validation集。
 4. 拼表（`assemble_cross_round_features.py`，现在会自动找mordred或硬报错）
 5. 主动学习打分（`score_round_active_learning.py`，用production 80/10/10口径的模型）
 6. DFT-SP标注
+
+## 2026-07-20 补记:新champion——round1-8 + attentive pooling GNN,已确认显著优于旧版
+
+round8的DFT-SP全部跑完(7,896/7,896,0错误)后,把round1-8合并成新训练表(40,352行,
+清洁训练集从19,687增长到27,583),同时把之前排队已久的AttentiveFP式pooling架构改进
+(3-seed确认稳健:GNN-only MAE 2.324 vs 默认架构2.563)应用到这一版重训练:
+
+| | round1-7(旧champion) | **round1-8 + attentive(新champion)** |
+|---|---:|---:|
+| clean train行数 | 19,687 | 27,583 |
+| ensemble-only MAE | 2.256 | 2.201 |
+| **blend MAE(诚实holdout n=450)** | 2.215 | **2.106** |
+| bootstrap 90% CI | (-0.080, -0.003) | (0.031, 0.159) |
+| P(blend更好) | 0.9632 | **0.9923** |
+
+`predict_cross_champion.py`已扩展支持attentive架构(从`gnn_norm_stats.joblib`的`arch`字段
+自动识别模型类,兼容新旧两种checkpoint文件名),SLURM验证精确复现训练数字(2.1065 vs
+报告的2.106)。**这是当前推荐的production champion**,产物路径:
+`data/cross_benzoin/cross_round8/scaffold_disjoint_8rounds_v1`(表格champion+ensemble)+
+`data/cross_benzoin/cross_round8/gnn_attentive_8rounds_v1`(GNN)。
+
+过程中也修了一个真实bug:`train_cross_gnn_arch_sweep.py`原本是给架构对比搜索用的,没存
+标准化参数(norm stats),导致第一次训练完的attentive模型没法直接封装——已补上保存逻辑
+并重跑(镜像`train_cross_gnn_scaffold_disjoint.py`的存档模式)。

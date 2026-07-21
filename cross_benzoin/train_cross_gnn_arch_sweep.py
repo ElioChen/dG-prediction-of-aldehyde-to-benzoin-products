@@ -144,6 +144,15 @@ def main() -> int:
             break
     model.load_state_dict(best_state)
     torch.save(best_state, out / "models" / "gnn_state.pt")
+    # normalization stats needed to run this checkpoint standalone at inference time
+    # (predict_cross_champion.py) -- mirrors train_cross_gnn_scaffold_disjoint.py's save
+    # block, missing here originally since this script was built for architecture
+    # comparison, not deployment (added 2026-07-20 when the attentive-pooling winner
+    # needed packaging).
+    joblib.dump({"qm_mean": qm_mean, "qm_std": qm_std, "med": med, "ym": ym, "ysd": ysd,
+                 "feats": feats, "hidden": args.hidden, "layers": args.layers,
+                 "arch": args.arch, "ad": ad, "bd": bd, "nqm": nqm},
+                out / "models" / "gnn_norm_stats.joblib")
 
     mae_gnn, yh_gnn, yt_gnn, ids_gnn = evl(model, make_loader(te_pairs, args.batch_size, False), ym, ysd)
     print(f"\n=== [{args.arch} h{args.hidden} l{args.layers} lr{args.lr}] "

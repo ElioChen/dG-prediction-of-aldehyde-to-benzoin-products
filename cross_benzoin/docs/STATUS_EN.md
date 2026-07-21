@@ -297,3 +297,30 @@ round6/7, but the documented 5-step recipe never wrote this step down). Fixed:
 4. Assemble (`assemble_cross_round_features.py`, now auto-finds mordred or hard-fails)
 5. Active-learning scoring (`score_round_active_learning.py`, using the production 80/10/10 model)
 6. DFT-SP labeling
+
+## 2026-07-20 addendum: new champion — round1-8 + attentive-pooling GNN, confirmed significantly better
+
+After round8's DFT-SP finished completely (7,896/7,896, zero errors), round1-8 was merged
+into a new training table (40,352 rows, clean-train pool grew from 19,687 to 27,583), and the
+previously-queued AttentiveFP-style pooling architecture improvement (3-seed confirmed robust:
+GNN-only MAE 2.324 vs the default architecture's 2.563) was applied to this retrain:
+
+| | round1-7 (old champion) | **round1-8 + attentive (new champion)** |
+|---|---:|---:|
+| clean train rows | 19,687 | 27,583 |
+| ensemble-only MAE | 2.256 | 2.201 |
+| **blend MAE (honest holdout n=450)** | 2.215 | **2.106** |
+| bootstrap 90% CI | (-0.080, -0.003) | (0.031, 0.159) |
+| P(blend better) | 0.9632 | **0.9923** |
+
+`predict_cross_champion.py` was extended to support the attentive architecture (auto-detects
+the model class from `gnn_norm_stats.joblib`'s `arch` field, compatible with both old and new
+checkpoint filenames), SLURM-verified to exactly reproduce the training-time number (2.1065
+vs the reported 2.106). **This is now the recommended production champion**, artifacts at
+`data/cross_benzoin/cross_round8/scaffold_disjoint_8rounds_v1` (tabular champion+ensemble) +
+`data/cross_benzoin/cross_round8/gnn_attentive_8rounds_v1` (GNN).
+
+A real bug was caught and fixed along the way: `train_cross_gnn_arch_sweep.py` was originally
+built for architecture-comparison search and never saved normalization stats, so the first
+attentive training run couldn't be packaged directly — fixed by adding the save block
+(mirroring `train_cross_gnn_scaffold_disjoint.py`'s pattern) and rerunning.

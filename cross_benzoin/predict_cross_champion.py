@@ -49,7 +49,10 @@ from train_cross_ensemble import MLPXGBEnsemble  # noqa: E402
 _main_mod.MLPXGBEnsemble = MLPXGBEnsemble
 
 from train_cross_gnn import TripleGNN, graph, TripleData, dev  # noqa: E402
+from gnn_architectures import TripleGNNAttn  # noqa: E402
 from torch_geometric.loader import DataLoader  # noqa: E402
+
+ARCH_CLASSES = {"default": TripleGNN, "attentive": TripleGNNAttn}
 
 BASELINE_COL = "dG_gxtb_kcal"
 
@@ -64,7 +67,7 @@ DEFAULT_BLEND_W_GNN = None  # noqa: set by CrossBenzoinBlendPredictor.load() fro
 @dataclass
 class CrossBenzoinBlendPredictor:
     ensemble: MLPXGBEnsemble
-    gnn: TripleGNN
+    gnn: TripleGNN | TripleGNNAttn
     qm_mean: np.ndarray
     qm_std: np.ndarray
     med: pd.Series
@@ -83,10 +86,18 @@ class CrossBenzoinBlendPredictor:
         # pass explicitly for any other split (e.g. train_gnn_scaffold_disjoint_721_v1).
         gnn_dir = Path(gnn_dir) if gnn_dir is not None else model_dir.parent / "train_gnn_scaffold_disjoint_v1"
         stats = joblib.load(gnn_dir / "models" / "gnn_norm_stats.joblib")
-        gnn = TripleGNN(stats["ad"], stats["bd"], stats["nqm"],
-                         h=stats["hidden"], layers=stats["layers"]).to(dev)
-        gnn.load_state_dict(torch.load(gnn_dir / "models" / "cross_gnn_state.pt",
-                                        map_location=dev, weights_only=False))
+        # "arch" key added 2026-07-20 (train_cross_gnn_arch_sweep.py) for the confirmed
+        # AttentiveFP-pooling winner; absent on older checkpoints, which were all "default".
+        arch_cls = ARCH_CLASSES[stats.get("arch", "default")]
+        gnn = arch_cls(stats["ad"], stats["bd"], stats["nqm"],
+                        h=stats["hidden"], layers=stats["layers"]).to(dev)
+        # checkpoint filename differs by which training script produced it: the original
+        # scaffold-disjoint script wrote "cross_gnn_state.pt", the arch-sweep script (used
+        # for the attentive winner) writes "gnn_state.pt" -- check both.
+        state_path = gnn_dir / "models" / "cross_gnn_state.pt"
+        if not state_path.exists():
+            state_path = gnn_dir / "models" / "gnn_state.pt"
+        gnn.load_state_dict(torch.load(state_path, map_location=dev, weights_only=False))
         gnn.eval()
 
         if blend_w_gnn is None:
