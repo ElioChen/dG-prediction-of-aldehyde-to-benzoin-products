@@ -8,8 +8,8 @@ version = "0.1.0"
 description = "Predict the Gibbs free energy of benzoin condensation (2 R-CHO -> benzoin) from an aldehyde SMILES, via xTB + a Δ-learning correction to DFT (r2SCAN-3c)."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [{ name = "schen3" }]
+license = { file = "LICENSE" }
+authors = [{ name = "Elio Chen" }]
 keywords = ["chemistry", "benzoin", "delta-learning", "xtb", "dft", "cheminformatics"]
 
 # Core = what the *inference* path needs. The featurizer reproduces the training
@@ -36,8 +36,8 @@ dev = ["pytest", "ruff"]
 benzoin-dg = "benzoin_dG.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/schen3/benzoin-dg"
-Issues = "https://github.com/schen3/benzoin-dg/issues"
+Homepage = "https://github.com/ElioChen/dG-prediction-of-aldehyde-to-benzoin-products"
+Issues = "https://github.com/ElioChen/dG-prediction-of-aldehyde-to-benzoin-products/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/benzoin_dG"]

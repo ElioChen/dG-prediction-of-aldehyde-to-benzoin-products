@@ -35,6 +35,15 @@
 # Scratch
 /tmp/
 
+# Local configuration and credentials (never commit secrets)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets.json
+
 # MLflow tracking store + artifacts
 /mlflow.db
 /mlartifacts/
