@@ -12,9 +12,10 @@ import os
 import shutil
 from pathlib import Path
 
-# Env vars take precedence; then PATH; then these fallbacks (the HPC install).
-_XTB_FALLBACKS = ["/home/schen3/xtb/bin/xtb"]
-_MWF_FALLBACKS = ["/home/schen3/mutiwfn/Multiwfn_noGUI"]
+# Keep public package configuration portable: explicit arguments and environment
+# variables take precedence, followed by executables available on PATH.
+_XTB_FALLBACKS: list[str] = []
+_MWF_FALLBACKS: list[str] = []
 
 
 def _resolve(explicit: str | None, env: str, names: list[str],
@@ -43,5 +44,7 @@ def find_multiwfn(explicit: str | None = None) -> str | None:
 
 def xtb_share() -> str | None:
     """XTBPATH (parameter dir) — xTB needs it set for some calculations."""
-    p = os.environ.get("XTBPATH") or "/home/schen3/xtb/share/xtb"
+    p = os.environ.get("XTBPATH")
+    if not p:
+        return None
     return p if Path(p).is_dir() else None

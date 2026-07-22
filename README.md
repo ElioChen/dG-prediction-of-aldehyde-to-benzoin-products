@@ -14,6 +14,12 @@ A cheap semi-empirical (g-xTB) estimate of ΔG is corrected up to DFT
 filtered library of ~220k candidate aldehydes and real DFT single-point
 labels for nearly the whole library.
 
+> [!IMPORTANT]
+> This repository is a research snapshot, not a validated production service.
+> The full-library champion described below is a research result and is not yet
+> the model bundle shipped by the installable package. See
+> [Packaged inference model](#packaged-inference-model) before relying on the CLI.
+
 ## Current best model
 
 **`MORDREDSLIM271_BDEGXTB`** — test MAE **1.503 kcal/mol** (RMSE 2.257, R² 0.875)
@@ -28,6 +34,19 @@ Aromatic substrates predict noticeably better than aliphatic (1.33 vs 1.87
 MAE) — historical sampling bias toward aromatics has been confirmed resolved
 at full-library scale. The dominant remaining error driver is electronic
 (sulfonyl/phosphorus/imine substituents), not geometry or missing descriptors.
+
+## Packaged inference model
+
+The model currently stored under `src/benzoin_dG/models/` is an earlier
+63-feature XGBoost bundle trained on 1,644 samples. Its recorded repeated-CV
+MAE is 2.000 kcal/mol (`metadata.json`). It is **not** the 275-feature,
+full-library champion reported above. The public API also deliberately rejects
+aliphatic and α,β-unsaturated aldehydes; packaged inference is currently scoped
+to aromatic aldehydes.
+
+Promotion of the full-library champion into the package remains release work.
+Until that is complete, cite the research result separately from results
+obtained through the packaged CLI/API.
 
 ## What we tried and why it isn't the production model
 
@@ -66,7 +85,7 @@ Without Multiwfn the ADCH/QTAIM descriptors fall back to training medians.
 
 ```bash
 benzoin-dg "O=Cc1ccccc1"                 # benzaldehyde
-benzoin-dg "O=Cc1ccccc1" "O=CCC" --json
+benzoin-dg "O=Cc1ccccc1" "O=Cc1ccc(OC)cc1" --json
 ```
 
 ```python
@@ -113,3 +132,11 @@ a real, reproducible gain at full library scale.
 found corrupted (silent object-store corruption, not user error) while
 preparing this upload; history was restarted from the current, verified-intact
 working tree on 2026-07-13 rather than risk pushing corrupted objects.
+
+## Security and licensing
+
+Do not load replacement `.joblib` model files from untrusted sources: Python
+pickle-compatible formats can execute code during deserialization. Please see
+[SECURITY.md](SECURITY.md) for reporting instructions. Source code is licensed
+under the [MIT License](LICENSE); third-party tools and datasets retain their
+own licenses, and users are responsible for satisfying those terms.
