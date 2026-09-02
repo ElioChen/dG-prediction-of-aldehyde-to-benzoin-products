@@ -10,7 +10,7 @@
 # Generalized SLURM wrapper for score_round_active_learning.py.
 #
 REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
-PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 TAG="${TAG:?set TAG}"
 TRAIN_TABLE="${TRAIN_TABLE:?set TRAIN_TABLE}"
 FEATURE_LIST="${FEATURE_LIST:?set FEATURE_LIST}"

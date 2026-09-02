@@ -11,7 +11,7 @@ PROJ="/scratch-shared/schen3"; REPO="$PROJ/benzoin-dg"
 # envs/gnn is broken (2026-07-10: even stdlib .py files like os.py/enum.py missing, same
 # recurring shared-env corruption as shared-env-instability-2026-07-05 memory, worse this
 # time) -- using a fresh isolated venv instead, same pattern as bde_lite/selfies_dg.
-PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 time cat /gpfs/scratch1/shared/schen3/envs/gnn_lite/lib/python3.12/site-packages/torch/lib/*.so > /dev/null 2>&1

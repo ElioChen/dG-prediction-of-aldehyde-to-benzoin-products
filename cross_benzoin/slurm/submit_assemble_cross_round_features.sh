@@ -12,7 +12,7 @@
 # foreground, found 2026-07-20 on round8).
 #
 REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
-PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 TAG="${TAG:?set TAG}"
 MORDRED_GLOB="${MORDRED_GLOB:-}"
 

@@ -12,7 +12,7 @@
 # cross_benzoin/analysis/unification_check_round7.py for full method docstring.
 #
 REPO="/gpfs/scratch1/shared/schen3/benzoin-dg"
-PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null
 cd "$REPO"

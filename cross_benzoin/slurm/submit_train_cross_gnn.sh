@@ -21,7 +21,7 @@
 #     cross_benzoin/slurm/submit_train_cross_gnn.sh
 #
 REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
-PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 TABLE="${TABLE:-data/cross_benzoin/cross_round5/cross_train_table_5rounds_mordred_slim120.parquet}"
 CHAMPION_DIR="${CHAMPION_DIR:-data/cross_benzoin/cross_round5/train_5rounds_mordred_slim120_v1}"
 ENSEMBLE_DIR="${ENSEMBLE_DIR:-data/cross_benzoin/cross_round5/train_ensemble_slim120_v1}"

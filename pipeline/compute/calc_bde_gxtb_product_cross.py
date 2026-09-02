@@ -43,7 +43,7 @@ import featurize_product as FP                                    # noqa: E402
 from calc_bde import _run_xtb_opt, _xyz_block, mol_with_bonds, split_at_bond  # noqa: E402
 
 HARTREE_TO_KCAL = 627.509474
-GXTB_BIN_DEFAULT = "/gpfs/scratch1/shared/schen3/software/g-xtb/linux/xtb-6.7.1/bin/xtb"
+GXTB_BIN_DEFAULT = "/home/schen3/xtb/bin/xtb"
 
 
 def _gxtb_sp_uhf(xyz_str: str, work_dir: Path, gxtb_bin: str, charge: int, uhf: int,

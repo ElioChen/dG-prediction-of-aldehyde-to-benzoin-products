@@ -12,7 +12,7 @@
 # checkpoints + numpy resampling -- no GPU needed, quick genoa job.
 #
 REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
-PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null
 export OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 MKL_NUM_THREADS=4

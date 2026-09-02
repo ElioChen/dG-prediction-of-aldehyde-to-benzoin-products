@@ -25,7 +25,7 @@ REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 # environment rebuild (291 packages touched, rdkit/numpy/pandas all broken; see
 # shared-env-instability-2026-07-05 memory). This env is dedicated to this pipeline so it
 # can never again be disturbed by other concurrent work in envs/gnn.
-PY="/gpfs/scratch1/shared/schen3/envs/bde_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 XTB_BIN="/home/schen3/xtb/bin/xtb"
 GXTB_BIN="/home/schen3/xtb/bin/xtb"
 WHICH="${WHICH:?set WHICH=aldehydes|products}"

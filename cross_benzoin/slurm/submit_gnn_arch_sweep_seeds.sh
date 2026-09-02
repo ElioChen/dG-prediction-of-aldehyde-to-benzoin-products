@@ -18,7 +18,7 @@
 # GNN-stacking-null correction).
 #
 REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
-PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 TABLE="data/cross_benzoin/cross_round7/cross_train_table_7rounds_scaffold_split_labeled.parquet"
 CHAMPION_DIR="data/cross_benzoin/cross_round7/scaffold_disjoint_v1"
 ENSEMBLE_PATH="data/cross_benzoin/cross_round7/scaffold_disjoint_v1/models/ensemble_scaffold_disjoint.joblib"

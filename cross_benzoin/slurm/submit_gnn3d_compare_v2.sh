@@ -17,7 +17,7 @@
 #     cross_benzoin/slurm/submit_gnn3d_compare_v2.sh
 #
 REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
-PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 ARCH="${ARCH:?set ARCH=attentive2d or distattn}"
 OUTDIR="${OUTDIR:?set OUTDIR}"
 TABLE="${TABLE:-data/cross_benzoin/cross_round9/cross_train_table_9rounds_scaffold_split_labeled_slim260.parquet}"

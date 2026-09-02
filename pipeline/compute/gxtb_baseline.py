@@ -52,7 +52,7 @@ import thermo_orca as Th
 HARTREE_TO_KCAL = Th.HARTREE_TO_KCAL
 XTB_GFN2 = os.environ.get("XTB_BIN", "/home/schen3/xtb/bin/xtb")
 XTB_GXTB = os.environ.get(
-    "GXTB_BIN", "/gpfs/scratch1/shared/schen3/software/g-xtb/linux/xtb-6.7.1/bin/xtb")
+    "GXTB_BIN", "/home/schen3/xtb/bin/xtb")
 SOLVENT = "dmso"
 T = 298.15
 P_ATM = 1.0

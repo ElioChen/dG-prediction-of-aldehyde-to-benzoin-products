@@ -46,7 +46,7 @@ import thermo_orca as Th         # noqa: E402
 K = Th.HARTREE_TO_KCAL
 XTB_GFN2 = os.environ.get("XTB_BIN", "/home/schen3/xtb/bin/xtb")
 XTB_GXTB = os.environ.get(
-    "GXTB_BIN", "/gpfs/scratch1/shared/schen3/software/g-xtb/linux/xtb-6.7.1/bin/xtb")
+    "GXTB_BIN", "/home/schen3/xtb/bin/xtb")
 ORCA = os.environ.get("ORCA_BIN", "/home/schen3/orca/orca")
 SOLVENT = "dmso"          # xTB ALPB / g-xTB COSMO solvent
 ORCA_SOLV = "DMSO"        # ORCA CPCM solvent

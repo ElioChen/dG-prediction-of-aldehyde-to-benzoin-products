@@ -178,7 +178,7 @@ def main():
     ap.add_argument("--out", default=None)
     ap.add_argument("--out-dir", default=None)
     ap.add_argument("--xtb-bin", default="/home/schen3/xtb/bin/xtb")
-    ap.add_argument("--gxtb-bin", default="/gpfs/scratch1/shared/schen3/software/g-xtb/linux/xtb-6.7.1/bin/xtb")
+    ap.add_argument("--gxtb-bin", default="/home/schen3/xtb/bin/xtb")
     ap.add_argument("--work-dir", default=None)
     args = ap.parse_args()
 

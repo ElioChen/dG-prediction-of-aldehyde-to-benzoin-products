@@ -11,7 +11,7 @@
 # SLURM wrapper for cross_benzoin/train_cross_gnn_scaffold_disjoint.py.
 #
 REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
-PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 TABLE="${TABLE:?set TABLE}"
 CHAMPION_DIR="${CHAMPION_DIR:?set CHAMPION_DIR}"
 ENSEMBLE_PATH="${ENSEMBLE_PATH:?set ENSEMBLE_PATH}"

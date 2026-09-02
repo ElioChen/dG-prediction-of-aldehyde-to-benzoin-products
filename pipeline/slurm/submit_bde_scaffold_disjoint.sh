@@ -18,7 +18,7 @@
 set -o pipefail   # not -u: module load / source reference unset vars
 
 REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
-PY="/gpfs/scratch1/shared/schen3/envs/bde_gnn/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 H="$REPO/data/cross_benzoin/homo_v6"
 OUT="$REPO/runs/logs/scaffold_disjoint_bde"
 mkdir -p "$OUT"
