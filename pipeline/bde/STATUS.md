@@ -170,10 +170,18 @@ recovery commit `d1804ea`)。旧的 `/gpfs/scratch1/shared/schen3/benzoin-dg` �
 1. **产物 BDE 标签重拼**:`pipeline/bde/rebuild_products_bde_labels.py` 从 home 备份
    `bdfe_gxtb_products.tar.gz`(1460 块)重拼出
    `products_bdfe_gxtb_descriptors.csv`(218,966 行,`bdfe_gxtb_kcal,id,bde_gxtb_kcal`)。
-   raw 有极端离群点,`train_gnn_hybrid_bde.py` 的 `qc_filter` 会过滤。
+   raw 有极端离群点,`train_gnn_hybrid_bde.py` 的 `qc_filter` 会过滤。已 `git add -f`
+   入库(commit `ca15188`)。
 2. **路径修复**:`train_gnn_hybrid_bde.py` 的 `H` 改为 repo 相对解析
    (`parents[2]/data/cross_benzoin/homo_v6`)+ `$BDE_HOMO_V6` 覆盖 + 老绝对路径兜底。
    其余 bde 脚本仍硬编码老 `/scratch-shared/...` 路径(见文件头 grep),用到时再逐个改。
+3. **chemprop/torch 环境重建**:旧 `envs/bde_gnn` 是空壳。新建
+   `/home/schen3/venv/bde_gnn`(py3.11 + torch 2.13.0+cu130 + chemprop 2.2.0 +
+   lightning 2.6.5,与旧环境 torch 版本一致),MPNN 构建已验证通过。
+   `submit_b6_scaffold_disjoint_ckpt.sh` / `submit_bde_scaffold_disjoint.sh` 的 `PY=`
+   默认已改指到它。
+4. **git**:3 个 commit(`6824063` env repair 采纳、`ca15188` BDE 重建基建、`94873ba`
+   cross rounds-1-7 恢复脚本),分支 `agent/recovery-20260902`,**尚未 push**。
 
 ### 🟡 进行中 — 选项 B 描述符库重算(genoa)
 - **SLURM array `26316404`**(job name `bde_homoprod`,genoa,2209 tasks,CHUNK=100,%96):

@@ -18,7 +18,7 @@
 set -o pipefail   # not -u: module load / source reference unset vars
 
 REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
-PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
+PY="${PY:-/home/schen3/venv/bde_gnn/bin/python}"   # rebuilt post-purge: torch 2.13 + chemprop 2.2 (nhc-workflow has no torch)
 H="$REPO/data/cross_benzoin/homo_v6"
 OUT="$REPO/runs/logs/scaffold_disjoint_bde"
 mkdir -p "$OUT"
