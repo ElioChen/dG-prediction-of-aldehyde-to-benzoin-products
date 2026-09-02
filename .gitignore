@@ -90,3 +90,13 @@ venv/
 /data/cross_benzoin/screen10k/screen10k_features_screen10k_products_final.csv
 /data/cross_benzoin/screen10k/screen10k_products_mordred.csv
 /data/cross_benzoin/homo_v6/aldehydes_mordred_slim102.csv
+# post-purge recovered training tables: same story (100MB+ un-slimmed mordred join),
+# regenerable via cross_benzoin/submit_assemble_rounds17_recovered.sh
+/data/cross_benzoin/*/cross_train_table_*_recovered.csv
+# local safety copy of the partial 42k aldehyde descriptor lib (see
+# pipeline/bde/assemble_homo_descriptor_libs.py) -- not source
+/data/cross_benzoin/homo_v6/aldehydes_all.partial42k.csv
+
+# hard-set dashboard: keep the current parquet + all summary jsons (small, needed by the
+# Progress tab) but not the per-snapshot parquet copies (regenerable, accumulate)
+/data/analysis/hard_set/hard_set_history/*/hard_set.parquet

@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-09-02T15:53:39+00:00",
+  "n_total": 8150,
+  "by_task": {
+    "cross_dg": 4863,
+    "homo_dg": 3287
+  },
+  "by_cause": {
+    "unexplained": 4895,
+    "flexible": 2692,
+    "fg:amide": 871,
+    "gxtb_baseline_failure": 667,
+    "fg:sulfonyl": 344,
+    "high_uncertainty": 329,
+    "aliphatic": 284,
+    "heavy_heteroatom": 208,
+    "fg:N_oxide": 174,
+    "fg:nitro": 170,
+    "fg:imine": 125,
+    "fg:phosphine_oxide": 49,
+    "fg:sulfinyl": 29,
+    "fg:boron": 24,
+    "fg:phosphorus": 20,
+    "implausible_baseline": 12,
+    "implausible_label": 11
+  },
+  "worst_per_task": {
+    "cross_dg": {
+      "id": "JZARYVVSSGGIGN-UHFFFAOYSA-N__JFYWYBUUFXAMBD-UHFFFAOYSA-N",
+      "abs_residual": 488.12692708061496
+    },
+    "homo_dg": {
+      "id": "78143",
+      "abs_residual": 36.159468073054086
+    }
+  },
+  "mae_of_hard_set_by_task": {
+    "cross_dg": 5.234598160939346,
+    "homo_dg": 4.6207565259399255
+  },
+  "params": {
+    "top_frac": 0.15,
+    "min_abs_res": null
+  }
+}
