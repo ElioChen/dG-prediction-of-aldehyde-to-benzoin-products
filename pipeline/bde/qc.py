@@ -12,6 +12,19 @@ bond dissociation energy, confirming physical bounds are still needed alongside 
 import pandas as pd
 
 
+def norm_id(s: pd.Series) -> pd.Series:
+    """Normalize an id column to clean integer strings ('2.0' -> '2'); NaN -> ''.
+
+    The 2026-07 purge recovery re-serialized some homo_v6 label / scaffold-split /
+    alfabet CSVs with float-formatted ids (`2.0`). The descriptor libraries
+    (`*_all.csv`, rebuilt by assemble_homo_descriptor_libs.py from a 0-based integer
+    library index) use `2`. A plain string merge of the two silently drops every
+    float-id row -- inner-joining to ~0 rows. Call this on every id column right after
+    read so all joins line up regardless of which file got the float formatting.
+    """
+    return pd.to_numeric(s, errors="coerce").astype("Int64").astype(str).replace("<NA>", "")
+
+
 def qc_filter(y: pd.Series, phys_min: float = 10.0, phys_max: float = 250.0,
               k_mad: float = 6.0) -> pd.Series:
     """Boolean mask: physically plausible AND within k_mad*MAD of the median."""

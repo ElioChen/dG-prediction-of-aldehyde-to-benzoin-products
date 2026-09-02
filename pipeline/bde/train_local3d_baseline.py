@@ -21,6 +21,7 @@ Usage:
 """
 import argparse
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -29,10 +30,15 @@ from scipy.stats import spearmanr
 from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
 from xgboost import XGBRegressor
 
-from qc import qc_filter
+from qc import norm_id, qc_filter
 from splits import molecule_cold_split
 
-H = Path("/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6")
+# Repo-relative homo_v6 (parents[2] == repo root); old /scratch-shared path is an empty
+# skeleton post-2026-07-purge. $BDE_HOMO_V6 overrides; historical path is last.
+_repo_h = Path(__file__).resolve().parents[2] / "data/cross_benzoin/homo_v6"
+H = (Path(os.environ["BDE_HOMO_V6"]) if os.environ.get("BDE_HOMO_V6")
+     else _repo_h if _repo_h.exists()
+     else Path("/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6"))
 
 GLOBAL_XTB = ["xtb_HOMO", "xtb_LUMO", "xtb_gap", "xtb_IP", "xtb_EA", "xtb_mu", "xtb_eta",
               "xtb_omega", "xtb_dipole"]
@@ -77,10 +83,14 @@ def main():
                        dtype={"id": str, id_col: str} if id_col != "id" else {"id": str},
                        keep_default_na=False, low_memory=False)
     ald = ald[ald["error"] == ""]
+    ald["id"] = norm_id(ald["id"])
+    if id_col != "id":
+        ald[id_col] = norm_id(ald[id_col])
     for c in feats:
         ald[c] = pd.to_numeric(ald[c], errors="coerce")
 
     labels = pd.read_csv(H / f"{args.which}_bdfe_gxtb_descriptors.csv", dtype={"id": str})
+    labels["id"] = norm_id(labels["id"])   # purge recovery left some ids float-formatted
     ycol = f"{args.target}_gxtb_kcal"
     labels = labels.dropna(subset=[ycol]).drop_duplicates("id")
     labels = labels[qc_filter(labels[ycol])]

@@ -27,6 +27,7 @@ Full run (submit via SLURM, GPU node -- see submit_bde_gnn.sh):
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -37,10 +38,17 @@ from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_err
 from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from qc import qc_filter
+from qc import norm_id, qc_filter
 from splits import molecule_cold_split
 
-H = Path("/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6")
+# Resolve homo_v6 repo-relatively (this file is pipeline/bde/<name>.py -> parents[2] is
+# the repo root) so it follows whichever checkout it lives in; the old
+# /scratch-shared/schen3/benzoin-dg path is an empty skeleton after the 2026-07 purge.
+# Override with $BDE_HOMO_V6; fall back to the historical absolute path last.
+_repo_h = Path(__file__).resolve().parents[2] / "data/cross_benzoin/homo_v6"
+H = (Path(os.environ["BDE_HOMO_V6"]) if os.environ.get("BDE_HOMO_V6")
+     else _repo_h if _repo_h.exists()
+     else Path("/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6"))
 
 DEFAULT_PARAMS = dict(depth=4, message_hidden=300, ffn_hidden=300, ffn_layers=2,
                        dropout=0.0, batch_size=64, max_epochs=120, patience=20,
@@ -112,6 +120,7 @@ def main():
         params["max_epochs"] = args.max_epochs
 
     labels = pd.read_csv(H / f"{args.which}_bdfe_gxtb_descriptors.csv", dtype={"id": str})
+    labels["id"] = norm_id(labels["id"])   # purge recovery left some ids float-formatted
     ycol = f"{args.target}_gxtb_kcal"
     labels = labels.dropna(subset=[ycol]).drop_duplicates("id")
     # A handful of rows have wildly divergent SCF energies (e.g. 1.1e6 kcal/mol) that
@@ -123,6 +132,9 @@ def main():
     id_cols = ["id", "smiles"] if args.which == "aldehydes" else ["id", "donor_id", "smiles"]
     mol = pd.read_csv(H / f"{args.which}_all.csv", usecols=id_cols, dtype=str,
                        keep_default_na=False)
+    mol["id"] = norm_id(mol["id"])
+    if "donor_id" in mol.columns:
+        mol["donor_id"] = norm_id(mol["donor_id"])
     df = labels.merge(mol, on="id", how="inner")
     df = df[df["smiles"] != ""].reset_index(drop=True)
     if args.n is not None:
@@ -132,7 +144,7 @@ def main():
     if args.split_file is not None:
         read = pd.read_csv if args.split_file.suffix == ".csv" else pd.read_parquet
         sf = read(args.split_file)[["id", "scaffold_split"]]
-        sf["id"] = sf["id"].astype(str)
+        sf["id"] = norm_id(sf["id"])
         df = df.merge(sf, on="id", how="left")
         n_unmatched = df["scaffold_split"].isna().sum()
         if n_unmatched:

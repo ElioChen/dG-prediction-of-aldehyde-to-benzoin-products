@@ -29,6 +29,7 @@ Usage:
 """
 import argparse
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -40,11 +41,16 @@ from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_err
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset
 
-from qc import qc_filter
+from qc import norm_id, qc_filter
 from splits import molecule_cold_split
 
 RDLogger.DisableLog("rdApp.*")
-H = Path("/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6")
+# Repo-relative homo_v6 (parents[2] == repo root); the old /scratch-shared path is an
+# empty skeleton post-2026-07-purge. $BDE_HOMO_V6 overrides; historical path is last.
+_repo_h = Path(__file__).resolve().parents[2] / "data/cross_benzoin/homo_v6"
+H = (Path(os.environ["BDE_HOMO_V6"]) if os.environ.get("BDE_HOMO_V6")
+     else _repo_h if _repo_h.exists()
+     else Path("/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6"))
 
 DEFAULT_PARAMS = dict(depth=4, d_h=300, ffn_hidden=300, dropout=0.0, batch_size=64,
                        max_epochs=120, patience=20, val_frac=0.1, lr=1e-3)
@@ -154,9 +160,11 @@ def main():
     torch.manual_seed(args.seed)
 
     frags = pd.read_csv(args.alfabet_csv, dtype={"id": str})
+    frags["id"] = norm_id(frags["id"])   # purge recovery left some ids float-formatted
     frags = frags.rename(columns={"smiles_canonical": "smiles"}).drop_duplicates("id")
 
     labels = pd.read_csv(H / f"{args.which}_bdfe_gxtb_descriptors.csv", dtype={"id": str})
+    labels["id"] = norm_id(labels["id"])
     ycol = f"{args.target}_gxtb_kcal"
     labels = labels.dropna(subset=[ycol]).drop_duplicates("id")
     labels = labels[qc_filter(labels[ycol])]
@@ -164,6 +172,9 @@ def main():
     id_cols = ["id", "donor_id"] if args.which == "products" else ["id"]
     extra = pd.read_csv(H / f"{args.which}_all.csv", usecols=id_cols, dtype=str,
                          keep_default_na=False) if args.which == "products" else None
+    if extra is not None:
+        extra["id"] = norm_id(extra["id"])
+        extra["donor_id"] = norm_id(extra["donor_id"])
 
     df = labels.merge(frags, on="id", how="inner")
     if extra is not None:
@@ -174,7 +185,7 @@ def main():
     if args.split_file is not None:
         read = pd.read_csv if args.split_file.suffix == ".csv" else pd.read_parquet
         sf = read(args.split_file)[["id", "scaffold_split"]]
-        sf["id"] = sf["id"].astype(str)
+        sf["id"] = norm_id(sf["id"])
         df = df.merge(sf, on="id", how="left")
         n_unmatched = df["scaffold_split"].isna().sum()
         if n_unmatched:

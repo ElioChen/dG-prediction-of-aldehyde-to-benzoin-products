@@ -35,7 +35,7 @@ from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_err
 from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from qc import qc_filter
+from qc import norm_id, qc_filter
 from splits import molecule_cold_split
 
 # Resolve the homo_v6 data dir repo-relatively (this file is pipeline/bde/<name>.py, so
@@ -207,6 +207,7 @@ def main():
 
     feats = LOCAL_FEATURES[args.which]
     labels = pd.read_csv(H / f"{args.which}_bdfe_gxtb_descriptors.csv", dtype={"id": str})
+    labels["id"] = norm_id(labels["id"])   # purge recovery left some ids float-formatted
     ycol = f"{args.target}_gxtb_kcal"
     labels = labels.dropna(subset=[ycol]).drop_duplicates("id")
     labels = labels[qc_filter(labels[ycol])]
@@ -216,6 +217,9 @@ def main():
     mol = pd.read_csv(H / f"{args.which}_all.csv", usecols=id_cols, dtype=str,
                        keep_default_na=False, low_memory=False)
     mol = mol[mol["error"] == ""]
+    mol["id"] = norm_id(mol["id"])
+    if "donor_id" in mol.columns:
+        mol["donor_id"] = norm_id(mol["donor_id"])
     for c in feats:
         mol[c] = pd.to_numeric(mol[c], errors="coerce")
 
@@ -234,7 +238,7 @@ def main():
         # own internal grouping).
         read = pd.read_csv if args.split_file.suffix == ".csv" else pd.read_parquet
         sf = read(args.split_file)[["id", "scaffold_split"]]
-        sf["id"] = sf["id"].astype(str)
+        sf["id"] = norm_id(sf["id"])
         df = df.merge(sf, on="id", how="left")
         n_unmatched = df["scaffold_split"].isna().sum()
         if n_unmatched:
