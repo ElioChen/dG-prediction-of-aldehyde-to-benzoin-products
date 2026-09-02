@@ -8,7 +8,7 @@
 #SBATCH --mem=32G
 #SBATCH --time=04:00:00
 #SBATCH --array=0-1
-#SBATCH --output=/scratch-shared/schen3/benzoin-dg/runs/logs/scaffold_disjoint_bde/b6_ckpt_%A_%a.out
+#SBATCH --output=/gpfs/scratch1/shared/schen3/benzoin-dg-restored/runs/logs/scaffold_disjoint_bde/b6_ckpt_%A_%a.out
 #
 # Re-run of submit_b6_scaffold_disjoint.sh (job 24694779, which produced the confirmed
 # champion numbers aldehyde MAE 1.579/R^2 0.843 and product MAE 3.060/R^2 0.886, see

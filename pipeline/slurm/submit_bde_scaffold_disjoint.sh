@@ -8,7 +8,7 @@
 #SBATCH --mem=32G
 #SBATCH --time=04:00:00
 #SBATCH --array=0-1
-#SBATCH --output=/scratch-shared/schen3/benzoin-dg/runs/logs/scaffold_disjoint_bde/b6_scaffold_%A_%a.out
+#SBATCH --output=/gpfs/scratch1/shared/schen3/benzoin-dg-restored/runs/logs/scaffold_disjoint_bde/b6_scaffold_%A_%a.out
 #
 # B6 champion (depth=4, message_hidden=500, the winning hyperparams from the 12-config
 # search) retrained + honestly evaluated under a GENUINELY scaffold-disjoint split
