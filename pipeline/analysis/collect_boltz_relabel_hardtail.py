@@ -9,11 +9,14 @@ Run only after the boltz_chunks_hardtail_20260710/ array has finished (check wit
 """
 import glob, os
 from datetime import datetime
+from pathlib import Path
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np, pandas as pd
 
-D = "/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6/viz_gxtb_20260625"
+# was hardcoded /scratch-shared/schen3/benzoin-dg/... which the 2026-07 purge gutted;
+# resolve repo-relatively instead (this file is pipeline/analysis/<name>.py).
+D = str(Path(__file__).resolve().parents[2] / "data/cross_benzoin/homo_v6/viz_gxtb_20260625")
 TS = datetime.now().strftime("%Y%m%d_%H%M")
 
 frames = []
