@@ -38,7 +38,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from qc import qc_filter
 from splits import molecule_cold_split
 
-H = Path("/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6")
+# Resolve the homo_v6 data dir repo-relatively (this file is pipeline/bde/<name>.py, so
+# parents[2] is the repo root) so the script follows whichever checkout it lives in --
+# after the 2026-07 purge the live repo moved to benzoin-dg-restored and the old hardcoded
+# /scratch-shared/schen3/benzoin-dg path is now an empty skeleton. Override with
+# $BDE_HOMO_V6; fall back to the historical absolute path if the repo-relative one is
+# absent (keeps the old layout working unchanged).
+import os
+_repo_h = Path(__file__).resolve().parents[2] / "data/cross_benzoin/homo_v6"
+H = Path(os.environ["BDE_HOMO_V6"]) if os.environ.get("BDE_HOMO_V6") \
+    else (_repo_h if _repo_h.exists()
+          else Path("/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6"))
 
 # Duplicated from train_local3d_baseline.py (H-SPOC), not imported: that module pulls in
 # xgboost at load time, which isn't installed in this script's env (envs/bde_gnn is
