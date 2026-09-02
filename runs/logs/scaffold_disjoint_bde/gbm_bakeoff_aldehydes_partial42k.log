@@ -1,0 +1,36 @@
+aldehydes: 0 labelled+featurized rows | train 0 / test 0 | 30 features
+/home/schen3/venv/nhc-workflow/lib/python3.13/site-packages/xgboost/training.py:200: UserWarning: [21:19:47] WARNING: /__w/xgboost/xgboost/src/common/error_msg.cc:56: Empty dataset at worker: 0
+  bst.update(dtrain, iteration=i, fobj=obj)
+Traceback (most recent call last):
+  File "/gpfs/scratch1/shared/schen3/benzoin-dg-restored/pipeline/bde/gbm_bakeoff_hspoc.py", line 135, in <module>
+    main()
+    ~~~~^^
+  File "/gpfs/scratch1/shared/schen3/benzoin-dg-restored/pipeline/bde/gbm_bakeoff_hspoc.py", line 119, in main
+    results[name] = {**score(yte, pred), "fit_sec": round(time.time() - t0, 1)}
+                       ~~~~~^^^^^^^^^^^
+  File "/gpfs/scratch1/shared/schen3/benzoin-dg-restored/pipeline/bde/gbm_bakeoff_hspoc.py", line 70, in score
+    return dict(mae=float(mean_absolute_error(y, p)),
+                          ~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/home/schen3/venv/nhc-workflow/lib/python3.13/site-packages/sklearn/utils/_param_validation.py", line 218, in wrapper
+    return func(*args, **kwargs)
+  File "/home/schen3/venv/nhc-workflow/lib/python3.13/site-packages/sklearn/metrics/_regression.py", line 285, in mean_absolute_error
+    _check_reg_targets_with_floating_dtype(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        y_true, y_pred, sample_weight, multioutput, xp=xp
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/schen3/venv/nhc-workflow/lib/python3.13/site-packages/sklearn/metrics/_regression.py", line 209, in _check_reg_targets_with_floating_dtype
+    y_type, y_true, y_pred, sample_weight, multioutput = _check_reg_targets(
+                                                         ~~~~~~~~~~~~~~~~~~^
+        y_true, y_pred, sample_weight, multioutput, dtype=dtype_name, xp=xp
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/schen3/venv/nhc-workflow/lib/python3.13/site-packages/sklearn/metrics/_regression.py", line 115, in _check_reg_targets
+    y_true = check_array(y_true, ensure_2d=False, dtype=dtype)
+  File "/home/schen3/venv/nhc-workflow/lib/python3.13/site-packages/sklearn/utils/validation.py", line 1110, in check_array
+    raise ValueError(
+    ...<3 lines>...
+    )
+ValueError: Found array with 0 sample(s) (shape=(0,)) while a minimum of 1 is required.
