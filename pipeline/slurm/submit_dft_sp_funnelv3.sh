@@ -30,7 +30,7 @@
 # PRE-LAUNCH: build manifest once + SMOKE TEST (reproduce a few dft_sp_r2scan3c_full values):
 #   python pipeline/compute/dft_sp_from_geom.py --out-csv /tmp/smoke.csv --smoke --workers 3
 set -o pipefail   # NOT -u: `source /etc/profile` / `module load` reference unset vars and crash under -u
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"        # prod env with ORCA bindings
 MAN="$REPO/data/raw/dft_sp_funnelv3/manifest.parquet"
 RESULTS="$REPO/data/raw/dft_sp_funnelv3"

@@ -22,7 +22,7 @@
 # per `budget-overview -p genoa`).
 set -o pipefail   # not -u: module load / source reference unset vars
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 OUT="$REPO/data/cross_benzoin/homo_v6/dft_bde_geom_arbitration_round2"
 CAND="$OUT/candidates_128.csv"

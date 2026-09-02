@@ -308,6 +308,12 @@ def main() -> int:
     src.add_argument("--pairs", help="pairs CSV: donor_id,acceptor_id,donor_smiles,acceptor_smiles")
     src.add_argument("--homo-from", help="aldehyde library CSV (index,SMILES) -> homo pairs")
     ap.add_argument("--out", required=True, help="run output directory")
+    ap.add_argument("--aldehydes-only", action="store_true",
+                    help="run only the aldehyde phase and stop before the product phase. "
+                         "Used to rebuild the aldehyde descriptor library (the lost "
+                         "homo_v6/aldehydes_all.csv) without paying for products that "
+                         "already exist in the tracked cross_round*_dft_products.csv "
+                         "tables -- the product phase is ~6x the aldehyde phase's cost.")
     ap.add_argument("--emit-aldehydes", action="store_true",
                     help="also featurize+save each unique aldehyde (funnel_v3)")
     ap.add_argument("--aldehyde-cache",
@@ -328,6 +334,8 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--max", type=int, default=0)
     args = ap.parse_args()
+    if args.aldehydes_only and not args.emit_aldehydes:
+        raise SystemExit("--aldehydes-only requires --emit-aldehydes (nothing would be written)")
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     xtb_bin = shutil.which(args.xtb_bin) or args.xtb_bin
@@ -402,6 +410,12 @@ def main() -> int:
                 except Exception:
                     g_cache[futs[fut]] = None
 
+    if args.aldehydes_only:
+        shutil.rmtree(work_dir, ignore_errors=True)
+        log.info("aldehydes-only: %d aldehydes written -> %s/aldehydes.csv, skipping products",
+                 len(items), out)
+        return 0
+
     # ── product phase ─────────────────────────────────────────────────────────
     pkw = dict(g_cache=g_cache, xyz_dir=xyz_prod, work_dir=work_dir, xtb_bin=xtb_bin,
                mwf_bin=args.multiwfn_bin, do_multiwfn=do_multiwfn, solvent=solvent,
@@ -423,6 +437,8 @@ def main() -> int:
                 n_ok += 1
                 n_dg += row.get("dG_xtb_kcal") is not None
                 n_err += bool(row.get("error"))
+                if n_ok % 5 == 0 or n_ok == len(pairs):
+                    log.info("  prod %d/%d (%d with dG, %d errors)", n_ok, len(pairs), n_dg, n_err)
     shutil.rmtree(work_dir, ignore_errors=True)
     log.info("done: %d products (%d with dG, %d errors) -> %s/products.csv", n_ok, n_dg, n_err, out)
     return 0

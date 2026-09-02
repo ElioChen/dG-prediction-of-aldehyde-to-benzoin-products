@@ -18,7 +18,7 @@
 #   sbatch --export=ALL,TRIALS=120 pipeline/slurm/submit_explore.sh
 set -euo pipefail
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV="/gpfs/scratch1/shared/schen3/envs/gnn"
 PY="$ENV/bin/python"
 TRIALS="${TRIALS:-80}"

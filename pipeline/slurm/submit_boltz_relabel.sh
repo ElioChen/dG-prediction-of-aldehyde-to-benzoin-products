@@ -7,7 +7,7 @@
 #SBATCH --time=04:00:00
 #SBATCH --array=0-4
 #SBATCH --output=/scratch-shared/schen3/benzoin-dg/data/cross_benzoin/homo_v6/viz_gxtb_20260625/boltz_chunks/br_%A_%a.out
-REPO="/scratch-shared/schen3/benzoin-dg"; D="$REPO/data/cross_benzoin/homo_v6/viz_gxtb_20260625"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"; D="$REPO/data/cross_benzoin/homo_v6/viz_gxtb_20260625"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 mkdir -p "$D/boltz_chunks"
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null

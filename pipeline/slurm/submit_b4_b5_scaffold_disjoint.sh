@@ -17,7 +17,7 @@
 set -o pipefail   # not -u/-e: safe here (no module load/etc-profile calls), but kept
                    # consistent with the rest of this project's convention
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV="/gpfs/scratch1/shared/schen3/envs/bde_gnn"
 BDE="$REPO/pipeline/bde"
 H="$REPO/data/cross_benzoin/homo_v6"

@@ -20,7 +20,7 @@
 #   sbatch --array=0-NCH%128 --output="$OUT/logs/bdfe2_%a.out" \
 #     --export=ALL,WHICH=$WHICH,CHUNKSIZE=$CHUNKSIZE,OUTDIR=$OUT pipeline/slurm/submit_bdfe_v2_array.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn/bin/python"
 XTB_BIN="/home/schen3/xtb/bin/xtb"
 WHICH="${WHICH:?set WHICH=aldehydes|products}"

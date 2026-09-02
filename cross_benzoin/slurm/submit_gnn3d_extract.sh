@@ -12,7 +12,7 @@
 # a few minutes' worth of real CPU work, so it goes through sbatch rather than running
 # inline on the login node (see memory no-login-node-compute.md).
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 TABLE="${TABLE:?set TABLE=/abs/path/to/table.parquet}"
 ROUNDS="${ROUNDS:?set ROUNDS=\"round2 round3 round4 round8 round9\"}"

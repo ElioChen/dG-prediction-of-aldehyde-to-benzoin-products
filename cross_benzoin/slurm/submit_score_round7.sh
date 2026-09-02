@@ -17,7 +17,7 @@
 # gpu_h100`), so it's reserved for genuinely GPU-bound work (the GNN retune)
 # rather than used as a blanket CPU-congestion escape valve.
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null

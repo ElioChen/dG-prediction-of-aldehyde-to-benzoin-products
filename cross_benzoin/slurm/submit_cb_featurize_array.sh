@@ -76,7 +76,7 @@ source "$VENV/bin/activate"
 export XTBPATH="/home/schen3/xtb/share/xtb"
 # g-xTB baseline is fused into cb_featurize (one SP on the GFN2-ohess geom). Same env as
 # submit_gxtb_baseline.sh; cb_featurize._gxtb_sp reads GXTB_BIN/GXTB_SOLV.
-export GXTB_BIN="${GXTB_BIN:-/gpfs/scratch1/shared/schen3/software/g-xtb/linux/xtb-6.7.1/bin/xtb}"
+export GXTB_BIN="${GXTB_BIN:-/home/schen3/xtb/bin/xtb}"
 export GXTB_SOLV="${GXTB_SOLV:-cosmo dmso}"
 export OMP_NUM_THREADS=$XTB_CORES MKL_NUM_THREADS=$XTB_CORES OMP_STACKSIZE=2G KMP_STACKSIZE=2G
 

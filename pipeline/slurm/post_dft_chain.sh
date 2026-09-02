@@ -12,7 +12,7 @@
 # Then: (1) build retry manifest for the 3600s ORCA timeouts + submit 7200s retry array;
 #       (2) finalize the champion g-xTB->DFT correction on the now-complete labels.
 set -o pipefail
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn/bin/python"     # pandas+sklearn+xgboost+joblib
 MANR="$REPO/data/raw/dft_sp_funnelv3/manifest_retry.parquet"
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null

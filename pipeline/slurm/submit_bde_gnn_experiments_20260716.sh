@@ -27,7 +27,7 @@
 #       passing needs `models.MolAtomBondMPNN`, a bigger integration lift not done here.)
 set -o pipefail   # NOT -u/-e: `source /etc/profile` / `module load` reference unset vars and crash under -u
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV_STABLE="/gpfs/scratch1/shared/schen3/envs/bde_gnn"
 ENV_23="/gpfs/scratch1/shared/schen3/envs/bde_gnn_chemprop23"
 BDE="$REPO/pipeline/bde"

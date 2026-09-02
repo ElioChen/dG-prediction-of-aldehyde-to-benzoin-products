@@ -23,7 +23,7 @@
 # Real sustained I/O/CPU work (tar+gzip over ~41,500 files, several GB) -- goes through
 # sbatch per memory no-login-node-compute.md, not run inline.
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 DEST="/gpfs/home4/schen3/benzoin_backups/cross_benzoin_xyz_archive"
 mkdir -p "$DEST"
 

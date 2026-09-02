@@ -13,7 +13,7 @@
 # its entire operational history without deleting anything, and broke outright on
 # 2026-07-10 when a resubmission attempt silently failed. Run this once to catch up on
 # the backlog (~41k candidates as of 2026-07-14), then re-arm the chain.
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 echo "[$(date '+%F %T')] start one-shot orphan cleanup"
 export ORPHAN_CHECK_PARALLEL="${ORPHAN_CHECK_PARALLEL:-16}"
 bash "$REPO/pipeline/slurm/clean_orphan_scratch.sh" --delete

@@ -17,7 +17,7 @@
 # the honest number. Config table below is "depth message_hidden ffn_hidden ffn_layers dropout".
 set -euo pipefail
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV="/gpfs/scratch1/shared/schen3/envs/bde_gnn"
 BDE="$REPO/pipeline/bde"
 OUT="$REPO/runs/logs/b6_tune"

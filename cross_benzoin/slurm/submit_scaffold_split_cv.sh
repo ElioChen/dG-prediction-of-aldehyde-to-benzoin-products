@@ -15,7 +15,7 @@
 #     --export=ALL,TABLE="/abs/table.parquet",OUTDIR="/abs/outdir" \
 #     cross_benzoin/slurm/submit_scaffold_split_cv.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 TABLE="${TABLE:?set TABLE=/abs/path/to/table.parquet}"
 OUTDIR="${OUTDIR:?set OUTDIR=/abs/path/to/outdir}"

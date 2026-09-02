@@ -11,7 +11,7 @@
 # against the 220k-molecule aldehyde library -- too slow to run in the login-node
 # foreground, found 2026-07-20 on round8).
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
 TAG="${TAG:?set TAG}"
 MORDRED_GLOB="${MORDRED_GLOB:-}"

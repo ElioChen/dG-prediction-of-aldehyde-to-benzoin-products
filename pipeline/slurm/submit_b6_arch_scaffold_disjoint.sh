@@ -17,7 +17,7 @@
 # 2=chemprop2.3 aldehydes, 3=chemprop2.3 products.
 set -o pipefail
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV_STABLE="/gpfs/scratch1/shared/schen3/envs/bde_gnn"
 ENV_23="/gpfs/scratch1/shared/schen3/envs/bde_gnn_chemprop23"
 BDE="$REPO/pipeline/bde"

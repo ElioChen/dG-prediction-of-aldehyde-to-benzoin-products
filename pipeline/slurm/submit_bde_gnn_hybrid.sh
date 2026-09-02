@@ -16,7 +16,7 @@
 # (array idx 0), product ketC-carbC (array idx 1).
 set -euo pipefail
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV="/gpfs/scratch1/shared/schen3/envs/bde_gnn"
 BDE="$REPO/pipeline/bde"
 mkdir -p "$REPO/runs/logs"

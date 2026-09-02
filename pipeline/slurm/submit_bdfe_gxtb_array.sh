@@ -19,7 +19,7 @@
 #   sbatch --array=0,200,400,600,800,1000,1200 --output="$OUT/logs/bdfe_gxtb_%a.out" \
 #     --export=ALL,WHICH=$WHICH,CHUNKSIZE=$CHUNKSIZE,OUTDIR=$OUT pipeline/slurm/submit_bdfe_gxtb_array.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 # Isolated lightweight env (numpy/pandas/rdkit/xgboost/scipy/sklearn/joblib/matplotlib only),
 # NOT the shared envs/gnn -- that env got corrupted mid-run by an unrelated concurrent full
 # environment rebuild (291 packages touched, rdkit/numpy/pandas all broken; see
@@ -27,7 +27,7 @@ REPO="/scratch-shared/schen3/benzoin-dg"
 # can never again be disturbed by other concurrent work in envs/gnn.
 PY="/gpfs/scratch1/shared/schen3/envs/bde_lite/bin/python"
 XTB_BIN="/home/schen3/xtb/bin/xtb"
-GXTB_BIN="/gpfs/scratch1/shared/schen3/software/g-xtb/linux/xtb-6.7.1/bin/xtb"
+GXTB_BIN="/home/schen3/xtb/bin/xtb"
 WHICH="${WHICH:?set WHICH=aldehydes|products}"
 CHUNKSIZE="${CHUNKSIZE:-20}"
 OUTDIR="${OUTDIR:?set OUTDIR=/abs/out/dir}"

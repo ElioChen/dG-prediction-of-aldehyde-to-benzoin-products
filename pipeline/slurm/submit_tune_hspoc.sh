@@ -15,7 +15,7 @@
 # the script's own defaults (40/4 -> 25/3) to keep worst-case wall time inside 6h.
 set -euo pipefail
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV="/gpfs/scratch1/shared/schen3/envs/bde_lite"
 BDE="$REPO/pipeline/bde"
 mkdir -p "$REPO/runs/logs"

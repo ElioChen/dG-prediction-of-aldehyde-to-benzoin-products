@@ -21,7 +21,7 @@
 # convention. Task 0 = aldehydes, task 1 = products.
 set -o pipefail   # not -u: module load / source reference unset vars
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/bde_gnn/bin/python"
 H="$REPO/data/cross_benzoin/homo_v6"
 OUT="$REPO/runs/logs/scaffold_disjoint_bde"

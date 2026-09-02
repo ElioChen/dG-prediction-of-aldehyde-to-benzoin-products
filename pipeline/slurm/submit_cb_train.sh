@@ -15,7 +15,7 @@
 #   sbatch pipeline/slurm/submit_cb_train.sh                  # g-xTB table (default)
 #   sbatch --export=ALL,PARQUET=...,OUTDIR=...,TRIALS=120 pipeline/slurm/submit_cb_train.sh
 set -euo pipefail
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn/bin/python"
 PARQUET="${PARQUET:-$REPO/data/featurize_cb_homo_train_gxtb.parquet}"
 OUTDIR="${OUTDIR:-$REPO/runs_cb_gxtb}"

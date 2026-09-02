@@ -14,7 +14,7 @@
 # sanity check, the queued AttentiveFP-style pooling comparison, capacity variants
 # (wider/deeper), attention+capacity combined, and a lower-lr variant.
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
 TABLE="data/cross_benzoin/cross_round7/cross_train_table_7rounds_scaffold_split_labeled.parquet"
 CHAMPION_DIR="data/cross_benzoin/cross_round7/scaffold_disjoint_v1"

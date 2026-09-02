@@ -25,7 +25,7 @@ CHUNK=24
 source /etc/profile 2>/dev/null
 module load 2023 2>/dev/null
 export XTB_BIN="/home/schen3/xtb/bin/xtb"
-export GXTB_BIN="/gpfs/scratch1/shared/schen3/software/g-xtb/linux/xtb-6.7.1/bin/xtb"
+export GXTB_BIN="/home/schen3/xtb/bin/xtb"
 export ORCA_BIN="/home/schen3/orca/orca"
 export XTBPATH="/home/schen3/xtb/share/xtb"
 export PATH="/home/schen3/orca:$PATH"

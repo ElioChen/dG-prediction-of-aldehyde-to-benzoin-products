@@ -23,7 +23,7 @@
 # Do NOT run this against the main project env or bde_lite/gnn.
 set -euo pipefail
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV="/gpfs/scratch1/shared/schen3/envs/alfabet"
 OUT="$REPO/data/cross_benzoin/homo_v6"
 mkdir -p "$OUT"

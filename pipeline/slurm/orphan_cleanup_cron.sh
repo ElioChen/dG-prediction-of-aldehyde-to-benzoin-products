@@ -38,7 +38,7 @@
 # failure is LOGGED LOUDLY instead of silently breaking the chain -- this is exactly
 # what happened to job 24527437, whose resubmit apparently failed with no trace in its
 # log, and nothing resubmitted it after.
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 SELF="$REPO/pipeline/slurm/orphan_cleanup_cron.sh"
 CADENCE="${ORPHAN_CADENCE:-6hours}"
 

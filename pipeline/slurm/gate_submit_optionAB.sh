@@ -8,7 +8,7 @@
 # SINGLE-FIRE gate: submit Option A/B + 36-hard ONCE, only when inode usage < THRESH
 # (low, to leave headroom for the campaign's own scratch). A sentinel guarantees it never
 # double-submits even across requeues/cancels. THROTTLED concurrency to bound peak inodes.
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 SELF="$REPO/pipeline/slurm/gate_submit_optionAB.sh"
 SENTINEL="$REPO/data/raw/screen_v6/dft_sp_r2scan3c/.optAB_submitted"
 THRESH=55          # leave ~45% headroom for the campaign's scratch

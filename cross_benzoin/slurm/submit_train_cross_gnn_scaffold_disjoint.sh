@@ -10,7 +10,7 @@
 #
 # SLURM wrapper for cross_benzoin/train_cross_gnn_scaffold_disjoint.py.
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
 TABLE="${TABLE:?set TABLE}"
 CHAMPION_DIR="${CHAMPION_DIR:?set CHAMPION_DIR}"

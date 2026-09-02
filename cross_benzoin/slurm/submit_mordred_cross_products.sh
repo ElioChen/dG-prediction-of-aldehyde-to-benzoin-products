@@ -19,11 +19,11 @@
 #   sbatch --array=0-$((NCH-1))%48 --output="$OUT/logs/mrd_%a.out" \
 #     --export=ALL,PRODUCTS="$IN",OUTDIR="$OUT",CHUNK=$CHUNK submit_mordred_cross_products.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 # nhc-workflow's mordred install is broken (empty namespace package, no __init__.py --
 # `from mordred import Calculator` fails there). envs/bde_gnn has a working mordred +
 # rdkit + pandas, confirmed 2026-07-15.
-PY="/gpfs/scratch1/shared/schen3/envs/bde_gnn/bin/python"
+PY="${PY:-/home/schen3/venv/nhc-workflow/bin/python}"
 PRODUCTS="${PRODUCTS:?set PRODUCTS=/abs/products.csv}"
 OUTDIR="${OUTDIR:?set OUTDIR=/abs/out/dir}"
 CHUNK="${CHUNK:-100}"
@@ -32,6 +32,9 @@ source /etc/profile 2>/dev/null; module load 2023 2>/dev/null
 ID=${SLURM_ARRAY_TASK_ID:-0}
 echo "mordred_cross chunk=$ID node=${SLURMD_NODENAME} $(date)"
 cd "$REPO"
+[[ -x "$PY" ]] || { echo "ERROR: PY not executable: $PY"; exit 2; }
 $PY -u cross_benzoin/add_mordred_cross_products.py \
     --products-csv "$PRODUCTS" --chunk-id "$ID" --chunk-size "$CHUNK" --out-dir "$OUTDIR"
-echo "Done chunk=$ID $(date) exit=$?"
+RC=$?
+echo "Done chunk=$ID $(date) exit=$RC"
+exit "$RC"

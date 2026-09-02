@@ -19,10 +19,10 @@
 #   sbatch --array=0-$((NCH-1))%48 --output="$OUT/logs/bde_%a.out" \
 #     --export=ALL,INPUT="$IN",OUTDIR="$OUT",CHUNK=$CHUNK pipeline/slurm/submit_bde_gxtb_product_cross.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 XTB_BIN="/home/schen3/xtb/bin/xtb"
-GXTB_BIN="${GXTB_BIN:-/gpfs/scratch1/shared/schen3/software/g-xtb/linux/xtb-6.7.1/bin/xtb}"
+GXTB_BIN="${GXTB_BIN:-/home/schen3/xtb/bin/xtb}"
 INPUT="${INPUT:?set INPUT=/abs/products.csv}"
 OUTDIR="${OUTDIR:?set OUTDIR=/abs/out/dir}"
 CHUNK="${CHUNK:-100}"

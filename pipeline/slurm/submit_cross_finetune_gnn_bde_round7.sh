@@ -19,7 +19,7 @@
 # "preserve output history" convention.
 set -o pipefail   # not -u: module load / source reference unset vars
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV="/gpfs/scratch1/shared/schen3/envs/bde_gnn"
 BDE="$REPO/pipeline/bde"
 mkdir -p "$REPO/runs/logs"

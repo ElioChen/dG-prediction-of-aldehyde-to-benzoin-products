@@ -11,7 +11,7 @@
 # ensemble retrain/eval on the corrected scaffold-disjoint split (replaces
 # the leaky candidates_v3 molecule-level split).
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 TABLE="${TABLE:?set TABLE=/abs/path/to/table.parquet}"
 OUTDIR="${OUTDIR:?set OUTDIR=/abs/path/to/outdir}"

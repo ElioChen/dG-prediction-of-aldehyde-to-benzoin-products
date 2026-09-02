@@ -20,7 +20,7 @@
 #   sbatch --output="/scratch-shared/schen3/benzoin-dg/<outdir>/gnn_%j.out" \
 #     cross_benzoin/slurm/submit_train_cross_gnn.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
 TABLE="${TABLE:-data/cross_benzoin/cross_round5/cross_train_table_5rounds_mordred_slim120.parquet}"
 CHAMPION_DIR="${CHAMPION_DIR:-data/cross_benzoin/cross_round5/train_5rounds_mordred_slim120_v1}"

@@ -14,7 +14,7 @@
 # Tunables (env override): MEM, TIME, THROTTLE
 set -euo pipefail
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 SEL="$REPO/data/raw/screen_v6/input_v6.csv"
 RES="$REPO/data/raw/screen_v6/dft_sp_r2scan3c_full"
 SUBMIT="/gpfs/scratch1/shared/schen3/benzoin-dg/pipeline/slurm/submit_dft_sp_full.sh"

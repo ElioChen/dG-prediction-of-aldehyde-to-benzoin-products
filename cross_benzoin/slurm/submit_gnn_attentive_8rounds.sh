@@ -12,7 +12,7 @@
 # full round1-8 scaffold-disjoint (80/10/10 production) data, to become the new
 # candidate champion alongside the round1-8 champion+ensemble retrain.
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
 
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null

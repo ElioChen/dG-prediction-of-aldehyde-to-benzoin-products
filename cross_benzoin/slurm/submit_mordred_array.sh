@@ -20,7 +20,7 @@
 #   sbatch --array=0-$((NCH-1))%128 --output="$OUT/logs/mrd_%a.out" \
 #     --export=ALL,WHICH=$WHICH,CHUNKSIZE=$CHUNKSIZE,OUTDIR=$OUT cross_benzoin/slurm/submit_mordred_array.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn/bin/python"
 WHICH="${WHICH:?set WHICH=products|aldehydes}"
 CHUNKSIZE="${CHUNKSIZE:-250}"

@@ -18,7 +18,7 @@
 #   sbatch --export=ALL,MODE=train,PARAMS='{"depth":6,"ensemble":2}' pipeline/slurm/submit_gnn.sh
 set -euo pipefail
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV="/gpfs/scratch1/shared/schen3/envs/gnn"
 GNN="$REPO/pipeline/gnn"
 mkdir -p "$REPO/runs/logs"

@@ -25,7 +25,7 @@ CHUNK="${CHUNK:-50}"
 WORKERS="${WORKERS:-24}"
 
 export XTB_BIN="/home/schen3/xtb/bin/xtb"
-export GXTB_BIN="/gpfs/scratch1/shared/schen3/software/g-xtb/linux/xtb-6.7.1/bin/xtb"
+export GXTB_BIN="/home/schen3/xtb/bin/xtb"
 export GXTB_SOLV="cosmo dmso"
 export OMP_NUM_THREADS=1            # funnel/ohess are single-core; parallel across mols
 mkdir -p "$RESULTS"

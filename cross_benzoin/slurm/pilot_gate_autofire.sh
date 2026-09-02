@@ -3,7 +3,7 @@
 # acceptance gates, and ONLY if ALL pass submits the full 220k array 0-2207%128.
 # Any failed gate => DO NOT fire; leave a clear report. Authorized by user (asleep).
 set -uo pipefail
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PILOT_JOB=24127523
 PILOT_OUT="$REPO/data/cross_benzoin/homo_v6_pilot"
 FULL_IN="$REPO/data/cross_benzoin/homo_v6/homo_pairs.csv"

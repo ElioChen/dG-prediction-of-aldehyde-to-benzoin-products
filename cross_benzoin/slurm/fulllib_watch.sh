@@ -4,7 +4,7 @@
 # cluster of FAILED/TIMEOUT/OOM tasks (ANOMALY). Writes progress to STATUS every poll so the
 # outcome is durable even if this process dies (the SLURM job runs independently regardless).
 set -uo pipefail
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 JOB=24128375
 OUT="$REPO/data/cross_benzoin/homo_v6"
 NCHUNK=2208

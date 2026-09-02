@@ -21,7 +21,7 @@
 #   CH=96; NT=$(( (N+CH-1)/CH ))
 #   sbatch --array=0-$((NT-1))%128 pipeline/slurm/submit_dft_sp_retry.sh
 set -o pipefail
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 MAN="$REPO/data/raw/dft_sp_funnelv3/manifest_retry.parquet"
 RESULTS="$REPO/data/raw/dft_sp_funnelv3/retry7200"

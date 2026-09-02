@@ -11,7 +11,7 @@
 # delta (gnn3d_bootstrap_compare.py). CPU-only inference on two small (830k-param)
 # checkpoints + numpy resampling -- no GPU needed, quick genoa job.
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
 
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null

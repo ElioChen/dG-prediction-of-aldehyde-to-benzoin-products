@@ -7,7 +7,7 @@
 #SBATCH --mem=8G
 #SBATCH --time=00:30:00
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 TABLE="${TABLE:?set TABLE}"
 ROUNDS="${ROUNDS:?set ROUNDS}"

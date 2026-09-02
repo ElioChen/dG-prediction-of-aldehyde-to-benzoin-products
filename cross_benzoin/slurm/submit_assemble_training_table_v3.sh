@@ -7,7 +7,7 @@
 #SBATCH --mem=64G
 #SBATCH --time=01:30:00
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
 
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null

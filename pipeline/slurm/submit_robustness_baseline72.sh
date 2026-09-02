@@ -10,7 +10,7 @@
 # Array task ID 0-4  -> holdout reshuffle, seed = task id
 # Array task ID 5-9  -> 5-fold CV, fold = task id - 5
 #
-REPO="/scratch-shared/schen3/benzoin-dg"; PY="/gpfs/scratch1/shared/schen3/envs/gnn/bin/python"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"; PY="/gpfs/scratch1/shared/schen3/envs/gnn/bin/python"
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null
 ID=$SLURM_ARRAY_TASK_ID
 if [[ $ID -lt 5 ]]; then

@@ -16,7 +16,7 @@
 #   sbatch --export=ALL,ARCH=distattn,OUTDIR=data/cross_benzoin/gnn3d/distattn_v1 \
 #     cross_benzoin/slurm/submit_gnn3d_compare_v2.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn_lite/bin/python"
 ARCH="${ARCH:?set ARCH=attentive2d or distattn}"
 OUTDIR="${OUTDIR:?set OUTDIR}"

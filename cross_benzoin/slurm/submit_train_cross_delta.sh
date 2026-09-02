@@ -16,7 +16,7 @@
 #     --export=ALL,TABLE="/abs/path/table.parquet",OUTDIR="/abs/path/outdir" \
 #     cross_benzoin/slurm/submit_train_cross_delta.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 TABLE="${TABLE:?set TABLE=/abs/path/to/table.parquet}"
 OUTDIR="${OUTDIR:?set OUTDIR=/abs/path/to/outdir}"

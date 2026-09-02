@@ -8,7 +8,7 @@
 #SBATCH --time=00:30:00
 #SBATCH --array=0-1
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/bde_gnn/bin/python"
 
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null

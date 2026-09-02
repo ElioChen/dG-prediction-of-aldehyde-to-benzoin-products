@@ -20,7 +20,7 @@
 #   sbatch pipeline/slurm/submit_dft_sp_cross.sh
 #
 set -o pipefail
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 PRODUCTS="$REPO/data/cross_benzoin/cross_pilot_v1/cross_pilot_v1_products.csv"
 OUT="$REPO/data/raw/dft_sp_cross/cross_pilot_v1_dft_sp.csv"

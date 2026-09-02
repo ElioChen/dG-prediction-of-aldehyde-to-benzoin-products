@@ -22,7 +22,7 @@
 #           mlflow.db  (sqlite tracking; view with `mlflow ui`)
 
 set -euo pipefail
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/gpfs/scratch1/shared/schen3/envs/gnn/bin/python"   # has rdkit+xgboost+optuna+mlflow+shap
 TRIALS="${TRIALS:-120}"
 MODEL="${MODEL:-all}"

@@ -12,7 +12,7 @@
 # round7's OWN candidate pool and comparing against what was actually selected
 # under the old (leaky-split, single-XGB) scoring.
 #
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 PY="/home/schen3/venv/nhc-workflow/bin/python"
 
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null

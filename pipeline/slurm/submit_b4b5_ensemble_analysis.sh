@@ -14,7 +14,7 @@
 #   sbatch --dependency=afterany:JID1:JID2:JID3 pipeline/slurm/submit_b4b5_ensemble_analysis.sh
 set -euo pipefail
 
-REPO="/scratch-shared/schen3/benzoin-dg"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"
 ENV="/gpfs/scratch1/shared/schen3/envs/bde_lite"
 mkdir -p "$REPO/runs/logs"
 

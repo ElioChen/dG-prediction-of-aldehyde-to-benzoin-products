@@ -17,7 +17,7 @@
 #   sbatch --array=0-NCH%128 --output="$OUT/logs/bde_%a.out" \
 #     --export=ALL,WHICH=$WHICH,CHUNKSIZE=$CHUNKSIZE,OUTDIR=$OUT cross_benzoin/slurm/submit_bde_array.sh
 #
-REPO="/scratch-shared/schen3/benzoin-dg"; PY="/gpfs/scratch1/shared/schen3/envs/gnn/bin/python"
+REPO="${REPO:-/gpfs/scratch1/shared/schen3/benzoin-dg-restored}"; PY="/gpfs/scratch1/shared/schen3/envs/gnn/bin/python"
 XTB_BIN="/home/schen3/xtb/bin/xtb"
 WHICH="${WHICH:?set WHICH=aldehydes|products}"
 CHUNKSIZE="${CHUNKSIZE:-200}"
