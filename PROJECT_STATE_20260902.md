@@ -41,7 +41,16 @@ _一次性快照,回答 5 个具体问题:待补算任务、磁盘/inode 安全�
   (MAE 1.877→~1.83 CV / 2.16→2.07 holdout)不足以justify 1.3 万核时,除非要发论文时
   需要完整 9 轮曲线。等 round10 组装完、看 round10 是否带来实质提升再定。
 
-### 1.4 便宜的分析型待办(无需大算力,未做)
+### 1.4 便宜的分析型待办(无需大算力)
+- ✅ **homo dG 难尾巴 = g-xTB 基线失败**(已查,2026-09-02):150 个最差 P/磺酰基/亚胺/
+  酰胺分子上 |g-xTB 基线误差| mean|·| 13.9 kcal,corr(残差, 基线误差)=0.888。是基线
+  方法在高价 P/S 上崩,不是模型/标签问题。→ 推理时按子结构强制 route_to_dft。
+  详见 `pipeline/analysis/notes/gxtb_baseline_failure_hardtail_20260902.md`。
+- ✅ **homo 主动学习不会提升**(已查):pool-AL 不适用(库已全标注);难尾巴 Boltzmann
+  重标是 2× 确认的 null(冻结 MAE 10.01→10.13,boltz_corr ⟂ 残差)。详见
+  `memory/homo-active-relabel-null-result` + commit `7e1ebad`。
+- ⏳ **未做:推理时的 substructure→route_to_dft veto 规则**(P=O / 鏻盐 / 多磺酰基 / 多酰胺)。
+  当前路由器只按 ensemble std 挑 top 15%,基线失败分子可能"自信地错"漏网。零训练成本。
 - **醛 formyl C–H BDE 物理上限收紧**:`qc.py` 现在 `phys_max=250`、MAD k=6,漏掉了
   g-xTB 失败产生的 100–106 kcal/mol 毒标签(见
   `pipeline/bde/notes/nitro_delta_sp_bimodal_20260902.md`)。给醛侧单独加
@@ -106,13 +115,27 @@ _一次性快照,回答 5 个具体问题:待补算任务、磁盘/inode 安全�
   提升"的区间。
 
 **建议**:
-- **round10 值得跑完**(已在跑),把 learning curve 补到第 4 个点,给"是否继续"一个
-  有把握的判断,而不是靠外推。
+- **round10 值得跑完**(已在跑,并行会话 job `26320177 score_r10` 正在做 AL 打分),
+  把 learning curve 补到第 4 个点,给"是否继续"一个有把握的判断,而不是靠外推。
 - **round11 默认不做**,除非:(a) round10 的实测点明显偏离收窄趋势(还在快速下降);
-  或 (b) 目标从"降平均 MAE"转向"补特定弱项"——例如**含磷**(cross-dG 最大误差驱动,
-  MAE 4.14 ≈ 基线 2 倍)、含硒、多硝基这些子类数据仍稀疏,针对性地抽一轮
-  **functional-group-targeted** 的小批(2,000–4,000 对,只过采样弱项),比再抽一轮
-  类别均衡的大批更划算。
+  或 (b) 目标从"降平均 MAE"转向"补特定弱项"。
+
+**如果做 round11,用 hard-set 的证据做 targeted 采样(不是再抽一轮类别均衡大批)**:
+现有 AL 循环 = 6 类均衡 + 含磷 stratum(n=800)+ ensemble-std 打分。hard-set
+(`data/analysis/hard_set/`,8,150 行)显示 **cross-dG 的最差残差集中在**:
+`flexible`(2,692)> `fg:amide`(871)> **`gxtb_baseline_failure`(667)** > `fg:sulfonyl`
+(344)> `aliphatic`(284)> `fg:N_oxide`/`fg:nitro`/`fg:imine` > `fg:phosphorus`(20,
+已被 sampler 过采样所以在 hard-set 里反而少)。
+
+- 加 **amide-heavy / high-flexibility strata**(目前只有磷被单列)。
+- 加一个 **`gxtb_baseline_failure` 采集项**:`score_round_active_learning.py` 现在只按
+  epistemic uncertainty(ensemble std)排;基线失败的分子 ensemble std 可能很低
+  (全体成员看同一个坏基线,自信地错)。应额外按预测的 |dG_gxtb − dG_orca|(在已标注
+  数据上回归,或直接 SMARTS 标 P=O/鏻盐/多磺酰基)排一路,并入选池。
+- **这些基线失败分子在推理时要强制 route_to_dft**(见 §1.4 和
+  `pipeline/analysis/notes/gxtb_baseline_failure_hardtail_20260902.md`)——对它们,
+  再多训练数据也只是让 ML 修正学一个大 offset,治标;g-xTB 基线本身在高价 P/S 上不可靠
+  是根因。
 - 另一个比 round11 更值得的方向:**把 round8/9 标签补回来**(§1.3),先把已有数据用满,
   再谈新数据。
 
@@ -182,12 +205,31 @@ P 2.5×、imine 1.6×;产物侧还有 triflate、sulfonyl、amide)。**含磷是
 单一最大误差驱动**(MAE 4.14 ≈ 基线 2 倍)。部分残差疑似是 g-xTB 标签噪声下限
 (~2.1–2.7 kcal/mol 单构象)而非模型容量。
 
+**2026-09-02 更新**:homo dG 那部分残差已定性为 **g-xTB 基线失败**(不是标签噪声、
+不是模型容量)——见 §1.4。用 **hard-set dashboard**(`dashboard/`,数据
+`data/analysis/hard_set/hard_set.parquet`,8,150 行)按 cause 浏览全项目最难分子,
+每次重训后 `python pipeline/analysis/build_hard_set.py` 重建、`streamlit run
+dashboard/hard_set_app.py` 查看,Progress 页看哪些难点被克服。当前 cause 分布:
+`unexplained` 4,895 > `flexible` 2,692 > `fg:amide` 871 > `gxtb_baseline_failure` 667
+> `fg:sulfonyl` 344 > `high_uncertainty` 329 > `aliphatic` 284。
+
 ---
 
 ## 5. 需要长期记录 / 已同步的事项
 
 本文件 + 以下均已 commit 到 `agent/recovery-20260902`,并 rsync 到
 `/home/schen3/benzoin_backups/docs_snapshot_20260902/`:
+
+- `dashboard/` —— hard-set Streamlit 看板 + `pipeline/analysis/build_hard_set.py`
+- `pipeline/analysis/notes/gxtb_baseline_failure_hardtail_20260902.md`
+- `pipeline/bde/STATUS.md` —— BDE 子课题权威入口
+- `pipeline/bde/notes/nitro_delta_sp_bimodal_20260902.md`
+- `RECOVERY_REPORT_20260902.md` —— purge 恢复全过程
+- `cross_benzoin/docs/HANDOFF_round10_20260721_ZH.md` —— round10 配方 + learning curve
+- memory 文件(`~/.claude/.../memory/`):`homo-active-relabel-null-result`、
+  `bde-post-purge-asset-state`、
+  `rounds17-reproduction-confirmed`、`benzoin-dg-repo-moved-and-data-loss`、
+  `concurrent-cross-bde-session`(已更新为"单一项目"框架)、
 
 - `pipeline/bde/STATUS.md` —— BDE 子课题权威入口
 - `pipeline/bde/notes/nitro_delta_sp_bimodal_20260902.md`
