@@ -204,6 +204,25 @@ recovery commit `d1804ea`)。旧的 `/gpfs/scratch1/shared/schen3/benzoin-dg` �
   3. 结果 JSON/pred CSV/`.pt` 全部 `git add -f`,并加进
      `submit_backup_recovery_artifacts.sh` 的归档清单。
 
+  **→ 完整的阵列后 model sweep 计划见 `pipeline/bde/POST_ARRAY_MODEL_SWEEP.md`**
+  (2026-09-02 晚扩写:除 B6 ckpt 外还有 B6 5-seed deep ensemble + B4/B5 诚实重训 +
+  GBM head bake-off + Phase-3 3D 模型;Monitor task `bm8632d2g` 盯阵列出队)。
+
+### 🟢 2026-09-02 晚 — sweep 前置已就位(commits `826c0e9`, `ea7936e`)
+- **float-id 修复(`826c0e9`)**:purge 恢复把 `aldehydes_bdfe_gxtb_descriptors.csv` /
+  `aldehydes_scaffold_split_from_dG.csv` / `aldehydes_bde_alfabet.csv` 的 id 写成了
+  `2.0` 浮点格式,而重建的 `*_all.csv` 用 `2`。字符串 merge 会 **静默 inner-join 到 ~0 行**
+  —— 阵列后所有 B4/B5/B6 重训都会当场废掉。已加 `qc.norm_id()` 并在 4 个 trainer 的每个
+  id 列 read 后套用(**不改共用 CSV**,隔壁窗口也在读)。验证:label↔descriptor 重叠
+  0 → 42,307。隔壁窗口若也遇到 `2.0` id join 问题,同样用 `norm_id` 或先规范化再 join。
+- **增量几何归档(staging job `26324608`,`archive_completed_chunk_geoms.sh`)**:每个
+  完成的 chunk 的 `xyz/`+`ald_xyz/` 打包成校验过的 `geom.tar.zst` 再删散文件,跑的过程中
+  持续回收 inode(~200/chunk)。**取代 HANDOFF §2.2.2 的 `rm -rf`**——用户要求压缩保留
+  几何(Phase-3 3D 模型要用)。~3.3× 体积压缩,完成时 ~45 万 inode → ~2200。
+- **GBM head bake-off 首screen**(partial 42k,7 个 adch_/qtaim_ 特征在 partial 库里还是
+  常数,所以绝对 MAE ~3.5 偏高):HistGB 3.501 / ExtraTrees 3.542 / RF 3.599 / XGB 3.630。
+  → 全量重跑时把 **HistGradientBoosting** 一起带上(比现任 XGB 稳定低 ~3–4% MAE,还快)。
+
 ### 🟡 进行中 — 选项 C 分析
 - **nitro 双峰 Δ_SP**:已细查(见 `pipeline/bde/notes/nitro_delta_sp_bimodal_20260902.md`)。
   结论:18 个 nitro 里 5 个 Δ_SP 为正的,`bde_gxtb_kcal` 均值 101.6(vs 负组 69.0),
@@ -215,7 +234,8 @@ recovery commit `d1804ea`)。旧的 `/gpfs/scratch1/shared/schen3/benzoin-dg` �
   (round8/9 的 DFT 标签在 purge 中丢失、无副本,见
   `memory/benzoin_dg_repo_moved_and_data_loss.md`;round10 还在隔壁 featurize)。暂挂起。
 - **Phase 3 3D 反应差分模型**:`pipeline/analysis/gnn3d_schnet_dimenet.py` 已存在骨架,
-  待描述符库重建完再评估。
+  待描述符库重建完再评估。**几何现在会保留**(见上,`geom.tar.zst`),不再需要为此
+  单独重算几何 —— sweep step 5,先把 `chunk_*/geom.tar.zst` 解到平铺目录。
 
 ---
 
