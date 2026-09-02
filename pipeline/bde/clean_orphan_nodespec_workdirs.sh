@@ -37,12 +37,19 @@ COUNT_INODES="${COUNT_INODES:-0}"   # 1 = tally freed inodes (slower)
 sweep() {
   local alive_n orphans=0 kept=0 freed=0
   declare -A ALIVE
+  # (a) array form  <arrayjob>_<task>  and its bare <arrayjob>
   while IFS= read -r j; do
     j=${j%%+*}
     [[ -n "$j" ]] || continue
     ALIVE["$j"]=1
     ALIVE["${j%%_*}"]=1
   done < <(squeue -u "$USER_NAME" -h -r -o "%i" 2>/dev/null)
+  # (b) RAW per-task JobIDs (Snellius gives each array task its own numeric JobID, and
+  #     some jobs name their /scratch-local dir schen3.<rawjobid> not schen3.<arrayjob>_<task>)
+  while IFS= read -r j; do
+    j=$(echo "$j" | tr -dc '0-9_')
+    [[ -n "$j" ]] && ALIVE["$j"]=1
+  done < <(squeue -u "$USER_NAME" -h -r -O JobID 2>/dev/null)
   alive_n=${#ALIVE[@]}
 
   while IFS= read -r d; do
