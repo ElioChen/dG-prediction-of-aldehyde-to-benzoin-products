@@ -31,7 +31,12 @@ import pandas as pd
 # columns train_cross_delta/-ensemble need besides the features themselves
 META = ["id", "donor_id", "acceptor_id", "pair_key", "reaction_type", "round",
         "donor_smiles", "acceptor_smiles", "smiles",
-        "dG_xtb_kcal", "dG_gxtb_kcal", "dG_orca_kcal", "scaffold_split"]
+        "dG_xtb_kcal", "dG_gxtb_kcal", "dG_orca_kcal",
+        # relabel_scaffold_split_*rounds.py writes "new_scaffold_split"; that exact
+        # name is what train_scaffold_disjoint.py / verify_and_bootstrap_*.py read.
+        # The stale "scaffold_split"-only list silently dropped the split column ->
+        # train_scaffold_disjoint KeyError (r19_retrain 26362229, 2026-09-04).
+        "new_scaffold_split", "scaffold_split"]
 
 
 def main() -> int:
