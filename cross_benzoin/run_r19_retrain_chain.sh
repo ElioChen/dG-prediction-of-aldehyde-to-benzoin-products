@@ -9,15 +9,10 @@
 #
 #   bash cross_benzoin/run_r19_retrain_chain.sh
 #
-# ⚠️ KNOWN GAP (blocks step [2]): the relabel input
-#   data/cross_benzoin/candidates_v3/aldehydes_with_scaffold_split.parquet
-# is a purge stub (133-byte .gz placeholders in candidates_v3/). Rebuild it before
-# running this: molecule-level scaffold_split lives in
-#   data/cross_benzoin/homo_v6/aldehydes_scaffold_split_from_dG.csv  (id, scaffold, scaffold_split; 220k rows)
-# join id -> SMILES via data/library/aldehydes_clean_v6.csv (mind the "2.0" float-id
-# bug -> use qc.norm_id), emit a parquet with columns SMILES + scaffold_split, which
-# is what relabel_scaffold_split_9rounds.py reads. Needs an env with pyarrow
-# (/home/schen3/venv/nequip has it; nhc-workflow does not).
+# step [2]'s relabel input candidates_v3/aldehydes_with_scaffold_split.parquet was a
+# purge stub; REBUILT 2026-09-03 by cross_benzoin/rebuild_aldehydes_with_scaffold_split.py
+# (220,524 rows, 80/10/10). Re-run that script if it ever goes missing again.
+# Run this chain with PY=/home/schen3/venv/nequip/bin/python (has pyarrow/sklearn/xgboost).
 #
 set -euo pipefail
 REPO="/gpfs/scratch1/shared/schen3/benzoin-dg-restored"
@@ -85,6 +80,6 @@ sbatch --job-name=gnn_attn_9r_cpu --partition=fat_rome --nodes=1 --ntasks=1 \\
       --table $R9/cross_train_table_9rounds_scaffold_split_labeled_slim260.parquet \\
       --champion-dir $R9/scaffold_disjoint_9rounds_v1 \\
       --ensemble-path $R9/scaffold_disjoint_9rounds_v1/models/cross_ensemble_model.joblib \\
-      --outdir $R9/gnn_attentive_9rounds_recovered_v1 \\
+      --outdir $R9/gnn_attentive_9rounds_v1 \\
       --arch attentive --hidden 128 --layers 4 --lr 3e-4 --seed 0'
 EOF

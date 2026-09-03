@@ -38,10 +38,16 @@ SLIM="$R9/cross_train_table_9rounds_scaffold_split_labeled_slim260.parquet"
 CH="$R9/scaffold_disjoint_9rounds_v1"
 if [[ -s "$SLIM" && -d "$CH" ]]; then
   echo "submitting r1-9 attentive GNN retrain"
-  sbatch --job-name=gnn_attn_9r_cpu --partition=fat_rome --nodes=1 --ntasks=1 \
+  GNN_JID=$(sbatch --parsable --job-name=gnn_attn_9r_cpu --partition=fat_rome --nodes=1 --ntasks=1 \
     --cpus-per-task=32 --mem=120G --time=10:00:00 \
     --output="$REPO/slurm_logs/gnn_attn_9r_cpu_%j.out" \
-    --wrap="source /etc/profile; module load 2023; export OMP_NUM_THREADS=32 OPENBLAS_NUM_THREADS=32 MKL_NUM_THREADS=32; cd $REPO && $PY -u cross_benzoin/train_cross_gnn_arch_sweep.py --table $SLIM --champion-dir $CH --ensemble-path $CH/models/cross_ensemble_model.joblib --outdir $R9/gnn_attentive_9rounds_recovered_v1 --arch attentive --hidden 128 --layers 4 --lr 3e-4 --seed 0"
+    --wrap="source /etc/profile; module load 2023; export OMP_NUM_THREADS=32 OPENBLAS_NUM_THREADS=32 MKL_NUM_THREADS=32; cd $REPO && $PY -u cross_benzoin/train_cross_gnn_arch_sweep.py --table $SLIM --champion-dir $CH --ensemble-path $CH/models/cross_ensemble_model.joblib --outdir $R9/gnn_attentive_9rounds_v1 --arch attentive --hidden 128 --layers 4 --lr 3e-4 --seed 0")
+  echo "  GNN job = $GNN_JID"
+  if [[ -n "$GNN_JID" ]]; then
+    POST_JID=$(sbatch --parsable --dependency=afterany:"$GNN_JID" \
+      cross_benzoin/slurm/submit_r19_post_gnn.sh)
+    echo "  post-GNN (bootstrap + round10 rescore + round10 SP) job = $POST_JID (afterany:$GNN_JID)"
+  fi
 else
   echo "SLIM/champion-dir missing after chain -- GNN not submitted"
 fi
