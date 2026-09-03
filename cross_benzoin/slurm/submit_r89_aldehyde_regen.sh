@@ -61,12 +61,26 @@ lo, hi = i*chunk, min((i+1)*chunk, len(df))
 print(f"chunk {i}: rows {lo}:{hi}")
 PY
 
-# resume guard: finished chunk has >= (n_rows) aldehyde rows
+# resume guard: a finished chunk has >= N_ROWS ERROR-FREE aldehyde rows. Counting
+# raw rows (as an earlier version did) let a chunk full of errored rows from the
+# cancelled broken-GXTB attempt-1 be trusted and skipped -> the 26351006 task 15-41
+# hole (see RUN_LOG 2026-09-03 18:16). Count only rows whose `error` column is empty.
 N_ROWS=$(($(wc -l < "$SLICE") - 1))
 N_DONE=0
-[[ -f "$TASK_OUT/aldehydes.csv" ]] && N_DONE=$(($(wc -l < "$TASK_OUT/aldehydes.csv") - 1))
+if [[ -f "$TASK_OUT/aldehydes.csv" ]]; then
+  N_DONE=$("$VENV/bin/python" - "$TASK_OUT/aldehydes.csv" <<'PY'
+import sys, pandas as pd
+try:
+    d = pd.read_csv(sys.argv[1])
+    e = d["error"] if "error" in d.columns else pd.Series([None]*len(d))
+    print(int((e.isna() | (e.astype(str).str.strip() == "")).sum()))
+except Exception:
+    print(0)
+PY
+)
+fi
 if [[ "$N_ROWS" -gt 0 && "$N_DONE" -ge "$N_ROWS" ]]; then
-  echo "chunk $ID already done ($N_DONE/$N_ROWS) - skip"; exit 0
+  echo "chunk $ID already done ($N_DONE/$N_ROWS error-free) - skip"; exit 0
 fi
 
 if [[ -d /scratch-local ]]; then export TMPDIR="/scratch-local/${USER}.${SLURM_ARRAY_JOB_ID}_${ID}"
