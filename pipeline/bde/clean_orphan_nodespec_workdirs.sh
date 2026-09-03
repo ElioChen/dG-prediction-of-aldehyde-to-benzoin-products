@@ -54,7 +54,13 @@ sweep() {
     b=$(basename "$d"); id=${b#schen3.}; jid=${id%%_*}
     grep -qxF "$id" "$alive_file" && continue
     grep -qxF "$jid" "$alive_file" && continue
-    [ -n "$(find "$d" -maxdepth 0 -mmin -"$KEEP_MIN" 2>/dev/null)" ] && continue
+    # Grace guard: keep if ANYTHING in the subtree was modified in the last KEEP_MIN
+    # minutes, not just the top dir. NHC's layout reuses one schen3.<jobid> per node
+    # across sibling array tasks (schen3.<jobid>/nhc-global-sp-<jobid>-<task>/...), so a
+    # live task writing grandchild files never bumps the top dir's mtime -- a top-only
+    # check reaps its scratch mid-run once <jobid> leaves squeue (memory
+    # clean-node-orphans-race). -quit stops at the first fresh hit so this stays cheap.
+    [ -n "$(find "$d" -mmin -"$KEEP_MIN" -print -quit 2>/dev/null)" ] && continue
     printf '%s\0' "$d"
   done > "$list"
   local n; n=$(tr -cd '\0' < "$list" | wc -c)
