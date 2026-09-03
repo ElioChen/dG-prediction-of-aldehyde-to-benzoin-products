@@ -90,6 +90,35 @@ else
     echo "  not present, skipped"
 fi
 
+# 5b. rounds 8-9 DFT-label recovery (2026-09-03). The product r2SCAN-3c SP chunks
+#     under data/raw/dft_sp_cross/cross_round{8,9}/sp_products/ are already inside
+#     tarball #2, but these thermal/geom sidecars + the regenerated aldehyde
+#     funnel_v3 geometries (SLURM 26351006) are not, and the aldehyde geom+thermal
+#     is real xTB compute lost in the purge with no prior backup.
+arc r89_dft_recovery_sidecars \
+    data/cross_benzoin/cross_round8_recover \
+    data/cross_benzoin/cross_round9_recover \
+    data/cross_benzoin/r89_aldehyde_recover/aldehyde_geom_list.csv \
+    data/cross_benzoin/r89_aldehyde_recover/aldehyde_thermal.csv
+echo "--- r89_aldehyde_regen_geometry ---"
+if [[ -d data/cross_benzoin/r89_aldehyde_regen ]]; then
+    tar -czf "$DEST/r89_aldehyde_regen_geometry.tar.gz" \
+        data/cross_benzoin/r89_aldehyde_regen/r89_aldehyde_todo.csv \
+        data/cross_benzoin/r89_aldehyde_regen/chunk_*/aldehydes.csv \
+        data/cross_benzoin/r89_aldehyde_regen/chunk_*/xyz_ald 2>/dev/null
+    ls -lh "$DEST/r89_aldehyde_regen_geometry.tar.gz"
+else
+    echo "  not present, skipped"
+fi
+
+# 6. the rebuilt rounds1-7 training table + reproduction retrain (the recovery's
+#    validation result: MAE 1.877 vs historical 1.883, see
+#    [[rounds17-reproduction-confirmed]] in Claude memory). The full unpruned table
+#    is skipped (585 cols, superseded by the 260-feature slim one actually used).
+arc rounds17_recovered_table_and_model \
+    data/cross_benzoin/cross_round7/cross_train_table_7rounds_recovered_slim260.parquet \
+    data/cross_benzoin/cross_round7/train_ensemble_7rounds_recovered_v1
+
 echo
 echo "Done $(date)"
 echo "--- archive listing ---"
