@@ -79,7 +79,7 @@ sbatch --job-name=gnn_attn_9r_cpu --partition=fat_rome --nodes=1 --ntasks=1 \\
     cd $REPO && $NEQUIP_PY -u cross_benzoin/train_cross_gnn_arch_sweep.py \\
       --table $R9/cross_train_table_9rounds_scaffold_split_labeled_slim260.parquet \\
       --champion-dir $R9/scaffold_disjoint_9rounds_v1 \\
-      --ensemble-path $R9/scaffold_disjoint_9rounds_v1/models/cross_ensemble_model.joblib \\
+      --ensemble-path $R9/scaffold_disjoint_9rounds_v1/models/ensemble_scaffold_disjoint.joblib \\
       --outdir $R9/gnn_attentive_9rounds_v1 \\
       --arch attentive --hidden 128 --layers 4 --lr 3e-4 --seed 0'
 EOF
