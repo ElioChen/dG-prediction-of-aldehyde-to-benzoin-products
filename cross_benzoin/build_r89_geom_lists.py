@@ -101,31 +101,45 @@ def build_aldehydes(rounds: list[int]) -> None:
     for ch, chunk_ids in sorted(by_chunk.items()):
         cdir = WINDOW_A / f"chunk_{ch:04d}"
         tar = cdir / "geom.tar.zst"
+        loose = cdir / "ald_xyz"          # present until geomarch tars the chunk
         acsv = cdir / "aldehydes.csv"
-        if not (tar.exists() and acsv.exists()):
+        if not (acsv.exists() and (loose.is_dir() or tar.exists())):
             pending += len(chunk_ids)
             continue
         adf = pd.read_csv(acsv)
-        # aldehydes.csv row order == pairs.csv row order == within-chunk geom index
-        adf = adf.reset_index(drop=True)
+        # Window A: pairs.csv row j has lib_id = chunk*100 + j (verified). aldehydes.csv's
+        # `index` column == lib_id % 100 == within-chunk position == the geom file number
+        # (a{NN:06d}.xyz), and only rows for successfully-featurized aldehydes are present.
         idcol = "index" if "index" in adf.columns else adf.columns[0]
+        adf = adf[pd.to_numeric(adf[idcol], errors="coerce").notna()].copy()
+        adf[idcol] = adf[idcol].astype(float).astype(int)
+        byrow = adf.set_index(idcol)
         for i in chunk_ids:
-            hit = adf.index[adf[idcol].astype("Int64") == i].tolist()
-            if not hit:
+            within = i % 100
+            if within not in byrow.index:
                 pending += 1
                 continue
-            row = hit[0]
-            member = f"ald_xyz/a{row:06d}.xyz"
+            rec = byrow.loc[within]
+            if hasattr(rec, "iloc") and getattr(rec, "ndim", 1) > 1:
+                rec = rec.iloc[0]
+            member = f"ald_xyz/a{within:06d}.xyz"
             dst = outd / "ald_xyz" / f"a{i:08d}.xyz"
             if not dst.exists():
-                rc = subprocess.run(["tar", "--zstd", "-xf", str(tar), "-O", member],
-                                    capture_output=True)
-                if rc.returncode != 0 or not rc.stdout:
+                src = loose / f"a{within:06d}.xyz"
+                if src.exists():
+                    dst.write_bytes(src.read_bytes())
+                elif tar.exists():
+                    rc = subprocess.run(["tar", "--zstd", "-xf", str(tar), "-O", member],
+                                        capture_output=True)
+                    if rc.returncode != 0 or not rc.stdout:
+                        pending += 1
+                        continue
+                    dst.write_bytes(rc.stdout)
+                else:
                     pending += 1
                     continue
-                dst.write_bytes(rc.stdout)
-            g = adf.at[row, "G_ald_xtb"] if "G_ald_xtb" in adf.columns else adf.at[row, "G_xtb"]
-            e = adf.at[row, "xtb_energy"]
+            g = rec["G_ald_xtb"] if "G_ald_xtb" in adf.columns else rec["G_xtb"]
+            e = rec["xtb_energy"]
             if pd.isna(g) or pd.isna(e):
                 pending += 1
                 continue
