@@ -21,7 +21,10 @@ def _format_champion(pred) -> str:
     if pred.dG_pred is None:
         return f"{pred.smiles}\n  ERROR: {pred.error}"
     verdict = "FAVORABLE  (ΔG<0)" if pred.dG_pred < 0 else "unfavorable (ΔG>0)"
-    route = "route-to-DFT" if pred.route_to_dft else "model-use"
+    if pred.route_to_dft:
+        route = "route-to-DFT" + (f": {pred.route_reason}" if pred.route_reason else "")
+    else:
+        route = "model-use"
     return (f"{pred.smiles}\n"
             f"  ΔG = {pred.dG_pred:+6.1f} kcal/mol   {verdict}\n"
             f"  uncertainty: {pred.uncertainty:.2f}   ({route})\n"

@@ -44,6 +44,14 @@ g-xTB 失败,是**同一个根因**:g-xTB 在高价 P/S、强极性多官能团�
    不确定性多低,**直接 route_to_dft**。当前路由器只按 ensemble std 挑 top 15%,
    这些 baseline-failure 分子不一定 std 大(模型可能"自信地错")。加一个 substructure
    veto 规则即可,零训练成本。
+   **✅ 已实现(2026-09-03)**:`src/benzoin_dG/_baseline_failure.py`。veto 集比 note 原文
+   稍宽——用**任意** `[#15]`(诊断表里 bare P 17.2 是最差一行,`[#15]` 同时覆盖 P=O /
+   鏻盐 / 裸 P)+ **单个** sulfonyl(n=37 仍 15.7,系统性)+ **≥2** amide(单酰胺常见且
+   只有 14.4,留给不确定性路由)。`predict_dG_champion` 的 `route_to_dft` 现在是
+   `uncertainty ≥ 阈值` **OR** `veto`,新增 `route_reason` 字段("uncertainty" /
+   "gxtb_baseline_failure:<groups>" / 两者)。对着 150 分子诊断表:veto 命中 138/150
+   (未命中的 12 个全是 imine-only / 单酰胺——即刻意排除的类;imine 10.0 kcal 是最轻的
+   失败组,留作 round-11 数据支持后再收紧的候选)。test:`tests/test_smoke.py::test_baseline_failure_veto_smarts`。
 2. **在 hard-set 里单列一类** `gxtb_baseline_failure`(见 `build_hard_set.py`),
    和"特征不够"、"构象噪声"、"scaffold 新"分开,别混着当"模型难例"。
 3. 换基线不值得:GFN2 对产物过稳定 ~15 kcal,也不行;没有更好的便宜半经验方法。

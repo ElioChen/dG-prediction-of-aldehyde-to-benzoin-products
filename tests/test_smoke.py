@@ -58,3 +58,29 @@ def test_cli_rejects_conflicting_tiers(capsys):
     assert main(["O=Cc1ccccc1", "--fast", "--champion"]) == 2
     assert "choose only one" in capsys.readouterr().err
 
+
+def test_baseline_failure_veto_smarts():
+    from benzoin_dG._baseline_failure import (
+        baseline_failure_groups,
+        baseline_failure_reason,
+    )
+
+    # clean aromatic aldehydes -> no veto
+    assert baseline_failure_groups("O=Cc1ccccc1") == []
+    assert baseline_failure_reason("O=Cc1ccc(OC)cc1") == ""
+    # a single amide is NOT force-routed (common; left to the uncertainty router)
+    assert baseline_failure_groups("O=Cc1ccc(NC(C)=O)cc1") == []
+
+    # phosphine oxide / phosphonium / bare P -> phosphorus veto
+    assert "phosphorus" in baseline_failure_groups("O=Cc1ccc(cc1)P(=O)(c1ccccc1)c1ccccc1")
+    assert "phosphorus" in baseline_failure_groups("O=Cc1ccc(cc1)[P+](c1ccccc1)(c1ccccc1)c1ccccc1")
+    # sulfonyl at a single instance -> veto
+    assert baseline_failure_groups("O=Cc1ccc(cc1)S(=O)(=O)C") == ["sulfonyl"]
+    # two amide bonds -> poly_amide veto
+    assert "poly_amide" in baseline_failure_groups("O=Cc1ccc(cc1)NC(=O)CNC(C)=O")
+
+    r = baseline_failure_reason("O=Cc1ccc(cc1)S(=O)(=O)C")
+    assert r.startswith("gxtb_baseline_failure:") and "sulfonyl" in r
+    # bad input is tolerated
+    assert baseline_failure_groups("not a smiles", None, "") == []
+

@@ -220,7 +220,12 @@ def predict_dG_champion(smiles: str, *, xtb_bin: str | None = None,
     both the aldehyde and its self-condensation product (no Multiwfn needed).
     Returns a `_ensemble72_inference.ChampionPrediction` with `dG_pred`,
     `dG_gxtb` baseline, `dG_correction`, a quantile-PI `uncertainty`, and a
-    `route_to_dft` flag (the shipped model's own most-uncertain-15% cutoff).
+    `route_to_dft` flag. The flag fires on the shipped model's own
+    most-uncertain-15% cutoff OR when the molecule hits a g-xTB
+    baseline-failure substructure (P / sulfonyl / poly-amide — see
+    `_baseline_failure`), where the Δ-learning baseline is broken by
+    10–17 kcal/mol yet the ensemble can be confidently narrow; `route_reason`
+    says which.
     """
     from . import _ensemble72_inference as _e72
     if not _e72.available():

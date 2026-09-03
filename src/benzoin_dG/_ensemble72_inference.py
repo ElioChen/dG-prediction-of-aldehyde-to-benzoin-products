@@ -77,7 +77,8 @@ class ChampionPrediction:
     dG_gxtb: float | None
     dG_correction: float | None
     uncertainty: float | None = None    # quantile-PI width (0.95-0.05), same units as ΔG
-    route_to_dft: bool | None = None    # True => uncertainty above the shipped routing threshold
+    route_to_dft: bool | None = None    # True => send to DFT instead of trusting the model
+    route_reason: str = ""              # "uncertainty" | "gxtb_baseline_failure:<groups>" | both
     error: str = ""
 
 
@@ -185,8 +186,17 @@ def predict_dG_champion(smiles: str, *, xtb_bin: str | None = None,
         correction = float(result["correction"])
         width = float(result["uncertainty"])
         route = bool(result["route_to_dft"])
+        # Substructure veto: force route-to-DFT on the g-xTB baseline-failure tail
+        # even when the ensemble is (confidently) narrow -- see _baseline_failure.
+        from ._baseline_failure import baseline_failure_reason
+        veto = baseline_failure_reason(smiles, bz)
+        reason = "uncertainty" if route else ""
+        if veto:
+            route = True
+            reason = veto if not reason else f"uncertainty+{veto}"
         dG_pred = dG_gxtb + correction
         return ChampionPrediction(smiles, bz, dG_pred, dG_gxtb, correction,
-                                  uncertainty=width, route_to_dft=route)
+                                  uncertainty=width, route_to_dft=route,
+                                  route_reason=reason)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
