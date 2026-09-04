@@ -38,9 +38,12 @@ OUTD = REPO / "data/cross_benzoin/r89_aldehyde_recover"
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--regen-dir", default=str(REGEN))
+    ap.add_argument("--out-dir", default=str(OUTD),
+                    help="dir for aldehyde_geom_list.csv + aldehyde_thermal.csv")
     ap.add_argument("--check-xyz", action="store_true",
                     help="drop rows whose xyz_file is missing on disk")
     args = ap.parse_args()
+    out_dir = Path(args.out_dir)
 
     files = sorted(glob.glob(f"{args.regen_dir}/chunk_*/aldehydes.csv"))
     if not files:
@@ -70,18 +73,18 @@ def main() -> int:
 
     df["thermal_ald_Eh"] = df["G_xtb"] - df["xtb_energy"]
 
-    OUTD.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     df[["id", "xyz_path"]].sort_values("id").to_csv(
-        OUTD / "aldehyde_geom_list.csv", index=False)
+        out_dir / "aldehyde_geom_list.csv", index=False)
     df[["id", "thermal_ald_Eh"]].sort_values("id").to_csv(
-        OUTD / "aldehyde_thermal.csv", index=False)
+        out_dir / "aldehyde_thermal.csv", index=False)
 
     print(f"{len(files)} chunks, {n_raw} raw aldehyde rows -> {len(df)} unique "
           f"error-free ids with xTB thermal")
     print(f"  thermal_ald_Eh: mean {df.thermal_ald_Eh.mean():.5f} "
           f"min {df.thermal_ald_Eh.min():.5f} max {df.thermal_ald_Eh.max():.5f}")
-    print(f"  -> {OUTD}/aldehyde_geom_list.csv")
-    print(f"  -> {OUTD}/aldehyde_thermal.csv")
+    print(f"  -> {out_dir}/aldehyde_geom_list.csv")
+    print(f"  -> {out_dir}/aldehyde_thermal.csv")
     return 0
 
 
