@@ -4,9 +4,12 @@
 geom_bias_worker measured only E(product). This does the full three-species ΔΔG:
 
   for each of product / donor / acceptor:
-      ETKDGv3(seed42) -> MMFF -> SAME start structure ->
-        GFN2 opt  (xtb --gfn 2 --opt) -> r2SCAN-3c SP  = E_gfn2
-        g-xTB opt (xtb --gxtb  --opt) -> r2SCAN-3c SP  = E_gxtb
+      ETKDGv3(seed42) -> MMFF -> GFN2 opt          -> r2SCAN-3c SP  = E_gfn2
+                              -> g-xTB opt FROM the GFN2 minimum -> r2SCAN-3c SP = E_gxtb
+  (g-xTB REFINES the GFN2 structure, it does not re-search -- otherwise the two
+   optimisers land in different conformers and ddG is just conformer noise, not the
+   geometry-method bias. v1 used independent opts from a shared seed -> product RMSD
+   ~0.9 A, ddG ~ conformer noise. This version keeps per-species RMSD small.)
   dG_gfn2 = (E_prod_gfn2 - E_don_gfn2 - E_acc_gfn2) * HARTREE
   dG_gxtb = (E_prod_gxtb - E_don_gxtb - E_acc_gxtb) * HARTREE
   ddG = dG_gxtb - dG_gfn2   <-- the label bias from the geometry method, AFTER the
@@ -50,9 +53,11 @@ def _seed_xyz(smiles: str) -> str | None:
     return "\n".join(lines) + "\n"
 
 
-def _opt(seed_xyz: str, wd: Path, flavour: str) -> str | None:
+def _opt(start_xyz: str, wd: Path, flavour: str) -> str | None:
+    """flavour 'gfn2' -> GFN2 opt from `start_xyz`; 'gxtb' -> g-xTB opt from `start_xyz`
+    (pass the GFN2-optimised structure so g-xTB only refines it)."""
     wd.mkdir(parents=True, exist_ok=True)
-    (wd / "in.xyz").write_text(seed_xyz)
+    (wd / "in.xyz").write_text(start_xyz)
     flag = ["--gxtb", "--opt", "tight"] if flavour == "gxtb" else ["--gfn", "2", "--opt", "tight"]
     r = subprocess.run([XTB, "in.xyz", *flag, "--chrg", "0"], cwd=wd,
                        capture_output=True, text=True, timeout=3600)
@@ -106,17 +111,16 @@ def main() -> int:
                 seed = _seed_xyz(smi)
                 if seed is None:
                     rec["error"] = f"embed fail {role}"; ok = False; break
-                geoms = {}
-                for fl in ("gfn2", "gxtb"):
-                    wd = wroot / f"{r.Index}_{role}_{fl}"
-                    g = _opt(seed, wd / "opt", fl)
-                    if g is None:
-                        rec["error"] = f"{fl} opt fail {role}"; ok = False; break
-                    geoms[fl] = g
-                    E[fl][role] = _sp(g, wd / "sp")
-                if not ok:
-                    break
-                rms[role] = _rmsd(geoms["gfn2"], geoms["gxtb"])
+                wdr = wroot / f"{r.Index}_{role}"
+                g_gfn2 = _opt(seed, wdr / "opt_gfn2", "gfn2")
+                if g_gfn2 is None:
+                    rec["error"] = f"gfn2 opt fail {role}"; ok = False; break
+                g_gxtb = _opt(g_gfn2, wdr / "opt_gxtb", "gxtb")   # refine the GFN2 minimum
+                if g_gxtb is None:
+                    rec["error"] = f"gxtb opt fail {role}"; ok = False; break
+                E["gfn2"][role] = _sp(g_gfn2, wdr / "sp_gfn2")
+                E["gxtb"][role] = _sp(g_gxtb, wdr / "sp_gxtb")
+                rms[role] = _rmsd(g_gfn2, g_gxtb)
             if ok and all(E[fl][x] is not None for fl in E for x in ("prod", "don", "acc")):
                 dg = {fl: (E[fl]["prod"] - E[fl]["don"] - E[fl]["acc"]) * HK for fl in E}
                 rec["dG_gfn2geom_kcal"] = dg["gfn2"]
