@@ -6,7 +6,7 @@ Reuses thermo_orca._xtb_opt_energy + calc_orca_sp (same level as the labels)."""
 import argparse, os, shutil, sys, time
 from pathlib import Path
 import numpy as np, pandas as pd
-sys.path.insert(0, "/scratch-shared/schen3/benzoin-dg/pipeline/compute")
+sys.path.insert(0, "/gpfs/scratch1/shared/schen3/benzoin-dg-restored/pipeline/compute")
 import conf_funnel_v3  # noqa: F401  (import BEFORE thermo_orca to break the funnel↔thermo circular import)
 import thermo_orca as T
 from rdkit import Chem, RDLogger
