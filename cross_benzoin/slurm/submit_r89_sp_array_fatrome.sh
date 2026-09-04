@@ -46,6 +46,15 @@ export PATH="/home/schen3/orca:$PATH"
 export LD_LIBRARY_PATH="/home/schen3/orca:${LD_LIBRARY_PATH:-}"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 
+# Per-SP ORCA scratch must NOT land on the shared /gpfs/scratch1 tree (inode quota
+# is account-wide; a full run of 48-worker ORCA scratch there can blow it). Pin
+# TMPDIR to node-local /scratch-local so orca_sp_from_geomlist.py's mkdtemp goes
+# there; SLURM epilog + the script's own rmtree clean it. See the 2026-09-04 inode
+# post-mortem in RUN_LOG.
+if [[ -d /scratch-local ]]; then export TMPDIR="/scratch-local/${USER}.${SLURM_JOB_ID:-$$}.${SLURM_ARRAY_TASK_ID:-0}"
+else export TMPDIR="/tmp/${USER}.${SLURM_JOB_ID:-$$}.${SLURM_ARRAY_TASK_ID:-0}"; fi
+mkdir -p "$TMPDIR"; trap 'rm -rf "$TMPDIR"' EXIT TERM INT HUP QUIT
+
 ID=${SLURM_ARRAY_TASK_ID:-0}; SKIP=$(( ID * CHUNK )); TAG=$(printf "chunk_%05d" "$ID")
 echo "r89_sp $TAG skip=$SKIP chunk=$CHUNK workers=$WORKERS list=$GEOM_LIST node=${SLURMD_NODENAME} $(date)"
 $PY -u "$REPO/cross_benzoin/orca_sp_from_geomlist.py" \
