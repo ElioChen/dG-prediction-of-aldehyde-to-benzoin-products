@@ -13,7 +13,7 @@ PY=/home/schen3/venv/nhc-workflow/bin/python
 SAMP="$REPO/data/cross_benzoin/dg_geom_method/sample.csv"
 OUTD="$REPO/data/cross_benzoin/dg_geom_method/chunks"
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null
-export PATH="/home/schen3/xtb/bin:/home/schen3/orca:$PATH" OMP_NUM_THREADS=1 XTB_BIN=/home/schen3/xtb/bin/xtb
+export PATH="/home/schen3/xtb/bin:/home/schen3/orca:$PATH" OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 XTB_BIN=/home/schen3/xtb/bin/xtb
 export XTBPATH=/home/schen3/xtb/share/xtb
 cd "$REPO"
 # 60 pairs, 10 workers/task, 6 tasks
