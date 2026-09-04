@@ -54,3 +54,29 @@ r1-7 recovered (2026-09, post-purge; GNN null, w_gnn=0) → r1-9 (2026-09-04; r8
 DFT labels recovered from scratch; **GNN becomes useful, w_gnn=0.40, P=0.995**) →
 **r1-10** (2026-09-04; + round10 AL batch; w_gnn=0.50, P=0.999).
 Full log: `RUN_LOG_20260903.md`.
+
+## Predicting ΔG for new aldehyde pairs
+
+**Assemble+predict half** (validated, MAE 1.65 on 5 known round10 pairs — reproduces
+the training featurization chain): if you already have a
+`cross_round*_dft_products.csv`-schema file (id, donor_id, acceptor_id,
+donor_smiles, acceptor_smiles, smiles, xtb_*, dG_gxtb_kcal, …):
+
+```
+/home/schen3/venv/nequip/bin/python cross_benzoin/predict_dg.py \
+    --products-csv <pairs_products.csv> --out preds.csv
+```
+→ `preds.csv`: id, …, `dG_pred_kcal`, `ens_member_sigma` (cheap 3-learner spread,
+not the full bootstrap epistemic estimate).
+
+**From scratch** (new pairs, needs the slow GFN2-xTB geometry — newly wired, not yet
+tested on genuinely novel pairs):
+
+```
+sbatch cross_benzoin/slurm/submit_predict_dg.sh <pairs.csv> <workdir> <out.csv>
+# pairs.csv: donor_id,acceptor_id,donor_smiles,acceptor_smiles
+```
+
+Aldehydes must be in `data/library` (donor_*/acceptor_* descriptors are pulled from
+the 220k library by canonical SMILES); `bde_gxtb_kcal` is pulled from any prior
+round's `bde_gxtb/` for known products, NaN (median-filled) otherwise.
