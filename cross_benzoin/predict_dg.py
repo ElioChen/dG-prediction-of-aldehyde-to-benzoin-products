@@ -25,7 +25,7 @@ wired here).
   python cross_benzoin/predict_dg.py --products-csv <workdir>/products_for_assemble.csv --out preds.csv
 """
 from __future__ import annotations
-import argparse, json, subprocess, sys, tempfile
+import argparse, json, shutil, subprocess, sys, tempfile
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -89,8 +89,11 @@ def main() -> int:
     ap.add_argument("--gnn-dir", default=str(GNN))
     args = ap.parse_args()
 
+    r99 = REPO / "data/cross_benzoin/cross_round99"
+    d99 = REPO / "data/raw/dft_sp_cross/cross_round99"
     with tempfile.TemporaryDirectory(dir=REPO / "data/cross_benzoin") as td:
-        tmp = Path(td)
+      tmp = Path(td)
+      try:
         _stage_fake_round(args.products_csv, tmp)
 
         subprocess.run([FEAT_PY, str(REPO / "cross_benzoin/assemble_cross_training_table_v3.py"),
@@ -123,6 +126,9 @@ def main() -> int:
         out["ens_member_sigma"] = sigma
         out.to_csv(args.out, index=False)
         print(out.to_string(index=False))
+      finally:
+        shutil.rmtree(r99, ignore_errors=True)
+        shutil.rmtree(d99, ignore_errors=True)
     return 0
 
 
