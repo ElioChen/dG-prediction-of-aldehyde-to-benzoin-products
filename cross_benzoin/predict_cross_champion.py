@@ -162,12 +162,14 @@ class CrossBenzoinBlendPredictor:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--table", required=True)
-    ap.add_argument("--model-dir", default="data/cross_benzoin/cross_round7/scaffold_disjoint_v1")
+    # current champion (2026-09-04): rounds 1-10 scaffold-disjoint blend -- see CHAMPION.md
+    ap.add_argument("--model-dir", default="data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_v1")
+    ap.add_argument("--gnn-dir", default="data/cross_benzoin/cross_round10/gnn_attentive_10rounds_v1")
     ap.add_argument("--n", type=int, default=10)
     args = ap.parse_args()
 
     df = pd.read_parquet(args.table).head(args.n)
-    predictor = CrossBenzoinBlendPredictor.load(args.model_dir)
+    predictor = CrossBenzoinBlendPredictor.load(args.model_dir, gnn_dir=args.gnn_dir)
     pred = predictor.predict(df)
     for i, (p, actual) in enumerate(zip(pred, df.get("dG_orca_kcal", [None] * len(df)))):
         print(f"row {i}: pred={p:.3f}" + (f"  actual={actual:.3f}  err={abs(p-actual):.3f}" if actual is not None else ""))
