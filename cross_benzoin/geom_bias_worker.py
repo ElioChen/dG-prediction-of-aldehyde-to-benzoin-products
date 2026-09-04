@@ -69,7 +69,12 @@ def main() -> int:
                 rec["error"] = "no gfn2 geom"; rows.append(rec); continue
             wd = wroot / f"m_{abs(hash(r.id)) % 10**8}"; wd.mkdir(parents=True, exist_ok=True)
 
-            e_gfn2 = _sp(gfn2_xyz, wd / "sp_gfn2")
+            # copy the GFN2 geom into this call's private dir -- calc_orca_sp runs
+            # ORCA in <xyz>.parent/orca_sp, so pointing it at the shared geoms/ dir
+            # makes 12 workers collide (the 26368306 bug: E_gfn2geom all None).
+            gfn2_local = wd / "gfn2.xyz"
+            gfn2_local.write_text(gfn2_xyz.read_text())
+            e_gfn2 = _sp(gfn2_local, wd / "sp_gfn2")
             gxtb_xyz_str = _gxtb_opt(gfn2_xyz.read_text(), wd / "gxtb_opt")
             e_gxtb = None
             if gxtb_xyz_str:
