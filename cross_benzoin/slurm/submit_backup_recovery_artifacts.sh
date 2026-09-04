@@ -101,15 +101,34 @@ arc r89_dft_recovery_sidecars \
     data/cross_benzoin/r89_aldehyde_recover/aldehyde_geom_list.csv \
     data/cross_benzoin/r89_aldehyde_recover/aldehyde_thermal.csv
 echo "--- r89_aldehyde_regen_geometry ---"
-if [[ -d data/cross_benzoin/r89_aldehyde_regen ]]; then
+if compgen -G "data/cross_benzoin/r89_aldehyde_regen/chunk_*/xyz_ald" >/dev/null; then
     tar -czf "$DEST/r89_aldehyde_regen_geometry.tar.gz" \
         data/cross_benzoin/r89_aldehyde_regen/r89_aldehyde_todo.csv \
         data/cross_benzoin/r89_aldehyde_regen/chunk_*/aldehydes.csv \
         data/cross_benzoin/r89_aldehyde_regen/chunk_*/xyz_ald 2>/dev/null
     ls -lh "$DEST/r89_aldehyde_regen_geometry.tar.gz"
 else
-    echo "  not present, skipped"
+    echo "  regen chunks already pruned (backed up 2026-09-03 + .19h02_good), skipped"
 fi
+
+# 5c. rounds 8-9-10 recovered DFT labels + the r1-9 / r1-10 scaffold-disjoint
+#     champion+ensemble+GNN retrains and their slim260 tables. Small; the models
+#     are the deliverable of the 2026-09 recovery + round10.
+arc r8910_dft_sp_labels \
+    data/raw/dft_sp_cross/cross_round8/cross_round8_dft_sp.csv \
+    data/raw/dft_sp_cross/cross_round9/cross_round9_dft_sp.csv \
+    data/raw/dft_sp_cross/cross_round10/cross_round10_dft_sp.csv \
+    data/raw/dft_sp_cross/cross_round10_fat20_stage1/cross_round10_fat20_stage1_dft_sp.csv \
+    data/raw/dft_sp_cross/cross_round10_fat20_stage1/cross_round10_fat20_stage1_dft_sp_detail.csv \
+    data/cross_benzoin/r10_aldehyde_recover
+arc r1_9_10_models \
+    data/cross_benzoin/cross_round9/scaffold_disjoint_9rounds_v1 \
+    data/cross_benzoin/cross_round9/gnn_attentive_9rounds_v1 \
+    data/cross_benzoin/cross_round9/cross_train_table_9rounds_scaffold_split_labeled_slim260.parquet \
+    data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_v1 \
+    data/cross_benzoin/cross_round10/gnn_attentive_10rounds_v1 \
+    data/cross_benzoin/cross_round10/cross_train_table_10rounds_scaffold_split_labeled_slim260.parquet \
+    data/cross_benzoin/cross_round10/round10_products_mordred.csv
 
 # 6. the rebuilt rounds1-7 training table + reproduction retrain (the recovery's
 #    validation result: MAE 1.877 vs historical 1.883, see
