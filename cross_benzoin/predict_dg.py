@@ -14,9 +14,20 @@ Two halves:
        + dG_gxtb baseline)  -> prune to the frozen 260 champion features
        -> CrossBenzoinBlendPredictor.predict  ->  dG_orca_kcal + ensemble σ.
 
+Output columns: dG_pred_kcal (point estimate, MAE 2.215 on holdout, capped by a ~2.9
+kcal/mol single-conformer DFT label-noise floor -- see confnoise_cross), ens_member_sigma
+(cheap directional uncertainty), and three Goal-3 reformulation columns that are NOT
+capped by that floor (validated AUC 0.92-0.93, see eval_reformulation_classification_
+ranking.py): dg_favorable (dG<0, the physically meaningful cut), dg_below_train_median,
+dg_rank_pct (within-batch percentile, 0=most favorable -- only meaningful when scoring a
+batch of candidates against each other).
+
 Aldehydes MUST already be in data/library (checked by canonical SMILES); truly
 novel aldehydes need their own cb_featurize --emit-aldehydes pass first (not yet
-wired here).
+wired here). NOTE (2026-09-07): donor_G_gxtb/acceptor_G_gxtb (2/260 frozen features) are
+median-imputed for ~207k/209k library aldehydes post the 09-06 BDE rebuild, which never
+recomputes that whole-molecule quantity -- see [[predict-dg-g-gxtb-regression-fixed]] in
+Claude memory / RUN_LOG 09-07. Bounded, disclosed quality cost, not a correctness bug.
 
   # pairs already have a products table (e.g. a slice of cross_round10_products_merged.csv):
   python cross_benzoin/predict_dg.py --products-csv pairs_products.csv --out preds.csv
@@ -80,6 +91,18 @@ def _stage_fake_round(products_csv: Path, tmp: Path) -> None:
       .drop_duplicates("id").to_csv(rdir / "round99_products_mordred.csv", index=False)
 
 
+# Goal-3 reformulation (validated 2026-09-04, see
+# cross_benzoin/eval_reformulation_classification_ranking.py and
+# data/cross_benzoin/reformulation_classification_ranking_eval.json): pinpoint kcal/mol
+# MAE is capped by the ~2.9 kcal single-conformer DFT label-noise floor, but the SAME
+# champion's favorable/unfavorable classification and top-k ranking are excellent and
+# robust to that floor by construction (AUC 0.92-0.93, top-10% precision 0.644 vs g-xTB's
+# 0.311). T=0 is the physically meaningful cut (thermodynamically favorable reaction);
+# T=TRAIN_MEDIAN_DG_KCAL is the higher-recall balanced-class cut, both scored in the eval.
+FAVORABLE_THRESHOLD_KCAL = 0.0
+TRAIN_MEDIAN_DG_KCAL = 4.917011302989063  # r1-10 train split median dG_orca_kcal, frozen
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--products-csv", required=True, type=Path,
@@ -124,8 +147,23 @@ def main() -> int:
         out = df[["id", "donor_id", "acceptor_id", "smiles", "dG_gxtb_kcal"]].copy()
         out["dG_pred_kcal"] = dg
         out["ens_member_sigma"] = sigma
+        # Goal-3 reformulation columns (see FAVORABLE_THRESHOLD_KCAL above): a
+        # favorable/unfavorable screen and a within-batch percentile rank, both
+        # validated as robust to the label-noise floor that caps the raw kcal MAE.
+        out["dg_favorable"] = out["dG_pred_kcal"] < FAVORABLE_THRESHOLD_KCAL
+        out["dg_below_train_median"] = out["dG_pred_kcal"] < TRAIN_MEDIAN_DG_KCAL
+        # rank 0 = most favorable (most negative dG) in this batch; only meaningful
+        # for screening/ranking a batch of candidates against each other, not a
+        # single pair.
+        out["dg_rank_pct"] = out["dG_pred_kcal"].rank(pct=True, method="average")
         out.to_csv(args.out, index=False)
         print(out.to_string(index=False))
+        n_fav = int(out["dg_favorable"].sum())
+        print(f"\n{n_fav}/{len(out)} pairs predicted favorable (dG < {FAVORABLE_THRESHOLD_KCAL} kcal/mol). "
+              f"See eval_reformulation_classification_ranking.py for this screen's validated "
+              f"AUC/precision (reformulation_classification_ranking_eval.json) -- the kcal/mol "
+              f"point estimate is capped by ~2.9 kcal label noise, this favorable/unfavorable "
+              f"call and the dg_rank_pct ranking are not.")
       finally:
         shutil.rmtree(r99, ignore_errors=True)
         shutil.rmtree(d99, ignore_errors=True)
