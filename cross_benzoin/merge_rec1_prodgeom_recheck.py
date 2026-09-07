@@ -33,12 +33,17 @@ def _s(xs):
 
 
 def main() -> int:
-    files = sorted(glob.glob(str(D / "chunks/rec1_*.csv")))
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--chunks-glob", default=str(D / "chunks/rec1_*.csv"))
+    ap.add_argument("--out-prefix", default=str(D / "rec1_prodgeom_recheck"))
+    args = ap.parse_args()
+    files = sorted(glob.glob(args.chunks_glob))
     if not files:
         print("no chunk csvs yet")
         return 1
     df = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
-    df.to_csv(D / "rec1_prodgeom_recheck_merged.csv", index=False)
+    df.to_csv(f"{args.out_prefix}_merged.csv", index=False)
     ok = df[df["error"].isna() & df["resid_b973c"].notna()].copy()
     print(f"{len(files)} chunks -> {len(df)} rows, {len(ok)} usable, {len(df) - len(ok)} errored")
     if len(df) - len(ok):
@@ -90,8 +95,8 @@ def main() -> int:
     print(f"\n>>> {verdict}")
     for n in notes:
         print(f"  note: {n}")
-    (D / "rec1_prodgeom_recheck_summary.json").write_text(json.dumps(out, indent=2))
-    print(f"\nwrote {D / 'rec1_prodgeom_recheck_summary.json'}")
+    Path(f"{args.out_prefix}_summary.json").write_text(json.dumps(out, indent=2))
+    print(f"\nwrote {args.out_prefix}_summary.json")
     return 0
 
 
