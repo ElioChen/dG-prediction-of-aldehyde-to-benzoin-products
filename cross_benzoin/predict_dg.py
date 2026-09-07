@@ -22,6 +22,19 @@ ranking.py): dg_favorable (dG<0, the physically meaningful cut), dg_below_train_
 dg_rank_pct (within-batch percentile, 0=most favorable -- only meaningful when scoring a
 batch of candidates against each other).
 
+Plus, when cross_benzoin/predict_dg_calibration.json is present (build it with
+build_predict_dg_calibration.py): dG_pi_lo_90 / dG_pi_hi_90 -- a split-conformal 90%
+prediction interval calibrated on the scaffold-disjoint test+validation residuals
+(distribution-free marginal coverage >= 90%; empirically 0.94 test / 0.87 validation;
+half-width ~5.2 kcal -- wide because the point estimate sits on the label-noise floor
+and the residuals are heavy-tailed). The sigma-normalised variant was no tighter, so
+the interval is the plain global one. And baseline_risk (bool) / baseline_risk_motifs:
+the pair carries a g-xTB-baseline-failure substructure (hypervalent P, sulfonyl,
+sulfoxide, nitro, N-oxide, Se, triflate) -- on the holdout those rows have blend MAE
+2.86 vs 2.10 and |g-xTB baseline error| 6.35 vs 4.81, mirroring the homo hard-tail
+finding (corr(residual, baseline error) 0.888). Treat baseline_risk=True pairs as
+"route to DFT", not trustworthy cheap predictions.
+
 Aldehydes MUST already be in data/library (checked by canonical SMILES); truly
 novel aldehydes need their own cb_featurize --emit-aldehydes pass first (not yet
 wired here). NOTE (2026-09-07): donor_G_gxtb/acceptor_G_gxtb (2/260 frozen features) are
@@ -102,6 +115,37 @@ def _stage_fake_round(products_csv: Path, tmp: Path) -> None:
 FAVORABLE_THRESHOLD_KCAL = 0.0
 TRAIN_MEDIAN_DG_KCAL = 4.917011302989063  # r1-10 train split median dG_orca_kcal, frozen
 
+CALIB_JSON = REPO / "cross_benzoin/predict_dg_calibration.json"
+
+
+def _load_calibration():
+    """split-conformal quantiles + g-xTB-baseline-failure SMARTS, built by
+    build_predict_dg_calibration.py. Returns None if not present (the extra
+    columns are then simply omitted)."""
+    if not CALIB_JSON.exists():
+        return None
+    cfg = json.loads(CALIB_JSON.read_text())
+    from rdkit import Chem  # nequip env has rdkit
+    from rdkit import RDLogger
+    RDLogger.DisableLog("rdApp.*")
+    cfg["_patterns"] = {k: Chem.MolFromSmarts(v) for k, v in cfg["risk_smarts"].items()}
+    return cfg
+
+
+def _risk_motifs(cfg, *smiles) -> list[str]:
+    from rdkit import Chem
+    hits: set[str] = set()
+    for smi in smiles:
+        if not isinstance(smi, str) or not smi:
+            continue
+        m = Chem.MolFromSmiles(smi)
+        if m is None:
+            continue
+        for name, patt in cfg["_patterns"].items():
+            if patt is not None and m.HasSubstructMatch(patt):
+                hits.add(name)
+    return sorted(hits)
+
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -156,6 +200,33 @@ def main() -> int:
         # for screening/ranking a batch of candidates against each other, not a
         # single pair.
         out["dg_rank_pct"] = out["dG_pred_kcal"].rank(pct=True, method="average")
+
+        # split-conformal 90% prediction interval + g-xTB-baseline-failure flag
+        # (predict_dg_calibration.json; see build_predict_dg_calibration.py). Both
+        # optional -- skipped with a note if the calibration artifact is absent.
+        calib = _load_calibration()
+        if calib is not None:
+            q90 = calib["conformal"]["90pct"]["q_global_kcal"]
+            out["dG_pi_lo_90"] = out["dG_pred_kcal"] - q90
+            out["dG_pi_hi_90"] = out["dG_pred_kcal"] + q90
+            smi = pd.read_csv(args.products_csv, low_memory=False,
+                              usecols=["id", "donor_smiles", "acceptor_smiles", "smiles"]) \
+                    .drop_duplicates("id").set_index("id")
+            motifs = {i: _risk_motifs(calib, smi.at[i, "donor_smiles"],
+                                      smi.at[i, "acceptor_smiles"], smi.at[i, "smiles"])
+                      for i in out["id"] if i in smi.index}
+            out["baseline_risk"] = out["id"].map(lambda i: bool(motifs.get(i)))
+            out["baseline_risk_motifs"] = out["id"].map(lambda i: ",".join(motifs.get(i, [])))
+            # OOD guard: the conformal interval is marginal and does not widen
+            # for structures the 3 base learners wildly disagree on. dg_high_sigma
+            # marks those -- ignore dG_pred_kcal AND the interval there.
+            hi_sig = calib.get("sigma_guard", {}).get("high_sigma_threshold_kcal")
+            if hi_sig is not None:
+                out["dg_high_sigma"] = out["ens_member_sigma"] > hi_sig
+        else:
+            print("[predict_dg] predict_dg_calibration.json not found -- skipping "
+                  "dG_pi_*_90 / baseline_risk columns (run build_predict_dg_calibration.py)")
+
         out.to_csv(args.out, index=False)
         print(out.to_string(index=False))
         n_fav = int(out["dg_favorable"].sum())
@@ -164,6 +235,13 @@ def main() -> int:
               f"AUC/precision (reformulation_classification_ranking_eval.json) -- the kcal/mol "
               f"point estimate is capped by ~2.9 kcal label noise, this favorable/unfavorable "
               f"call and the dg_rank_pct ranking are not.")
+        if "baseline_risk" in out.columns:
+            n_risk = int(out["baseline_risk"].sum())
+            print(f"{n_risk}/{len(out)} pairs carry a g-xTB-baseline-failure substructure "
+                  f"(baseline_risk=True) -- route those to DFT, the cheap prediction is "
+                  f"unreliable there (holdout blend MAE 2.86 vs 2.10). dG_pi_lo_90/dG_pi_hi_90 "
+                  f"is a split-conformal 90% interval (>=90% marginal coverage; ~5.2 kcal "
+                  f"half-width -- wide by construction at the label-noise floor).")
       finally:
         shutil.rmtree(r99, ignore_errors=True)
         shutil.rmtree(d99, ignore_errors=True)

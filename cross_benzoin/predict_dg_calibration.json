@@ -1,0 +1,123 @@
+{
+  "built_by": "cross_benzoin/build_predict_dg_calibration.py",
+  "champion": {
+    "model_dir": "data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_v1",
+    "gnn_dir": "data/cross_benzoin/cross_round10/gnn_attentive_10rounds_v1",
+    "blend_w_gnn": 0.5
+  },
+  "calibration_set": "scaffold-disjoint test + validation splits pooled",
+  "n_calib": 929,
+  "caveats": "test split was used to pick blend w_gnn and validation may drive GNN early-stopping; both are outside the XGB/MLP fit and outside training scaffolds. Marginal coverage only (not conditional). Point estimate still capped by the ~2.9 kcal single-conformer DFT label-noise floor.",
+  "conformal": {
+    "90pct": {
+      "alpha": 0.1,
+      "nominal_coverage": 0.9,
+      "q_global_kcal": 5.23938765177251,
+      "q_normalized": 4.525170344419652,
+      "per_split_coverage": {
+        "test": {
+          "global": 0.935,
+          "global_halfwidth_kcal": 5.239,
+          "normalized": 0.924,
+          "normalized_median_halfwidth_kcal": 5.412
+        },
+        "validation": {
+          "global": 0.869,
+          "global_halfwidth_kcal": 5.239,
+          "normalized": 0.879,
+          "normalized_median_halfwidth_kcal": 5.455
+        }
+      }
+    },
+    "80pct": {
+      "alpha": 0.2,
+      "nominal_coverage": 0.8,
+      "q_global_kcal": 3.852455467961849,
+      "q_normalized": 3.1451709091321614,
+      "per_split_coverage": {
+        "test": {
+          "global": 0.833,
+          "global_halfwidth_kcal": 3.852,
+          "normalized": 0.817,
+          "normalized_median_halfwidth_kcal": 3.762
+        },
+        "validation": {
+          "global": 0.771,
+          "global_halfwidth_kcal": 3.852,
+          "normalized": 0.784,
+          "normalized_median_halfwidth_kcal": 3.791
+        }
+      }
+    }
+  },
+  "sigma_lambda": 0.6008902102558741,
+  "risk_smarts": {
+    "hypervalent_P": "[#15]=[#8]",
+    "sulfonyl": "[#16X4](=[#8])(=[#8])",
+    "sulfoxide": "[#16X3;$([#16X3]=[#8])]",
+    "nitro": "[$([NX3](=O)=O),$([NX3+](=O)[O-])]",
+    "N_oxide": "[$([#7X4+][#8X1-]),$([#7X3+][#8X1-]),$([nX3+][#8X1-])]",
+    "selenium": "[#34]",
+    "triflate_like": "[#6](F)(F)(F)[#16X4](=[#8])(=[#8])"
+  },
+  "sigma_guard": {
+    "p95": 1.989,
+    "p99": 2.812,
+    "max": 18.096,
+    "high_sigma_threshold_kcal": 2.812,
+    "note": "predict_dg.py sets dg_high_sigma = ens_member_sigma > high_sigma_threshold_kcal"
+  },
+  "risk_flag_validation_on_test": {
+    "flagged": {
+      "n": 66,
+      "blend_mae": 2.863,
+      "mean_abs_baseline_err": 6.349,
+      "p90_abs_resid": 5.399
+    },
+    "not_flagged": {
+      "n": 382,
+      "blend_mae": 2.103,
+      "mean_abs_baseline_err": 4.81,
+      "p90_abs_resid": 4.698
+    },
+    "per_motif": {
+      "hypervalent_P": {
+        "n": 10,
+        "blend_mae": 3.608,
+        "mean_abs_baseline_err": 6.231,
+        "p90_abs_resid": 5.275
+      },
+      "sulfonyl": {
+        "n": 32,
+        "blend_mae": 2.415,
+        "mean_abs_baseline_err": 6.836,
+        "p90_abs_resid": 4.669
+      },
+      "sulfoxide": {
+        "n": 6,
+        "blend_mae": 3.178,
+        "mean_abs_baseline_err": 3.935,
+        "p90_abs_resid": 4.634
+      },
+      "nitro": {
+        "n": 18,
+        "blend_mae": 3.367,
+        "mean_abs_baseline_err": 6.332,
+        "p90_abs_resid": 7.634
+      },
+      "N_oxide": {
+        "n": 20,
+        "blend_mae": 3.101,
+        "mean_abs_baseline_err": 5.972,
+        "p90_abs_resid": 7.435
+      },
+      "selenium": {
+        "n": 0
+      },
+      "triflate_like": {
+        "n": 0
+      }
+    },
+    "note": "flagged rows should show materially higher blend_mae and mean_abs_baseline_err than not_flagged for the flag to be evidence-backed; per_motif lets predict_dg.py / reviewers see which motifs actually carry the signal at this holdout size."
+  }
+}

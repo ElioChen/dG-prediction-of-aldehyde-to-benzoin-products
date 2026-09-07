@@ -81,6 +81,23 @@ added 2026-09-07 that are NOT capped by the ~2.9 kcal label-noise floor (validat
 `dg_below_train_median`, `dg_rank_pct` (within-batch percentile, use for screening/
 ranking a candidate batch, not a single pair).
 
+**Deployment-hardening columns added 2026-09-07** (need `predict_dg_calibration.json`,
+built by `build_predict_dg_calibration.py`; omitted if absent):
+- `dG_pi_lo_90` / `dG_pi_hi_90` — split-conformal 90% prediction interval, calibrated
+  on the scaffold-disjoint test+validation residuals (n=929). Distribution-free
+  marginal coverage ≥ 90% (empirically 0.94 test / 0.87 validation). Half-width
+  **±5.24 kcal** — wide because the point estimate sits on the label-noise floor and
+  residuals are heavy-tailed. The σ-normalised variant was no tighter (σ carries too
+  little conditional signal), so this is the plain global interval.
+- `baseline_risk` (bool) / `baseline_risk_motifs` — the pair carries a
+  g-xTB-baseline-failure substructure (hypervalent P / sulfonyl / sulfoxide / nitro /
+  N-oxide / Se / triflate). On the holdout those rows have blend MAE **2.86 vs 2.10**
+  and |g-xTB baseline error| **6.35 vs 4.81** (mirrors the homo hard-tail finding,
+  corr(residual, baseline error) 0.888). Treat `baseline_risk=True` as "route to DFT".
+- `dg_high_sigma` (bool) — `ens_member_sigma` above the calib p99 (2.81 kcal): the 3
+  base learners wildly disagree (OOD structure). Ignore both `dG_pred_kcal` and the
+  interval for these.
+
 **From scratch** (new pairs, needs the slow GFN2-xTB geometry — newly wired, not yet
 tested on genuinely novel pairs):
 
