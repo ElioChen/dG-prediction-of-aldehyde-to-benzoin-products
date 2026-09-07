@@ -39,6 +39,7 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem
 
 sys.path.insert(0, "/gpfs/scratch1/shared/schen3/benzoin-dg-restored/pipeline/compute")
+import conf_funnel_v3  # noqa: E402,F401  (import FIRST -- breaks a thermo_orca<->conf_funnel circular import)
 import thermo_orca as T  # noqa: E402
 
 RDLogger.DisableLog("rdApp.*")
