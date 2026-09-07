@@ -30,6 +30,7 @@ a DFT run" from blind selection into a model-driven ranking problem.
 | **geometry-method bias ablation** | three-species ΔΔG: hetero median −0.47 vs control −0.25 kcal, both under the 1 kcal threshold → **no bias, label-quality investigation closed** |
 | **reformulation as classification / ranking** | the same champion as a favorable/unfavorable classifier: **AUC 0.92-0.93**, top-10% precision **64%** (g-xTB baseline 31%, random 10%) — **not capped by the label-noise ceiling**, a standard `predict_dg.py` output column since 09-07 |
 | **homo/cross gap (new 09-07)** | at matched split regime + data scale, cross ≈ homo (if anything slightly ahead); the homo 1.503 "advantage" is a random split + 12× more training data, **not task difficulty or label quality** |
+| **cheap-baseline lever (new 09-07, pilot)** | swap in B97-3c as the Δ-learning baseline: residual scatter std **4.32 → 1.11** (ratio 0.26) → possibly the first real accuracy lever in months; pending a production-geometry re-check + full-recompute validation |
 | sister sub-project: BDE prediction | champion B6 5-seed deep ensemble, scaffold-disjoint full 220k: aldehyde MAE **1.851** / product **2.826** |
 | sister sub-project: homo dG (A+A, deployed) | 219,364 DFT labels, full coverage, champion test MAE 1.503 (random-split regime) |
 
@@ -54,6 +55,26 @@ a DFT run" from blind selection into a model-driven ranking problem.
   triple-GNN** (three architecture generations, see §3).
 - **Evaluation**: a Bemis-Murcko **scaffold-disjoint** held-out set, fixed at n≈448 since
   2026-07-17.
+
+**End-to-end workflow + blend architecture:**
+
+```mermaid
+flowchart LR
+    subgraph Featurize
+        A[aldehyde library<br/>220,859] --> B[funnel_v3<br/>conformer search + GFN2 opt]
+        B --> C[local QM descriptors<br/>xtb / morfeus / multiwfn]
+        B --> D[mordred + RDKit 2D<br/>global descriptors]
+        B --> E[g-xTB single point<br/>dG_gxtb physical baseline]
+    end
+    C & D & E --> F[assemble → prune to<br/>the frozen 260 features]
+    F --> G1[MLP + XGB×2<br/>tabular ensemble]
+    F --> G2[triple-encoder GNN<br/>donor / acceptor / product<br/>+ attentive pooling]
+    G1 & G2 --> H["blend  w_gnn=0.50<br/>ΔG_pred = dG_gxtb + correction"]
+    H --> I["predict_dg.py output<br/>point estimate + conformal interval<br/>+ favorable/rank + baseline_risk"]
+```
+
+Δ-learning only learns the `dG_orca − dG_gxtb` correction; labels are needed only for
+the training set (AL-selected pairs get a DFT run).
 
 ### 1.2 Why active learning is the main line
 
@@ -85,6 +106,12 @@ a DFT run" from blind selection into a model-driven ranking problem.
 († = old-split numbers from before the 2026-07-17 scaffold-leakage correction — **do not
 cite as real accuracy**. The pre- and post-purge r1-9/r1-10 numbers are not directly
 comparable — the underlying DFT labels were recomputed and the scaffold split rebuilt.)
+
+![Ten AL rounds: champion blend MAE](docs/figures/al_rounds_mae.png)
+
+The blend consistently beats ensemble-only (P>0.99 each round), but all 5 versions'
+blend MAE sit in a **narrow 2.07–2.22 band** — more data barely moves it, because it is
+already on the label-noise floor (§3 takeaway 4).
 
 **Four key turning points:**
 
@@ -137,6 +164,8 @@ comparable — the underlying DFT labels were recomputed and the scaffold split 
    - Likely causes: +6.6% marginal data; the AL-hard cases are "irreducible-noise hard"
      not "coverage hard"; at ~21k-pair scale this 260-dim feature set is near plateau.
      **Recommendation: no more ~2k-scale AL rounds.**
+
+   ![round10 AL: diagnose vs fix](docs/figures/round10_al_ablation.png)
 
 4. **The label-noise floor is a hard constraint.** Three independent lines converged on
    2026-09-04:
@@ -206,6 +235,8 @@ Even though the continuous MAE is stuck on the floor, the champion's **ranking /
 classification quality is very good** (AUC 0.92-0.93) and **far above the g-xTB baseline**
 on every slice. A deployable-today output not bound by the label-noise ceiling.
 
+![Goal 3: reformulation as classification / ranking](docs/figures/reformulation.png)
+
 ### 5.2 The deployment tool `predict_dg.py` (standard output since 2026-09-07)
 
 Scores any new molecule pair end to end (featurize → assemble → prune → blend inference).
@@ -252,6 +283,8 @@ test+val residuals, n=929). Added:
 
 The champion itself and its MAE 2.215 are unchanged.
 
+![A: conformal prediction-interval coverage](docs/figures/conformal_calibration.png)
+
 ### B — homo/cross ΔG gap decomposition ✅ done
 
 `homo 1.503` (random split, full 219k) and `cross 2.215` (scaffold-disjoint, 23k) are
@@ -279,8 +312,12 @@ premium is +15%, in the same family as cross's +9.8% and BDE's +43% — "molecul
 split ≠ scaffold generalisation" is a three-way-confirmed, task-independent effect. homo
 scaffold-disjoint MAE 2.61 is well above homo's own ~2.1 floor → at matched conditions
 homo is **data/generalisation limited**, while cross blend sits on the ~2.9 floor → cross
-is closer to "done". See `data/analysis/homo_cross_gap/FINDING.md`. **Do not re-raise
-"the cross task is harder".**
+is closer to "done".
+
+![B: homo/cross gap waterfall decomposition](docs/figures/homo_cross_gap_waterfall.png)
+
+See `data/analysis/homo_cross_gap/FINDING.md`. **Do not re-raise "the cross task is
+harder".**
 
 ### C — homo+cross joint tabular 🟡 AMBER-GREEN
 
@@ -299,13 +336,15 @@ shared space, eval on the cross scaffold-disjoint holdout:
 BDE-side finding, because here homo:cross ≈ 1:1 (no dilution); at full 6:1 scale the
 dilution returns unless homo is down-weighted.
 
+![C: homo+cross joint tabular](docs/figures/homo_cross_joint.png)
+
 **Verdict: worth a bounded next step** — build the full 260-schema featurization for the
 30k homo_unify set (mordred + assemble, ~1-2 days) + retrain the cross ensemble/GNN with
 homo down-weighted to 1:1, and check whether the −0.1 survives to the 260-feat + GNN
 champion; only then invest in GNN homo-pretrain (**the current champion GNN is cross-only
 — the homo-pretrain path was never rebuilt after the purge**). Not a blank cheque.
 
-### D — better cheap Δ-learning baseline pilot 🏃 running (array `26441171`)
+### D — better cheap Δ-learning baseline pilot ✅ 128/128 done, AMBER-GREEN (leaning GREEN)
 
 DFT arbitration found the g-xTB↔r2SCAN-3c gap is dominated by the **single-point method
 level** (|Δ_SP| ~16 vs |Δ_geom| ~5) → the one untested accuracy lever is "swap in a
@@ -314,29 +353,36 @@ better-but-still-cheap single point as the Δ-learning baseline". g-xTB (semiemp
 
 128 pairs (64 heteroatom hard-tail + 64 control), one fresh GFN2 geometry per species,
 then g-xTB / B97-3c / r2SCAN-3c single points on that identical geometry →
-`resid_gxtb` vs `resid_b973c` conformer-noise-free.
+`resid_gxtb` vs `resid_b973c` conformer-noise-free. **128/128 done, 0 errored:**
 
-**First 97 pairs preview:**
+![D: cheap-baseline pilot](docs/figures/cheap_baseline_pilot.png)
 
-| group | g-xTB residual std | B97-3c residual std |
-|---|--:|--:|
-| heteroatom hard-tail | ~5.1 | **~1.2** |
-| control | ~3.4 | **~0.8** |
-| all | ~4.6 | **~1.1** |
+| residual = `dG_r2scan − dG_baseline` | mean\|·\| | **std** | mean (signed) |
+|---|--:|--:|--:|
+| g-xTB baseline | 6.00 | **4.32** | +5.75 |
+| B97-3c baseline | 5.24 | **1.11** | **−5.24** |
 
-The B97-3c residual is a near-constant ~−5.6 kcal **offset** + std ≈ 1.1. A Δ-learning
-model trivially absorbs a constant offset → **the achievable floor is set by the std**:
-g-xTB ~4.6 → B97-3c **~1.1**. And on the hardest heteroatom hard-tail (g-xTB std 5.1)
-B97-3c still holds std 1.2. If this holds over the full set, **a B97-3c baseline could
-push the Δ-learning floor to sub-1-kcal** — the first real accuracy lever in months.
+The B97-3c residual is a near-constant ~−5.24 kcal **offset** (mean|·| ≈ |mean_signed| →
+almost pure offset) + std ≈ **1.11**. A Δ-learning model trivially absorbs a constant
+offset → **the achievable floor is set by the std**: g-xTB **4.32 → B97-3c 1.11** (std
+ratio **0.26**). On the hardest heteroatom hard-tail (g-xTB std 5.1) B97-3c still holds
+std 1.2.
+
+**Reading**: `merge_cheap_baseline_pilot.py` mechanically returns AMBER (its GREEN
+threshold also requires mean|·| to drop a lot, but mean|·| is dominated by the −5.24
+constant offset, which a Δ-model trivially absorbs) — **substantively closer to GREEN**:
+the std ratio 0.26 is decisive; switching to a B97-3c baseline drops the Δ-model's
+theoretical floor from ~4.3 to ~1.1, **potentially pushing the champion MAE well below
+2.215**. That would be the first real accuracy lever in months.
 
 ⚠️ **Trap**: the one-shot ETKDG/GFN2 geometry is ~18 kcal off the production funnel_v3
-labels, so the absolute dG's are not production-representative. But the B97-3c↔r2SCAN-3c
-near-constant-offset relationship is a level-of-theory property and likely
-geometry-robust. **Before any verdict**: re-run ~30 pairs on production funnel_v3
-geometries to confirm the low-scatter property.
-
-`merge_cheap_baseline_pilot.py` prints a GREEN/AMBER/RED verdict once the array drains.
+labels, and the pilot's three SPs share one geometry → the std 1.11 is "pure
+level-of-theory scatter" with no conformer noise (production adds that on top). But the
+B97-3c↔r2SCAN-3c near-constant-offset relationship is a level-of-theory property and
+likely geometry-robust. **Next steps**: (1) re-run ~30 pairs on production funnel_v3
+geometries to confirm the low-scatter property; (2) if confirmed, a full B97-3c-baseline
+recompute (35k pairs × 3 species) + retrain the Δ-model on the B97-3c baseline and check
+whether MAE drops materially.
 
 ---
 
@@ -404,7 +450,7 @@ commits had lived only locally).
 | **A deployment hardening** | ✅ shipped and pushed |
 | **B homo/cross decomposition** | ✅ done — gap = regime + scale |
 | **C homo+cross joint** | 🟡 AMBER-GREEN, bounded next step pending the user's call |
-| **D cheap-baseline pilot** | 🏃 array `26441171` running (~97/128); first 97 pairs strongly positive (B97-3c residual std ~1.1 vs g-xTB ~4.6); needs a production-geometry re-check before any verdict |
+| **D cheap-baseline pilot** | ✅ 128/128 done, **AMBER-GREEN (leaning GREEN)**: B97-3c residual std **1.11** vs g-xTB **4.32** (ratio 0.26); next a production-geometry re-check → full B97-3c-baseline recompute |
 | **BDE champion** | ✅ full retrain done, aldehyde 1.851 / product 2.826 |
 | **homo dG** | stably deployed, no new action this cycle |
 | **git** | pushed to GitHub, HEAD see `git log`, clean apart from the long-standing FILE_MAP.md / round9-model changes |

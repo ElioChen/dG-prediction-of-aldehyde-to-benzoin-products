@@ -1,0 +1,85 @@
+{
+  "n_total": 128,
+  "n_ok": 128,
+  "conformer_noise_check": {
+    "desc": "recomputed r2SCAN-3c dG on fresh ETKDG-seed42/GFN2 geom vs stored label",
+    "n": 128,
+    "mean_abs": 21.5933715033858,
+    "std": 8.477700012536825,
+    "median_abs": 20.79366547008008,
+    "p90_abs": 33.86893846229542,
+    "mean_signed": -21.5933715033858
+  },
+  "overall": {
+    "gxtb_baseline_residual": {
+      "n": 128,
+      "mean_abs": 5.997189150636817,
+      "std": 4.323561594064549,
+      "median_abs": 5.299979603033453,
+      "p90_abs": 11.225748949832637,
+      "mean_signed": 5.747543462555438
+    },
+    "b973c_baseline_residual": {
+      "n": 128,
+      "mean_abs": 5.236030647783727,
+      "std": 1.1144396281395004,
+      "median_abs": 5.229230462880066,
+      "p90_abs": 6.661818543695375,
+      "mean_signed": -5.236030647783727
+    },
+    "b973c_vs_gxtb": {
+      "delta_mean_abs": -0.7611585028530907,
+      "delta_std": -3.209121965925049,
+      "std_ratio_b973c_over_gxtb": 0.25775962800424074
+    }
+  },
+  "by_group": {
+    "hetero_hardtail": {
+      "gxtb_baseline_residual": {
+        "n": 64,
+        "mean_abs": 6.507702942542233,
+        "std": 4.79341296251706,
+        "median_abs": 5.618497610943059,
+        "p90_abs": 12.79038904207767,
+        "mean_signed": 6.227357720581127
+      },
+      "b973c_baseline_residual": {
+        "n": 64,
+        "mean_abs": 5.252509394161465,
+        "std": 1.1633782249702642,
+        "median_abs": 5.229230462880066,
+        "p90_abs": 6.7234464242738285,
+        "mean_signed": -5.252509394161465
+      },
+      "b973c_vs_gxtb": {
+        "delta_mean_abs": -1.2551935483807677,
+        "delta_std": -3.6300347375467954,
+        "std_ratio_b973c_over_gxtb": 0.24270352545618454
+      }
+    },
+    "control": {
+      "gxtb_baseline_residual": {
+        "n": 64,
+        "mean_abs": 5.486675358731404,
+        "std": 3.734851863421614,
+        "median_abs": 5.1235638896444975,
+        "p90_abs": 10.046970103268142,
+        "mean_signed": 5.26772920452975
+      },
+      "b973c_baseline_residual": {
+        "n": 64,
+        "mean_abs": 5.219551901405987,
+        "std": 1.062995473666793,
+        "median_abs": 5.2250814755392465,
+        "p90_abs": 6.508098345371289,
+        "mean_signed": -5.219551901405987
+      },
+      "b973c_vs_gxtb": {
+        "delta_mean_abs": -0.2671234573254164,
+        "delta_std": -2.6718563897548213,
+        "std_ratio_b973c_over_gxtb": 0.284615163476109
+      }
+    }
+  },
+  "verdict": "AMBER: B97-3c helps modestly (std x0.26). Weigh full-recompute cost (~35k pairs x 3 species B97-3c SP) against the expected MAE gain before committing."
+}

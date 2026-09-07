@@ -27,6 +27,7 @@ DFT"从盲选变成模型驱动的排序问题。
 | **几何方法偏差消融** | 三物种 ΔΔG 消融：hetero 中位 −0.47 vs ctrl −0.25 kcal，均 < 1 kcal 阈值 → **无偏差，标签质量调查结案** |
 | **重表述为分类/排序** | 同一 champion 做"favorable/unfavorable"判别 **AUC 0.92-0.93**，top-10% 精度 **64%**（g-xTB 基线 31%，随机 10%）—— **不受标签噪声天花板限制**，09-07 起是 `predict_dg.py` 的默认输出列 |
 | **homo/cross 差异（09-07 新）** | 对等切分口径+数据规模下 cross ≈ homo（甚至略好）；homo 1.503 的"优势"= 随机切分 + 12× 训练数据，**不是任务难度或标签质量** |
+| **便宜基线杠杆（09-07 新，pilot）** | 换 B97-3c 当 Δ-learning 基线：残差 scatter std **4.32 → 1.11**（比值 0.26）→ 可能是几个月来第一个真正的精度杠杆；待生产几何复核 + 全量重算验证 |
 | 姊妹课题：BDE 预测 | champion B6 5-seed deep ensemble，骨架不相交全量 220k：醛 MAE **1.851** / 产物 **2.826** |
 | 姊妹课题：homo dG（A+A，已上线） | 219,364 DFT 标签全覆盖，champion 测试 MAE 1.503（随机切分口径） |
 
@@ -47,6 +48,25 @@ DFT"从盲选变成模型驱动的排序问题。
 - **模型**：单 XGB → MLP+XGB ensemble → **+ attentive-pooling triple-GNN 的 50/50
   blend**（三代架构演进，见 §3）。
 - **评估**：Bemis-Murcko **骨架不相交** held-out 集，2026-07-17 后固定 n≈448。
+
+**端到端工作流 + blend 架构**：
+
+```mermaid
+flowchart LR
+    subgraph 特征化
+        A[醛结构库<br/>220,859] --> B[funnel_v3<br/>构象搜索 + GFN2 opt]
+        B --> C[局部 QM 描述符<br/>xtb / morfeus / multiwfn]
+        B --> D[mordred + RDKit 2D<br/>全局描述符]
+        B --> E[g-xTB 单点<br/>dG_gxtb 物理基线]
+    end
+    C & D & E --> F[拼表 → 裁剪到<br/>冻结 260 特征]
+    F --> G1[MLP + XGB×2<br/>tabular ensemble]
+    F --> G2[triple-encoder GNN<br/>donor / acceptor / product<br/>+ attentive pooling]
+    G1 & G2 --> H["blend  w_gnn=0.50<br/>ΔG_pred = dG_gxtb + 修正量"]
+    H --> I["predict_dg.py 输出<br/>点估计 + conformal 区间<br/>+ favorable/rank + baseline_risk"]
+```
+
+Δ-learning 只学 `dG_orca − dG_gxtb` 的修正量；标签仅训练集需要（AL 选中的对做 DFT）。
 
 ### 1.2 主动学习为什么是主线
 
@@ -74,6 +94,12 @@ DFT"从盲选变成模型驱动的排序问题。
 
 （† = 2026-07-17 骨架泄漏勘误之前的旧切分数字，**不要引用为真实精度**。purge 前后的
 r1-9/r1-10 由于底层 DFT 标签重算 + 骨架切分重建，数字不直接可比。）
+
+![十轮 AL：champion blend MAE 演化](docs/figures/al_rounds_mae.png)
+
+blend 稳定优于 ensemble-only（每轮 P>0.99），但 5 个版本的 blend MAE 都在
+**2.07–2.22 一个很窄的带内** —— 加数据几乎不再推动它，因为已经贴着标签噪声地板
+（§3 收获 4）。
 
 **四个关键转折**：
 
@@ -115,6 +141,8 @@ r1-9/r1-10 由于底层 DFT 标签重算 + 骨架切分重建，数字不直接�
      AL 难例几乎不改变精度。**
    - 可能原因：+6.6% 的边际数据量；AL 难例是"不可约噪声难"而非"覆盖难"；~21k 对规模
      下这套 260 维特征已接近平台。**推荐：不要再做 ~2k 规模的 AL 轮。**
+
+   ![round10 AL：诊断 vs 修复](docs/figures/round10_al_ablation.png)
 
 4. **标签噪声地板是硬约束。** 三条独立证据链在 2026-09-04 汇合：
    - 构象噪声探针（32 产物 × K=5 构象）：`dG_std` mean **2.975** / median 2.884；
@@ -178,6 +206,8 @@ GFN2-opt 和 g-xTB-opt（**g-xTB 从 GFN2 极小点精修，不独立重搜**—
 尽管连续值 MAE 卡在地板上，champion 的**排序/分类质量非常好**（AUC 0.92-0.93），且
 每个切面都**远超 g-xTB 基线**。这是不受标签噪声天花板束缚、立刻可交付的产出。
 
+![Goal 3：分类/排序重表述](docs/figures/reformulation.png)
+
 ### 5.2 部署工具 `predict_dg.py`（2026-09-07 起为标准输出）
 
 给任意新分子对打分，端到端（featurize → assemble → prune → blend 推理）。输出列：
@@ -220,6 +250,8 @@ test+val 残差，n=929）。新增：
 
 冠军本体和 MAE 2.215 不变。
 
+![A：conformal 区间覆盖率](docs/figures/conformal_calibration.png)
+
 ### B —— homo/cross ΔG 差异定量分解 ✅ 完成
 
 `homo 1.503`（随机切分、全 219k）和 `cross 2.215`（骨架不相交、23k）并排引用，但**不是
@@ -246,6 +278,8 @@ homo，甚至略好。homo 的泄漏溢价 +15%，和 cross 自己的 +9.8%、BD
 "分子级切分 ≠ 骨架泛化"是三方独立确认的、与任务无关的效应。homo 骨架不相交 MAE 2.61
 远在 homo 自己 ~2.1 地板之上 → 对等条件下 homo 是**数据/泛化受限**，而 cross blend
 贴着 ~2.9 地板 → cross 更接近"做完了"。
+![B：homo/cross 差异瀑布分解](docs/figures/homo_cross_gap_waterfall.png)
+
 详见 `data/analysis/homo_cross_gap/FINDING.md`。**不要再重提"cross 任务更难"。**
 
 ### C —— homo+cross 联合 tabular 🟡 AMBER-GREEN
@@ -264,12 +298,14 @@ holdout：
 `finetune` = null。和 purge 前 BDE 侧结论相反，因为这里 homo:cross ≈ 1:1（无稀释）；
 全量 6:1 规模下稀释会回来，除非 homo 降权。
 
+![C：homo+cross 联合 tabular](docs/figures/homo_cross_joint.png)
+
 **判决：值得一个有界的下一步**——给 30k homo_unify 做完整 260-schema featurize
 （mordred + assemble，~1-2 天）+ homo 降权到 1:1 重训 cross ensemble/GNN，看 −0.1 能否
 传导到 260-feat + GNN 的冠军；能的话再投 GNN homo-pretrain（**当前冠军 GNN 是纯
 cross，purge 后从没重建过 homo 预训练路径**）。不是空白支票。
 
-### D —— 更好的便宜 Δ-learning 基线 pilot 🏃 进行中（array `26441171`）
+### D —— 更好的便宜 Δ-learning 基线 pilot ✅ 128/128 完成，AMBER-GREEN（倾向 GREEN）
 
 DFT 仲裁发现 g-xTB↔r2SCAN-3c 的差距主导来自**单点方法层级**（|Δ_SP| ~16 vs
 |Δ_geom| ~5）→ 唯一没试过的精度杠杆是"换一个更好但仍便宜的单点方法当 Δ-learning
@@ -277,25 +313,32 @@ DFT 仲裁发现 g-xTB↔r2SCAN-3c 的差距主导来自**单点方法层级**�
 
 128 对（64 杂原子 hard-tail + 64 对照），每物种一个新 GFN2 几何，同一几何上做
 g-xTB / B97-3c / r2SCAN-3c 三个单点 → `resid_gxtb` vs `resid_b973c` 无构象噪声。
+**128/128 完成，0 报错**：
 
-**前 97 对预览**：
+![D: 便宜基线 pilot](docs/figures/cheap_baseline_pilot.png)
 
-| 分组 | g-xTB 残差 std | B97-3c 残差 std |
-|---|--:|--:|
-| 杂原子 hard-tail | ~5.1 | **~1.2** |
-| 对照 | ~3.4 | **~0.8** |
-| 全部 | ~4.6 | **~1.1** |
+| 残差 = `dG_r2scan − dG_baseline` | mean\|·\| | **std** | mean（有符号） |
+|---|--:|--:|--:|
+| g-xTB 基线 | 6.00 | **4.32** | +5.75 |
+| B97-3c 基线 | 5.24 | **1.11** | **−5.24** |
 
-B97-3c 残差是个 ~−5.6 kcal 的**近常数偏置** + std ≈ 1.1。Δ-learning 模型平凡吸收
-常数偏置 → **能达到的地板由 std 决定**：g-xTB ~4.6 → B97-3c **~1.1**。且在最难的
-杂原子 hard-tail（g-xTB std 5.1）上 B97-3c 仍保持 std 1.2。若全量成立，**B97-3c 基线
-可能把 Δ-learning 地板压到亚 1-kcal**——这会是几个月来第一个真正的精度杠杆。
+B97-3c 残差 = ~−5.24 kcal 的**近常数偏置**（mean|·| ≈ |mean_signed| → 几乎纯偏置）
++ std ≈ **1.11**。Δ-learning 模型平凡吸收常数偏置 → **能达到的地板由 std 决定**：
+g-xTB **4.32 → B97-3c 1.11**（std 比值 **0.26**）。在最难的杂原子 hard-tail 上
+（g-xTB std 5.1）B97-3c 仍保持 std 1.2。
+
+**判读**：`merge_cheap_baseline_pilot.py` 机械判 AMBER（它的 GREEN 阈值同时要求
+mean|·| 大幅降，但 mean|·| 被那个 −5.24 常数偏置主导，而常数偏置 Δ-model 平凡吸收）
+——**实质更接近 GREEN**：std 比值 0.26 是决定性的，换 B97-3c 基线，Δ-model 的理论
+地板从 ~4.3 降到 ~1.1，**可能把 champion MAE 从 2.215 显著下压**。这会是几个月来
+第一个真正的精度杠杆。
 
 ⚠️ **陷阱**：一次性 ETKDG/GFN2 几何比生产 funnel_v3 标签偏 ~18 kcal，绝对 dG 不代表
-生产设定。但 B97-3c↔r2SCAN-3c 的近常数偏置关系是 level-of-theory 属性、大概率
-几何鲁棒。**判决前必须**：拿 ~30 对在生产 funnel_v3 几何上复核低-scatter 性质。
-
-`merge_cheap_baseline_pilot.py` 在 array 跑完后给 GREEN/AMBER/RED 判决。
+生产设定，且 pilot 里三个 SP 在同一几何 → std 1.11 是"纯 level-of-theory scatter"，
+不含构象噪声（生产中还要叠加）。但 B97-3c↔r2SCAN-3c 的近常数偏置关系是 level-of-
+theory 属性、大概率几何鲁棒。**下一步**：(1) 拿 ~30 对在生产 funnel_v3 几何上复核
+低-scatter 性质；(2) 确认后全量 B97-3c 基线重算（35k pair × 3 物种）+ 用 B97-3c
+基线重训 Δ-model，看 MAE 能否显著下降。
 
 ---
 
@@ -355,7 +398,7 @@ formyl **C–H**、产物中心 **ketC–carbC**。标签均为项目自己的 g
 | **A 部署健壮性** | ✅ 已交付并 push |
 | **B homo/cross 分解** | ✅ 完成——差异 = 口径+规模 |
 | **C homo+cross 联合** | 🟡 AMBER-GREEN，有界下一步待用户拍板 |
-| **D 便宜基线 pilot** | 🏃 array `26441171` 跑中（~97/128），前 97 对预览强正（B97-3c 残差 std ~1.1 vs g-xTB ~4.6）；判决前需生产几何复核 |
+| **D 便宜基线 pilot** | ✅ 128/128 完成，**AMBER-GREEN（倾向 GREEN）**：B97-3c 残差 std **1.11** vs g-xTB **4.32**（比值 0.26）；下一步生产几何复核 → 全量 B97-3c 基线重算 |
 | **BDE champion** | ✅ 全量重训完成，醛 1.851 / 产物 2.826 |
 | **homo dG** | 稳定在线，本轮无新动作 |
 | **git** | 已 push 到 GitHub，HEAD 见 `git log`，除长期存在的 FILE_MAP.md / round9 模型改动外 clean |

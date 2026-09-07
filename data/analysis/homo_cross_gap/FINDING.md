@@ -37,6 +37,8 @@ are **not the same measurement**:
 | cross ensemble-only → cross blend **2.215** | **−0.111** | the GNN blend the champion adds (homo has no GNN leg) |
 | **sum** | **+0.712** | = the full headline gap |
 
+![homo/cross gap waterfall](../../../docs/figures/homo_cross_gap_waterfall.png)
+
 ## Conclusion
 
 **The homo/cross gap is now decisively characterised: it is split regime + training
@@ -82,6 +84,8 @@ homo_unify 26k + cross clean-train 23k, eval on the cross scaffold-disjoint hold
 | `finetune` (homo → cross continue-train) | 2.849 (null) | — |
 | `homo_only_zeroshot` | 3.109 | — |
 
+![homo+cross joint tabular](../../../docs/figures/homo_cross_joint.png)
+
 **Read: a modest but reproducible gain.** `naive_merge` improves ~0.11 kcal on *both* a
 weak single-XGB and a proper ensemble — so it is not just "a data-starved model likes
 more rows". `finetune` (the "proper" transfer) is null. This is the opposite of the
@@ -101,3 +105,49 @@ pipeline), retrain the cross ensemble + GNN with homo included (down-weighted to
 and check whether the −0.1 survives to the champion. If it does → then invest in the
 GNN homo-pretrain→finetune path (which the current champion does NOT use — it was never
 rebuilt after the 2026-07 purge).
+
+---
+
+## Task D — would a better cheap Δ-learning baseline lower the floor?
+
+`cross_benzoin/cheap_baseline_pilot_worker.py` + `merge_cheap_baseline_pilot.py`. The
+DFT-arbitration work showed the g-xTB↔r2SCAN-3c gap is dominated by the single-point
+method level (|Δ_SP| ~16 vs |Δ_geom| ~5), so the one untested accuracy lever is a
+better-but-still-cheap single point as the Δ-learning baseline: g-xTB (semiempirical) →
+**B97-3c** (GGA composite, ~5-20× cheaper than the r2SCAN-3c label).
+
+128 pairs (64 heteroatom hard-tail + 64 control from the holdout), one fresh GFN2
+geometry per species, then g-xTB / B97-3c / r2SCAN-3c single points on that identical
+geometry (so `resid_gxtb` vs `resid_b973c` is conformer-noise-free). 128/128, 0 errored.
+
+![cheap-baseline pilot](../../../docs/figures/cheap_baseline_pilot.png)
+
+| residual `dG_r2scan − dG_baseline` | mean\|·\| | **std** | mean (signed) | p90\|·\| |
+|---|--:|--:|--:|--:|
+| g-xTB baseline | 6.00 | **4.32** | +5.75 | 11.2 |
+| B97-3c baseline | 5.24 | **1.11** | **−5.24** | 6.7 |
+
+The B97-3c residual is a near-constant −5.24 kcal offset (mean|·| ≈ |mean_signed| → the
+scatter around the offset is tiny) + std ≈ 1.11. A Δ-learning model trivially absorbs a
+constant offset, so **the achievable floor is set by the std**: g-xTB 4.32 → B97-3c
+**1.11** (std ratio **0.26**). On the hardest heteroatom hard-tail (g-xTB std 5.1)
+B97-3c still holds std 1.2.
+
+`merge_cheap_baseline_pilot.py` mechanically returns **AMBER** (its GREEN gate also
+requires mean|·| to drop, but mean|·| is dominated by the −5.24 constant offset, which
+is absorbable) — **substantively closer to GREEN**: the std ratio 0.26 is decisive.
+Switching the baseline to B97-3c drops the Δ-model's theoretical floor from ~4.3 to
+~1.1, potentially pushing the champion MAE well below 2.215 — the first real accuracy
+lever in months.
+
+**Caveats:** the one-shot ETKDG/GFN2 geometry is ~18 kcal off the production funnel_v3
+labels; and with all three SPs on one geometry, the 1.11 std is pure level-of-theory
+scatter with no conformer noise (production adds that on top). The B97-3c↔r2SCAN-3c
+constant-offset relationship is a level-of-theory property and likely geometry-robust,
+but this must be confirmed.
+
+**Next steps:** (1) re-run ~30 pairs on production funnel_v3 geometries to confirm the
+low-scatter property; (2) if confirmed → a full B97-3c-baseline recompute (35k pairs ×
+3 species) + retrain the Δ-model on the B97-3c baseline, and measure whether the
+champion MAE drops materially. Raw per-pair data:
+`data/cross_benzoin/cheap_baseline_pilot/cheap_baseline_pilot_merged.csv`.
