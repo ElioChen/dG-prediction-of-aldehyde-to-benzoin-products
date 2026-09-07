@@ -66,5 +66,38 @@ different test-set sizes (3,518 vs 448); 72-feat homo recipe vs the cross champi
 
 There is no "cross penalty" to normalise away. Per-prediction calibration was shipped
 separately (`predict_dg_calibration.json` / `predict_dg.py` split-conformal PI, 09-07).
-Whether a **unified homo+cross model** beats cross-only at current scale is tested in
-`homo_cross_joint_tabular.py` (Task C).
+
+---
+
+## Task C — does a unified homo+cross model help at current scale?
+
+`cross_benzoin/homo_cross_joint_tabular.py` + an ensemble-level check
+(`homo_cross_joint_ensemble_check.json`). Δ = `dG_orca − dG_gxtb`, 72-feat shared space,
+homo_unify 26k + cross clean-train 23k, eval on the cross scaffold-disjoint holdout (n=448).
+
+| condition | single-XGB MAE | MLP+XGB ensemble MAE |
+|---|--:|--:|
+| `cross_only` | 2.812 | 2.716 |
+| `naive_merge` (+homo, +is_homo flag) | **2.688 (−0.124)** | **2.610 (−0.106)** |
+| `finetune` (homo → cross continue-train) | 2.849 (null) | — |
+| `homo_only_zeroshot` | 3.109 | — |
+
+**Read: a modest but reproducible gain.** `naive_merge` improves ~0.11 kcal on *both* a
+weak single-XGB and a proper ensemble — so it is not just "a data-starved model likes
+more rows". `finetune` (the "proper" transfer) is null. This is the opposite of the
+pre-purge BDE-side finding (`finetune > cross-only > naive_merge`), because here the
+homo:cross ratio is ~1.1:1 (balanced) so pooling doesn't dilute the cross signal — at
+full scale (219k homo : 35k cross ≈ 6:1) the dilution would return unless homo is
+down-weighted.
+
+**Caveats:** 72-feat proxy is ~0.5 kcal weaker than the 260-feat + GNN champion (2.716
+vs 2.215), so the gain may shrink against the champion; n_test=448 → each −0.11 is <1
+bootstrap SE (the strength is the *direction* holding across two model classes, not any
+single number).
+
+**Verdict: AMBER-GREEN — worth a bounded next step, not a blank cheque.** Build the full
+260-schema featurization for the 30k homo_unify products (mordred + assemble, ~1-2 day
+pipeline), retrain the cross ensemble + GNN with homo included (down-weighted to ~1:1),
+and check whether the −0.1 survives to the champion. If it does → then invest in the
+GNN homo-pretrain→finetune path (which the current champion does NOT use — it was never
+rebuilt after the 2026-07 purge).
