@@ -3,8 +3,7 @@
 
 Core question: on the REAL production funnel_v3 + GFN2-ohess geometry protocol, does the
 D-pilot's low B97-3c residual scatter survive?
-  pilot (one-shot ETKDG-seed42 geom, 128 pairs): resid_gxtb std 4.32, resid_b973c std 1.11 (ratio 0.26)
-  pilot, the 30 picked pairs only                : resid_gxtb std 4.51, resid_b973c std 1.42
+  pilot (one-shot ETKDG-seed42 geom, same 128 pairs): resid_gxtb std 4.32, resid_b973c std 1.11 (ratio 0.26)
 
 Prints std(resid_gxtb) vs std(resid_b973c) on the production geometry, plus repro checks
 (recomputed r2SCAN / g-xTB dG vs the stored production labels -> funnel_v3 reproduction
@@ -20,8 +19,7 @@ import pandas as pd
 
 REPO = Path("/gpfs/scratch1/shared/schen3/benzoin-dg-restored")
 D = REPO / "data/cross_benzoin/rec1_prodgeom_recheck"
-PILOT30_GXTB_STD, PILOT30_B973C_STD = 4.51, 1.42
-PILOT_ALL_GXTB_STD, PILOT_ALL_B973C_STD = 4.32, 1.11
+PILOT_GXTB_STD, PILOT_B973C_STD = 4.32, 1.11   # pilot one-shot-geom stds on the SAME 128 pairs
 
 
 def _s(xs):
@@ -48,8 +46,8 @@ def main() -> int:
             print(f"  ERR {r['pid']}: {r['error']}")
 
     out = {"n_chunks": len(files), "n_rows": len(df), "n_ok": len(ok),
-           "pilot_ref": {"all128": {"resid_gxtb_std": PILOT_ALL_GXTB_STD, "resid_b973c_std": PILOT_ALL_B973C_STD},
-                         "picked30": {"resid_gxtb_std": PILOT30_GXTB_STD, "resid_b973c_std": PILOT30_B973C_STD}},
+           "pilot_ref_same_pairs": {"resid_gxtb_std": PILOT_GXTB_STD, "resid_b973c_std": PILOT_B973C_STD,
+                                    "std_ratio": round(PILOT_B973C_STD / PILOT_GXTB_STD, 3)},
            "prod_geom": {}}
     for name, sub in [("overall", ok)] + [(g, ok[ok["grp"] == g]) for g in sorted(ok["grp"].unique())]:
         blk = {k: _s(sub[k]) for k in ["resid_gxtb", "resid_b973c", "repro_r2scan", "repro_gxtb"]}
@@ -60,7 +58,7 @@ def main() -> int:
         for k in ["resid_gxtb", "resid_b973c", "repro_r2scan", "repro_gxtb"]:
             print(f"  {k:13s}: {blk[k]}")
         print(f"  std ratio b973c/gxtb (prod geom): {blk['std_ratio_b973c_over_gxtb']}  "
-              f"(pilot all128 0.26 / picked30 {PILOT30_B973C_STD / PILOT30_GXTB_STD:.2f})")
+              f"(pilot one-shot-geom, same pairs: {PILOT_B973C_STD / PILOT_GXTB_STD:.2f})")
 
     ov = out["prod_geom"]["overall"]
     rb = ov["resid_b973c"].get("std")

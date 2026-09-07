@@ -1,17 +1,17 @@
 #!/bin/bash
 #SBATCH --job-name=rec1_prodgeom
-#SBATCH --partition=fat_rome
+#SBATCH --partition=rome
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=36
-#SBATCH --mem=120G
+#SBATCH --cpus-per-task=24
+#SBATCH --mem=48G
 #SBATCH --time=16:00:00
-#SBATCH --array=0-29%12
+#SBATCH --array=0-127%48
 #SBATCH --output=/gpfs/scratch1/shared/schen3/benzoin-dg-restored/data/cross_benzoin/rec1_prodgeom_recheck/chunks/rec1_%A_%a.out
 set -o pipefail
 REPO=/gpfs/scratch1/shared/schen3/benzoin-dg-restored
 PY=/home/schen3/venv/nhc-workflow/bin/python
-SAMP="$REPO/data/cross_benzoin/rec1_prodgeom_recheck/rec1_recheck_pairs30.csv"
+SAMP="$REPO/data/cross_benzoin/rec1_prodgeom_recheck/rec1_recheck_pairs128.csv"
 OUTD="$REPO/data/cross_benzoin/rec1_prodgeom_recheck/chunks"
 mkdir -p "$OUTD"
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null
@@ -29,7 +29,7 @@ OUT="$OUTD/rec1_$(printf '%03d' "$ID").csv"
 if [[ -s "$OUT" ]]; then echo "task $ID: $OUT exists, skip"; exit 0; fi
 
 $PY -u "$REPO/cross_benzoin/rec1_prodgeom_recheck_worker.py" \
-    --sample "$SAMP" --skip "$ID" --max 1 --out "$OUT" --scratch "$SCR" --xtb-cores 11
+    --sample "$SAMP" --skip "$ID" --max 1 --out "$OUT" --scratch "$SCR" --xtb-cores 7
 RC=$?
 rm -rf "$SCR" 2>/dev/null
 echo "task $ID done rc=$RC $(date)"
