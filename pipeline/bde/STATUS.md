@@ -78,10 +78,18 @@ ensemble、B4/B5 honest scaffold-disjoint、GBM bakeoff。**以下数字取代 2
 | B5 BonDNet 式 | 2.632 / 0.722 | 5.082 / 0.787 | 同上 |
 | GBM 最优头(RF 醛 / HistGBM 产物,H-SPOC 特征全量) | 3.494 | 5.317 | 远逊于 B6,GNN 端到端优势在全量下更明确 |
 
-未跑:Phase-3 3D 反应差分模型(SchNet/DimeNet,`submit_gnn3d.sh`)——sweep 脚本没有
-自动提交这一项(计划里的第 5 项,`POST_ARRAY_MODEL_SWEEP.md` §1 有记录),需要人工决定
-是否补跑(几何已保留在 `chunk_*/geom.tar.zst`,不需要重算)。鉴于 B6 已经把 B4/B5/GBM
-甩开这么多,3D 模型能再突破的先验概率不高,不建议无人值守自动跑。
+未跑,**09-07 查证后不建议跑**:Phase-3 3D 反应差分模型(计划里的第 5 项,
+`POST_ARRAY_MODEL_SWEEP.md` §1 引用 `submit_gnn3d.sh`/`gnn3d_schnet_dimenet.py`)。
+去读了脚本才发现这其实**不是一个 BDE 专用脚本**——它预测的是
+`dG_orca_kcal − dG_gxtb_kcal`(cross-dG 项目的反应自由能残差),不是 BDE 目标
+`bde_gxtb_kcal`,仓库里也找不到任何 BDE 目标版本(`grep` 不到）。而这个确切的架构族
+(SchNet/DimeNet++/ViSNet)**已经在 07-21 对 dG 任务跑过一次,4 个架构全部落在 blend
+MAE 2.177–2.188,是三条独立证据共同确认的 null 结果之一**(见 memory
+`cross-r1-10-champion-and-label-ceiling`)。要把它变成真正的 BDE 3D 模型,得先重写整个
+数据加载(目标换成 bde_gxtb_kcal、拆包 `chunk_*/geom.tar.zst`)+ 修复两处已知损坏
+(硬编码 `/scratch-shared/...` 路径已不存在、`envs/gnn` 环境损坏——好在 `venv/nequip`
+有等价的 `torch_geometric` 可以顶替),工作量不小,而先验大概率又是一次 null。
+**结论:不补跑,除非用户明确要求**。
 
 ### 2.2 旧:小数据集(42k 局部库)排名(仅存档,不再引用)
 
