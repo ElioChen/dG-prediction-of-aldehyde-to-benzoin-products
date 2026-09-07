@@ -15,25 +15,31 @@ Pilot reference on the SAME 128 pairs (one-shot geom): resid_gxtb 4.32 / resid_b
 ### GREEN  (ratio ≤ 0.45, resid_b973c std ≤ 2.5, repro_r2scan std ≤ 3.5)
 
 B97-3c keeps its low scatter on the real production geometry → the lever is real.
-**Do NOT immediately launch the full 35k recompute** (multi-day, ~100k+ SP,
-cluster-week). Instead the decisive intermediate:
 
-1. **B97-3c dG for the frozen scaffold-disjoint holdout (n=448) + a train slice**
-   big enough to retrain the Δ-model. Reuse `rec1_prodgeom_recheck_worker.py`
-   (it already produces `dG_b973c_kcal` per pair on production geometry). Pair list:
-   the 448 holdout + ~2-4k scaffold-disjoint train rows from
-   `cross_round10/cross_train_table_10rounds_scaffold_split_labeled_slim260.parquet`
-   (`new_scaffold_split`), preferring rows whose product geom is archived (see
-   coverage below) so most tasks are SP-only, regen only the gaps.
-2. **Retrain the Δ-model with `dG_pred = dG_b973c + ML correction`** (swap the g-xTB
-   baseline column), scaffold-disjoint, and compare holdout MAE to champion 2.215.
-   Scripts: `cross_benzoin/finalize_correction.py` / the ensemble trainer used for
-   `ensemble_scaffold_disjoint.joblib`.
-3. Drop to ~1.5 or below → project-level result → THEN scope the full recompute for a
-   human go. Sub-1-bootstrap-SE change → the std-ratio was a mirage at the dG level
-   (constant-offset absorption + conformer floor), write it up, move to Rec 2.
+**Retrain mechanics** (`train_scaffold_disjoint.py`, imports `BASELINE_COL="dG_gxtb_kcal"`
+/ `TARGET_COL="dG_orca_kcal"` from `train_cross_delta.py`; `y = TARGET − BASELINE`,
+`pred = BASELINE + model`). Swapping the baseline to B97-3c needs `dG_b973c_kcal` for
+**every clean-train row** (22,771), not just the holdout — so there is **no cheap
+intermediate that directly answers "does champion MAE drop"**: that needs B97-3c on
+~23k pairs, all geometry-regen, = the multi-week campaign. Options:
 
-Geometry for the intermediate: **must be regenerated** — see the coverage finding below.
+1. **Paired A/B proxy (overnight-doable, ~1999 pairs)** — run
+   `rec1_prodgeom_recheck_worker.py` over `rec1_b973c_intermediate_1999.csv`
+   (448 holdout + 1551 stratified train; selector
+   `select_rec1_b973c_intermediate.py`). Then retrain the tabular Δ-model TWICE on
+   the identical 1551-train/448-holdout slice — once with `dG_gxtb_kcal` baseline,
+   once with `dG_b973c_kcal` — via a small `--baseline-col` patch to
+   `train_scaffold_disjoint.py`. Absolute MAEs are inflated (tiny train) but the
+   **A/B gap on the same data** is the signal: B97-3c baseline clearly beating g-xTB
+   baseline on the 448 holdout ⇒ the std-ratio translates to dG-level accuracy ⇒
+   worth pitching the full campaign. A/B gap ≈ 0 ⇒ std-ratio was constant-offset
+   absorption + conformer floor, not real accuracy ⇒ write up, move to Rec 2.
+   ~1999 pairs × ~1 h regen ≈ 1 cluster-day at rome %200. Cancellable. Within the
+   granted autonomy on a clean GREEN.
+2. **Full ~23k recompute** — human go required (multi-week, see cost below). Only
+   pitch it if the proxy A/B gap is healthy.
+
+Geometry: **must be regenerated** for everything — see the coverage finding below.
 
 ### ⚠ Geometry-availability finding (2026-09-08, `rec1_fullset_geom_coverage.py`)
 
