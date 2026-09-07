@@ -141,12 +141,14 @@ def main() -> int:
     ald_d = ald_lookup.add_prefix("donor_").reset_index().rename(columns={"_canon": "_donor_canon"})
     ald_a = ald_lookup.add_prefix("acceptor_").reset_index().rename(columns={"_canon": "_acceptor_canon"})
     df = df.merge(ald_d, on="_donor_canon", how="left").merge(ald_a, on="_acceptor_canon", how="left")
-    miss_d = df["donor_G_gxtb"].isna().sum()
-    miss_a = df["acceptor_G_gxtb"].isna().sum()
+    # see assemble_cross_training_table_combined.py::load_round for why this uses
+    # xtb_HOMO, not G_gxtb, as the match-success sentinel (2026-09-07 fix).
+    miss_d = df["donor_xtb_HOMO"].isna().sum()
+    miss_a = df["acceptor_xtb_HOMO"].isna().sum()
     if miss_d or miss_a:
         print(f"WARN: {miss_d} rows missing donor aldehyde descriptors, "
               f"{miss_a} missing acceptor -- dropping")
-        df = df[df["donor_G_gxtb"].notna() & df["acceptor_G_gxtb"].notna()].copy()
+        df = df[df["donor_xtb_HOMO"].notna() & df["acceptor_xtb_HOMO"].notna()].copy()
 
     donor2d = _rdkit_block(df["donor_smiles"], "donor")
     acc2d = _rdkit_block(df["acceptor_smiles"], "acceptor")

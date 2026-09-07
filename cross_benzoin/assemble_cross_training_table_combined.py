@@ -79,12 +79,23 @@ def load_round(products_csv: Path, dft_csv: Path, product_bde_csv_or_dir: Path,
     ald_d = ald_lookup.add_prefix("donor_").reset_index().rename(columns={"_canon": "_donor_canon"})
     ald_a = ald_lookup.add_prefix("acceptor_").reset_index().rename(columns={"_canon": "_acceptor_canon"})
     df = df.merge(ald_d, on="_donor_canon", how="left").merge(ald_a, on="_acceptor_canon", how="left")
-    miss_d = df["donor_G_gxtb"].isna().sum()
-    miss_a = df["acceptor_G_gxtb"].isna().sum()
+    # Coverage sentinel: use xtb_HOMO, not G_gxtb -- since the 2026-09-06 BDE featurize
+    # rebuild (bde_homo_product_featurize_20260902), the worker computes local bond/
+    # electronic descriptors at g-xTB level but never recomputes the whole-molecule
+    # g-xTB Gibbs energy (only the GFN2-level G_ald_xtb -> G_xtb), so G_gxtb is genuinely
+    # NaN for ~207k/209k aldehydes now (not a merge failure -- see RUN_LOG 09-07 and
+    # [[bde-scaffold-disjoint-retrain-submitted]]). Using it as the "did this row match"
+    # sentinel used to silently drop every row with a real, successful match. xtb_HOMO
+    # is a core descriptor the worker always computes (99.9%+ coverage) and is a true
+    # match-success signal; donor_G_gxtb/acceptor_G_gxtb (2/260 frozen features) are
+    # still genuinely missing for most molecules and will fall through to the
+    # downstream median-impute like any other optional feature.
+    miss_d = df["donor_xtb_HOMO"].isna().sum()
+    miss_a = df["acceptor_xtb_HOMO"].isna().sum()
     if miss_d or miss_a:
         print(f"  [{round_tag}] WARN: {miss_d} rows missing donor descriptors, "
               f"{miss_a} missing acceptor -- dropping")
-        df = df[df["donor_G_gxtb"].notna() & df["acceptor_G_gxtb"].notna()].copy()
+        df = df[df["donor_xtb_HOMO"].notna() & df["acceptor_xtb_HOMO"].notna()].copy()
     df["round"] = round_tag
     return df
 
