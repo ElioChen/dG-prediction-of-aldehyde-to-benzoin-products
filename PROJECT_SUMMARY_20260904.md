@@ -1,11 +1,17 @@
-# benzoin-dg 项目完成总结（截至 2026-09-04）
+# benzoin-dg 项目完成总结（09-04 首版，**09-07 增补更新**，供工作汇报用）
 
 > 事无巨细、按时间顺序的项目总览，以 **cross-benzoin ΔG 主动学习（AL）** 为主线，
 > 附 BDE 预测子课题、homo dG 项目、以及贯穿全程的两次基础设施事故（git 损坏、
-> scratch 全量 purge）。配套一份可分享的 Artifact 报告页（精简版）。
+> scratch 全量 purge）。配套一份可分享的 Artifact 报告页（精简版，09-04 版本，
+> 09-07 的增补尚未同步进去）。
 >
-> 权威 living 文档索引见文末「文档地图」。本文件是一次性快照，之后的进展请看
-> `RUN_LOG_*.md` / `HANDOFF_*.md` / `cross_benzoin/CHAMPION.md`。
+> **09-07 更新说明**：按项目惯例本文件本应是一次性快照（见文末），但应用户要求
+> 用作工作汇报底稿，做了一次增补编辑而非另开新文件——新增内容集中在 §3.9（几何
+> 消融最终判决）、§3.10（Goal 3 从"验证"到"已交付为工具"）、§4.4-4.5（BDE 全量
+> 重训出新冠军 + 一次跨子项目 bug 的发现与修复）、§7（09-07 状态快照）。09-07 之
+> 后的进展仍然去看 `RUN_LOG_20260903.md`（living doc）。
+>
+> 权威 living 文档索引见文末「文档地图」。
 
 ---
 
@@ -23,8 +29,10 @@
 | 训练数据规模 | 35,528 行 / clean-train 22,771 行（10 轮 AL 累计） |
 | **标签质量天花板（09-04 新发现）** | 单构象 r2SCAN-3c DFT 标签噪声 std ≈ **2.9 kcal/mol** —— champion MAE 已贴地板 |
 | **round10 主动学习消融（09-04 新发现）** | AL 诊断出真实盲点，但训练收益 **≈0（−0.03，噪声内）** |
-| **重新表述为分类/排序（09-04 新发现，好消息）** | 同一个 champion 做"favorable/unfavorable"判别 **AUC 0.92-0.93**，top-10% 精度 **64%**（g-xTB 基线仅 31%，随机 10%）—— **不受标签噪声天花板限制** |
-| 姊妹子课题：BDE 预测 | champion B6（D-MPNN+局部3D描述符），骨架不相交醛 MAE 1.579 / 产物 MAE 3.060 |
+| **重新表述为分类/排序（09-04 验证，09-07 已交付）** | 同一个 champion 做"favorable/unfavorable"判别 **AUC 0.92-0.93**，top-10% 精度 **64%**（g-xTB 基线仅 31%，随机 10%）—— **不受标签噪声天花板限制**；09-07 起已作为 `predict_dg.py` 的标准输出列（非单独 eval 脚本）|
+| **几何方法偏差消融（09-04 收官）** | 60 对三物种 ΔΔG 消融：hetero 组中位 ddG −0.47 kcal vs control −0.25 kcal，均远低于 1 kcal 判定阈值 → **无显著偏差，标签质量调查结案，不做定向重标签** |
+| 姊妹子课题：BDE 预测（**09-06 全量重训，新数字**） | champion 现为 **B6 5-seed deep ensemble**，骨架不相交全量 220k：醛 MAE **1.851** / 产物 MAE **2.826**（旧数字 1.579/3.060 是 42k 局部库上跑的，已作废） |
+| **跨子项目 bug（09-06 引入，09-07 发现+修复）** | BDE 库重建意外让 `predict_dg.py` 对任何新分子对 100% 失败（共享库文件的覆盖率哨兵字段选错）；已修复+部署，见 §4.5 |
 | 姊妹子课题：homo dG（A+A，已上线） | 219,364 个 DFT 标签全覆盖，champion 测试 MAE 1.503 |
 | 基础设施事故 | 2026-07-13 git 数据库损坏（历史重开）；2026-07-20~29 scratch 全量 purge（大量数据/权重丢失，本文档记录完整恢复过程）；2026-09-03 深夜 scratch inode 硬顶 133% |
 
@@ -334,7 +342,7 @@ r1-10 blend MAE 2.215 vs homo 项目已测过的单构象 r2SCAN-3c 标签噪声
 的能量，没有扣掉 donor/acceptor 侧的抵消——**真正决定性的测试是下面第 §3.9 节的
 三物种 ΔΔG 消融**。
 
-### 3.9 2026-09-04：决定性几何-方法消融（`dg_geom_method`，本文档撰写时进行中）
+### 3.9 2026-09-04：决定性几何-方法消融（`dg_geom_method`，**09-04 当晚已收官**）
 
 **目的**：探针 2 只看了产物一侧的能量偏差；但 `dG = G(prod) − G(donor) − G(acc)`
 是个差值，如果三个物种的几何偏差方向一致，donor/acceptor 侧的偏差可能会**抵消**
@@ -356,19 +364,25 @@ g-xTB-opt（**g-xTB 从 GFN2 极小点出发精修，不独立重新搜索**—�
 重跑（先是 `26369972`，后因 ORCA MPI 单点在这台机器上跑不通又改回串行、最终版
 `26371408`）。
 
-**运行进度**（本文档撰写时）：60 对中已完成 50 对，**rmsd_prod_med = 0.20 Å**
-（<0.3 的健全性阈值，说明"从 GFN2 极小点精修"这个修复确实生效了，没有重蹈 v1 的
-覆辙）。最终 hetero 组 vs control 组的中位 ddG 对比结果尚未出（预计本文档发布后
-数小时内完成，本会话 Monitor `bfjq6n1fb` 会捕获）。
+**最终结果**（59/60 对完成，1 对已知 stale-schema 分片缺失，不影响判读）：
 
-**判读预案（写在 `HANDOFF_20260904.md` §1.3，供后续会话执行）**：
+| 组 | n | 中位 ddG (kcal/mol) | 分布范围 |
+|---|---:|---:|---|
+| hetero（杂原子重） | 34 | **−0.47** | −5.22 ~ +2.84 |
+| control | 25 | **−0.25** | −4.43 ~ +1.96 |
+
+`rmsd_prod_med = 0.20 Å`（<0.3 健全性阈值，确认"从 GFN2 极小点精修"修复生效，
+不是构象噪声在冒充几何偏差）。两组中位数都远低于 1 kcal 判定阈值、同号、分布
+高度重叠——**判读走§预案的第二支：没有显著几何方法偏差**。
+
+**判读预案（原写在 `HANDOFF_20260904.md` §1.3，供后续会话执行；结果已按此判读）**：
 - 若 hetero 组 ddG 中位数 >1 kcal、明显 >> control 组、且 rmsd 干净（<0.3）→
   对 r1-10 表里杂原子重的 ~5,000-8,000 对（`smiles` 含 `P(=O)`/`S(=O)(=O)`/硼酯）
   做定向的 g-xTB 几何精修 + r2SCAN 重标签，用新标签覆盖，重训，在一个
-  B/S/P 富集的 holdout 上对比新旧 champion。**这是当前唯一还有实证支持的、
-  能真正撼动标签噪声天花板的杠杆**。
-- 若没有偏差 → 几何方法不是杠杆，标签质量investigation 到此为止，全力转向
-  **Goal 3**（部署 / 换问题形态，见下节）。
+  B/S/P 富集的 holdout 上对比新旧 champion。
+- **若没有偏差 → 几何方法不是杠杆，标签质量investigation 到此为止，全力转向
+  Goal 3**（部署 / 换问题形态，见下节）。**← 实际结果，09-04 晚间执行**：未启动
+  任何定向重标签战役，champion 维持 r1-10 不变，资源全部转向下节的 Goal 3 交付。
 
 ### 3.10 2026-09-04：Goal 3 —— 重表述为分类/排序（已验证为正，可立即交付）
 
@@ -400,6 +414,14 @@ g-xTB 物理基线做同样的重表述，看 ML 相对基线的优势在排序/
 判别力提升）。这是一个**立刻可以交付、不依赖 §3.9 结果、不受标签噪声天花板
 束缚**的 Goal-3 产出——一个"favorable/unfavorable 筛选器"或"按预测 ΔG 排序
 取 top-k 候选"的工具，今天就能可靠地用，无需再等更多 DFT 数据或更精细的模型。
+
+**09-07 更新：从"验证过的发现"变成"用户能拿到手的工具"**。09-04 的产出还只是
+一个独立的事后评估脚本（`eval_reformulation_classification_ranking.py`）；09-07
+把这三个结论直接做成了 `predict_dg.py` 输出 CSV 里的标准列：`dg_favorable`
+（dG<0，物理意义最直接的判据）、`dg_below_train_median`（更高召回率的判据）、
+`dg_rank_pct`（批内百分位排名，用于给一批候选分子对排序）。任何拿 `predict_dg.py`
+打分新分子对的人，现在默认就能拿到这三列，不需要另外知道/运行评估脚本。部署
+过程中顺带发现并修复了一个严重 bug，见 §4.5。
 
 ### 3.11 champion 演化全景表（一图看懂 10 轮）
 
@@ -525,15 +547,76 @@ g-xTB 物理基线做同样的重表述，看 ML 相对基线的优势在排序/
     running 数如期跳变。
   - 新起监控 `bbzu8ozjc`：轮询两个 array 完成状态；同时看护 geomarch/janitor
     两个服务的存活，连续 2 次探测不到就自动重投（间隔 ≥90 分钟防抖）。
-  - **截至本文档撰写**：featurize 完成度 features.csv **1759/2209（80%）**，
-    `.geom_archived` 1707（滞后 52，在 30 分钟密封窗口内正常）。剩余 ~450 个
-    chunk 在节流恢复后加速消化中。
+  - （09-04 撰写时的进度快照：featurize 80%，已被下面 09-06/09-07 的收官结果
+    取代，不再单列。）
   - `bde_post_sweep`（`26326313`）挂 `afterany` 依赖，阵列落地后**全自动**触发：
     完整度门槛检查 → 重组两个描述符库 → 备份 → 提交完整 model sweep
     （B6 checkpoint 重训 + B6 5-seed deep ensemble + B4/B5 诚实重训 + GBM 头
-    bake-off 全量重跑 + Phase-3 3D 反应差分模型评估）。计划文档
-    `pipeline/bde/POST_ARRAY_MODEL_SWEEP.md`，本会话不需要手动干预，只需等
-    监控报告并核对结果、`git add -f`、更新 `STATUS.md` 排名表。
+    bake-off 全量重跑）。计划文档 `pipeline/bde/POST_ARRAY_MODEL_SWEEP.md`。
+
+- **09-06 — 两个 featurize array 全部跑完，`bde_post_sweep` 全自动落地**：
+  genoa 2191 完成/18 失败，rome 1191 完成/68 失败（失败率均 <6%，可接受）。
+  自动装配出**史上第一次完整**的两个描述符库：`aldehydes_all.csv`（209,526
+  行，从 42k 局部库补全）、`products_all.csv`（184,199 行，此前从未有过全量
+  版本）。自动提交并跑完 4/5 项计划的 model sweep（B6 ckpt、B6 deep ensemble、
+  B4/B5 honest retrain、GBM bake-off；第 5 项 Phase-3 3D 反应差分模型的自动
+  提交漏掉了，见下）。
+
+- **09-07 — 本会话补完 sweep 的收尾工作，产出新 BDE champion**：sweep 脚本
+  自动跑完了训练，但没有自动跑聚合/文档/备份这几步，本会话补上：
+  - 跑 `aggregate_b6_ensemble.py`（原来 `ensemble_summary.json` 是空的）→
+    **新 champion：B6 5-seed deep ensemble，醛 MAE 1.851 / 产物 MAE 2.826**
+    （单 seed checkpoint 2.094/3.192，deep ensemble 领先 ~12%；不确定性
+    `sigma~|err|` spearman 0.40-0.42，可用于 route-to-DFT 分流）。
+  - **这组数字取代 09-04 之前引用的 1.579/3.060**——那是在 42k 局部库上跑的，
+    数据规模不同，不是同一个实验，不能直接比较优劣，但作为"现在能引用的
+    champion 数字"，官方以新数字为准。
+  - 更新 `pipeline/bde/STATUS.md`、`git add -f` 所有结果 json/pred csv/
+    checkpoint、扩充 `submit_backup_recovery_artifacts.sh` 备份清单并跑了
+    备份 job。
+  - **Phase-3 3D 反应差分模型（计划第 5 项）：查证后决定不跑**。追查脚本
+    (`gnn3d_schnet_dimenet.py`) 发现它其实预测的是 `dG_orca-dG_gxtb`（cross-dG
+    的目标），不是 BDE 目标，仓库里没有任何 BDE 版本的 3D 脚本；而这个架构族
+    （SchNet/DimeNet++/ViSNet）07-21 已经在 dG 任务上跑过、4 个架构全部落在
+    MAE 2.177-2.188（§3.11 提到的 null 结果之一）。要做成真正的 BDE 版本是
+    一次实打实的重写（换目标、拆几何包、修复两处路径/环境损坏），先验价值
+    不高，没有无人值守启动，写进了 `STATUS.md` 供以后参考。
+
+### 4.5 2026-09-07：一次跨子项目的 bug——BDE 重建意外打断了 cross-dG 的部署工具
+
+**背景**：`data/cross_benzoin/homo_v6/aldehydes_all.csv` 是 BDE 和 cross-dG 两个
+子项目**共用**的文件——BDE 的 `assemble_homo_descriptor_libs.py` 写它，cross-dG
+的 `predict_dg.py`（部署工具，见 §3.10）读它。09-06 的 BDE 全量重建只计算了
+BDE 自己需要的局部键描述符，**从没重新算过整分子的 g-xTB 自由能 `G_gxtb`**
+（BDE 自己的目标是键解离能，从不需要这个量）。
+
+**发现经过**：09-07 落实 Goal 3 部署前，没有直接宣布"部署完成"，先拿 20 个真实
+分子对冒烟测试了 `predict_dg.py`——结果**对任何新分子对都返回 0 行、直接崩溃**。
+追查发现：`load_round()` 用 `donor_G_gxtb`/`acceptor_G_gxtb` 是否非空作为"这一行
+有没有匹配上醛库"的判据；由于 09-06 后这个字段对 207k/209k 个醛都是空的（只有
+2,718 行从旧的 42k 局部库回填过），这个判据把**每一行真实成功的匹配都误判成
+失败**，整批直接清零——SMILES 层面的匹配其实完全正常（手工验证过）。
+
+**修复**（commit `c520acf`）：把判据换成覆盖率 99.9%+ 的 `donor_xtb_HOMO`/
+`acceptor_xtb_HOMO`（和 G_gxtb 缺口无关），真实匹配的行不再被误删；`G_gxtb`（260
+个冠军特征里的 2 个）该缺照缺，走已有的中位数填补兜底，和其余可选特征的处理方式
+一致。20/20 重新冒烟测试全部通过。**这个 bug 不影响 r1-10 champion 本身的 MAE
+2.215**——那是在重建前的快照上训的——只影响"用 `predict_dg.py` 给全新分子对
+打分"这条路径，而这正是 Goal 3 要交付的东西，不测出来的话就是一次"看起来部署了、
+实际打不出分"的假交付。
+
+**后续（同日）：把 G_gxtb 缺口本身也补上**。没有满足于"median-impute 兜底就够
+了"，而是写了一个廉价的补算方法：复用已经优化好、已经归档的几何（不重新做
+昂贵的构象搜索+优化+Hessian），只在这个固定几何上补两个便宜的单点能（GFN2 SP
++ g-xTB SP），套用项目已有的混合修正公式重建 G_gxtb。小样本验证（97 个分子）：
+0.54 秒/分子，和旧库里唯一重叠的分子对比只差 0.10 kcal/mol。2200-chunk 补算
+array（`26432805`，节点选择见下）已提交，跑完后 `merge_aldehyde_gxtb.py` 会把
+结果并回库里。
+
+**顺带的运维发现**：提交补算 array 前查了集群节点状态（`sinfo -s`）——**genoa
+分区当时整个 drain/down**（737 个节点全部不可用，不是单纯排队），`fat_genoa`
+大半 down，`gpu_h100` 全部 drain。据此把新作业排到了负载较低的 `rome`，避免
+提交到一个完全瘫痪的分区。
 
 ---
 
@@ -571,7 +654,9 @@ g-xTB 物理基线做同样的重表述，看 ML 相对基线的优势在排序/
 
 ---
 
-## 7. 当前状态快照（2026-09-04 ~15:40，本文档撰写时刻）
+## 7. 当前状态快照（09-04 ~15:40 首版，**09-07 ~13:00 更新**）
+
+### 7.1 09-04 原始快照（历史存档）
 
 | 线 | 状态 |
 |---|---|
@@ -583,18 +668,29 @@ g-xTB 物理基线做同样的重表述，看 ML 相对基线的优势在排序/
 | **homo dG** | 稳定在线，本轮无新动作 |
 | **git** | 分支 `agent/recovery-20260902`，HEAD 领先 origin ~92 commit（本 repo 全部历史），全部未 push，等三线收齐统一 push |
 | **inode** | 19.8%，安全 |
-| **本会话监控** | `bfjq6n1fb`（dG 探针）、`b3sbh4gba`（inode 阈值）、`bbzu8ozjc`（BDE array + 服务存活） |
 
-**周末计划（按预期价值排序）**：
-1. 等 `dg_geom_method` 出结果 → 若确认几何偏差可修复，人工搭建+提交定向重标签
-   DFT 战役（~5,000-8,000 对，不做无人值守自动触发，因为是新流水线、值得先看
-   中间结果）。
-2. ✅ 已交付：分类/排序重表述。
-3. **不打算**盲目扩大 AL 批次（5-10k）——三条独立证据（round10 null、构象噪声
-   地板、07-21 三种 3D 架构挤在一起）指向"同类数据+同类模型容量已到平台期"，
-   继续砸计算大概率是 null。如果用户读完本总结仍想验证，可以启动，但预期价值
-   已经被前面的证据明显压低。
-4. BDE model sweep：自动触发，无需新决策。
+### 7.2 09-07 ~13:00 现状（本次增补撰写时刻）
+
+| 线 | 状态 |
+|---|---|
+| **cross-benzoin ΔG champion** | 仍是 r1-10 blend，MAE 2.215，未变 |
+| **几何偏差消融** | ✅ 已收官，无显著偏差，见 §3.9 |
+| **cross Goal 3** | ✅ 已交付为工具：`predict_dg.py` 默认输出分类/排序三列（见 §3.10），且修复了一个曾让它 100% 失败的 bug（见 §4.5） |
+| **BDE champion** | ✅ 全量重训完成，新数字醛 1.851 / 产物 2.826（deep ensemble），见 §4.4 |
+| **BDE G_gxtb 补算** | 🏃 array `26432805`，871 完成/10 失败/18 运行中（约 40%，rome 分区繁忙拖慢速度，ETA 未知，非阻塞） |
+| **homo dG** | 稳定在线，本轮无新动作 |
+| **git** | 已 push 到 origin（09-07 首次），HEAD 领先历史全部保留，之后的新 commit 也已同步推送 |
+| **inode** | 17.3%，安全（09-04~09-05 之间有一次 94.4% 峰值的自愈事件，见 `RUN_LOG_20260903.md`） |
+| **集群健康** | genoa 分区 09-07 完全 drain/down，新作业改投 rome；fat_rome/rome 仍是可用的健康分区 |
+
+**周末计划回顾（原 09-04 制定）**：
+1. ~~等 `dg_geom_method` 出结果 → 若确认偏差可修复，人工搭建定向重标签战役~~
+   → **实际结果：无偏差，未启动战役**，见 §3.9。
+2. ✅ 已交付分类/排序重表述，09-07 进一步做成了工具默认输出。
+3. **仍未**盲目扩大 AL 批次——判断维持不变。
+4. ✅ BDE model sweep 已在 09-06 自动跑完，09-07 补完了聚合/文档/收尾，产出新
+   champion（见 §4.4）。**新增的、原计划外的工作**：G_gxtb 跨项目 bug 修复
+   （§4.5）、G_gxtb 全量补算（进行中）。
 
 ---
 
@@ -612,11 +708,14 @@ g-xTB 物理基线做同样的重表述，看 ML 相对基线的优势在排序/
 | `pipeline/bde/POST_ARRAY_MODEL_SWEEP.md` | BDE 阵列后 model sweep 计划 |
 | `RECOVERY_REPORT_20260902.md` | 2026-07 purge 恢复全过程 |
 | `data/cross_benzoin/reformulation_classification_ranking_eval.json` | §3.10 分类/排序重表述的完整数字 |
-| memory `~/.claude/.../memory/*.md` | 见 `MEMORY.md` 索引，尤其 `cross-round10-fat20-stage1-recovered`、`cross-r1-10-champion-and-label-ceiling`、`bde-scaffold-leakage-finding`、`homo-active-relabel-null-result` |
+| `cross_benzoin/predict_dg.py` | Goal 3 部署工具本体，09-07 起默认输出分类/排序三列 |
+| `pipeline/bde/recompute_aldehyde_gxtb.py` / `merge_aldehyde_gxtb.py` | §4.5 G_gxtb 补算方法 + 合并脚本 |
+| memory `~/.claude/.../memory/*.md` | 见 `MEMORY.md` 索引，尤其 `cross-round10-fat20-stage1-recovered`、`cross-r1-10-champion-and-label-ceiling`、`bde-scaffold-leakage-finding`、`homo-active-relabel-null-result`、`bde-scaffold-disjoint-retrain-submitted`（09-06 数字更新）、`predict-dg-g-gxtb-regression-fixed`（09-07 新增，§4.5 的完整记录） |
 
 ---
 
 *本文档由 Claude（Sonnet 5）在 2026-09-04 会话中撰写，覆盖至撰写时刻的全部
 可验证历史（git log 92 commits、RUN_LOG/HANDOFF 全文、champion metadata、
-memory 索引）。后续进展请更新 `RUN_LOG_*.md`，不要在本文件上做增量编辑
-——按项目惯例，带日期的总结/报告是时间点快照，不是 living doc。*
+memory 索引）。2026-09-07 应用户要求增补更新（见文首说明），补入 §3.9 最终
+判决、§3.10/§4.4 的收官数字、新增 §4.5。后续进展请更新 `RUN_LOG_*.md`——
+本文件原则上仍是时间点快照，只在有明确的汇报用途需求时才做增量编辑。*
