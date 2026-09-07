@@ -61,11 +61,33 @@ chemprop 的 `x_d` 通道拼接到图嵌入之后、FFN 之前——直接照搬
   (0.730→0.763)。**同一份醛库、相似方法学,两个模型/任务结论相反 → scaffold 泄漏的影响
   必须逐模型/逐任务实测,不能假设可迁移**。
 
-### 2.2 完整排名(醛 / 产物,scaffold-disjoint 或最接近的诚实划分)
+### 2.1b 2026-09-06 全量(220k)重训 —— 取代 2.1/2.2 的旧数字
+
+`bde_post_sweep`(job `26326313`→`26418249-53`)在描述符库从 42k(purge 后局部恢复)
+重建到**完整 220k**(`assemble_homo_descriptor_libs.py`:products_all 184,199 行,
+aldehydes_all 209,526 行,见 §五)之后,在全量数据上重跑了 B6 ckpt、B6 5-seed deep
+ensemble、B4/B5 honest scaffold-disjoint、GBM bakeoff。**以下数字取代 2.1/2.2 里
+基于 42k 局部库的旧数字(1.579/3.060 那组)——数据集规模变了,不是同一个实验,不要
+再引用旧数字。**
+
+| 模型 | 醛 MAE/R² | 产物 MAE/R² | 备注 |
+|---|---|---|---|
+| **B6 5-seed deep ensemble(新冠军)** | **1.851 / 0.797** | **2.826 / 0.899** | 比单 seed 低 ~12%;`sigma~|err|` spearman 0.42/0.40,可做 route-to-DFT:keep80% kept_MAE 1.27/2.18 |
+| B6 单 checkpoint | 2.094 / 0.768 | 3.192 / 0.883 | 5 个 seed 全部落在 2.07–2.13 / 3.18–3.24 窄带,单 seed 已接近稳定 |
+| B4 D-MPNN(纯 2D 图,honest split) | 2.213 / 0.757 | 5.263 / 0.758 | 产物侧比 B6 差 65%——`x_d` 融合优势在全量诚实划分下依然稳健,甚至比旧的小数据集结论更悬殊 |
+| B5 BonDNet 式 | 2.632 / 0.722 | 5.082 / 0.787 | 同上 |
+| GBM 最优头(RF 醛 / HistGBM 产物,H-SPOC 特征全量) | 3.494 | 5.317 | 远逊于 B6,GNN 端到端优势在全量下更明确 |
+
+未跑:Phase-3 3D 反应差分模型(SchNet/DimeNet,`submit_gnn3d.sh`)——sweep 脚本没有
+自动提交这一项(计划里的第 5 项,`POST_ARRAY_MODEL_SWEEP.md` §1 有记录),需要人工决定
+是否补跑(几何已保留在 `chunk_*/geom.tar.zst`,不需要重算)。鉴于 B6 已经把 B4/B5/GBM
+甩开这么多,3D 模型能再突破的先验概率不高,不建议无人值守自动跑。
+
+### 2.2 旧:小数据集(42k 局部库)排名(仅存档,不再引用)
 
 | 模型 | 醛 MAE/R² | 产物 MAE/R² | 一句话 |
 |---|---|---|---|
-| **B6 GNN+3D 描述符融合(冠军)** | **1.579 / 0.843** | **3.060 / 0.886** | 比 B4/B5 低 32–42% MAE,`x_d` 融合优势稳健 |
+| B6 GNN+3D 描述符融合(旧冠军) | 1.579 / 0.843 | 3.060 / 0.886 | 比 B4/B5 低 32–42% MAE,`x_d` 融合优势稳健 |
 | B4 D-MPNN(纯 2D 图) | 1.604 / 0.830 | 3.641 / 0.834 | 图结构很强,但看不到局部电子结构(naive-split 数字,scaffold-disjoint 复训见 PROGRESS〇-11) |
 | B5 BonDNet 式(反应差分图嵌入) | 1.923 / 0.802 | 3.689 / 0.846 | 与 B4 互有胜负 |
 | H-SPOC(局部 3D 描述符 + XGB,调参后) | 2.42 / 0.758 | 4.05 / 0.818 | **零新增计算**,性价比最高的基线 |
@@ -150,13 +172,26 @@ recovery commit `d1804ea`)。旧的 `/gpfs/scratch1/shared/schen3/benzoin-dg` �
 | B6 checkpoints `b6_{aldehydes,products}_scaffold_disjoint.pt` | ❌ **永久丢失** | gitignore 的 `.pt`,从未入库;只能重训 |
 | `runs/logs/scaffold_disjoint_bde/*.json` 结果 + 预测 CSV | ❌ 丢失 | 结论已在本文件/PROGRESS 中留存,原始文件没了 |
 
-### 结论:当前无法一键复现 B6 champion
+### ✅ 2026-09-06 更新:已一键复现 + 超越(见 §2.1b)
 
-- **醛侧**:标签有(220k),但局部描述符 `aldehydes_all.csv` 只有 42k 行——
+上面这节(§五 BDE 侧数据资产盘点)描述的是 2026-09-02 purge 后的残局;截至
+**2026-09-06**,这个缺口已经补齐:`bde_homoprod`(genoa,`26316404`,2209 任务)+
+`bde_homoprod_rome`(`26324801`,1259 任务)两个 featurize array 全部跑完
+(COMPLETED 2191+1191,FAILED 18+68——失败率均 <6%,可接受),`bde_post_sweep`
+(`26326313`)自动装配出**完整**的 `aldehydes_all.csv`(209,526 行)和
+`products_all.csv`(184,199 行,首次拥有全量),并在此基础上重训了 B6
+ckpt+deep-ensemble、B4/B5、GBM——数字见 §2.1b。B6 checkpoint 也已重新产出并
+`git add -f`(`runs/logs/scaffold_disjoint_bde/ensemble/models/*.pt`,不再"永久丢失")。
+路径硬编码问题在这轮 sweep 里已经绕过(sweep 脚本用的是 restored 仓库路径)。
+
+原始的"无法一键复现"诊断(醛侧描述符卡在 42k、产物侧全缺、路径硬编码)保留在下面
+作为历史记录,不再是当前状态:
+
+- **醛侧**(历史):标签有(220k),但局部描述符 `aldehydes_all.csv` 只有 42k 行——
   `train_gnn_hybrid_bde.py` 做 `labels.merge(mol, on="id", how="inner")`,有效训练集被
   卡在 ~42k,远小于产出 champion 数字时的 n_train=188,254。
-- **产物侧**:标签和局部描述符都缺,标签可重拼、描述符要重算。
-- **另有路径问题**:`train_gnn_hybrid_bde.py` 里 `H` 硬编码指向已被清空的
+- **产物侧**(历史):标签和局部描述符都缺,标签可重拼、描述符要重算。
+- **另有路径问题**(历史):`train_gnn_hybrid_bde.py` 里 `H` 硬编码指向已被清空的
   `/scratch-shared/schen3/benzoin-dg/.../homo_v6`,重训前需改指到 restored 仓库路径。
 - 多个 `pipeline/slurm/submit_*.sh` 的 `PY=` 仍指向已清空的 `envs/bde_gnn`,工作区里有
   未提交的修复 diff(把 `PY` 改成 `${PY:-/home/schen3/venv/nhc-workflow/bin/python}`)。

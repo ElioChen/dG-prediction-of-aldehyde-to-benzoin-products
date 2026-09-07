@@ -1,0 +1,40 @@
+{
+  "which": "products",
+  "target": "bde",
+  "n_train": 155502,
+  "n_test": 17732,
+  "n_features": 52,
+  "split_file": "/gpfs/scratch1/shared/schen3/benzoin-dg-restored/data/cross_benzoin/homo_v6/products_scaffold_split.csv",
+  "data_note": "partial aldehydes_all.csv if run pre-featurize-array 26316404",
+  "results": {
+    "xgb": {
+      "mae": 5.692501581245799,
+      "rmse": 7.984972443399386,
+      "r2": 0.7440520871145491,
+      "spearman": 0.868583435123748,
+      "fit_sec": 17.4
+    },
+    "hgb": {
+      "mae": 5.316952575587834,
+      "rmse": 7.564574310391839,
+      "r2": 0.7702932611901704,
+      "spearman": 0.8825414613556163,
+      "fit_sec": 22.1
+    },
+    "rf": {
+      "mae": 5.614391011730206,
+      "rmse": 8.007562627853643,
+      "r2": 0.7426018405748658,
+      "spearman": 0.8675891116953534,
+      "fit_sec": 715.3
+    },
+    "et": {
+      "mae": 5.470377160500789,
+      "rmse": 7.81149028969002,
+      "r2": 0.7550527638160179,
+      "spearman": 0.8766976995618323,
+      "fit_sec": 178.1
+    }
+  },
+  "best_by_mae": "hgb"
+}

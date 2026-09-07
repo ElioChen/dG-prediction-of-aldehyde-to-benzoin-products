@@ -1,0 +1,40 @@
+{
+  "which": "aldehydes",
+  "target": "bde",
+  "n_train": 178511,
+  "n_test": 20219,
+  "n_features": 30,
+  "split_file": "/gpfs/scratch1/shared/schen3/benzoin-dg-restored/data/cross_benzoin/homo_v6/aldehydes_scaffold_split_from_dG.csv",
+  "data_note": "partial aldehydes_all.csv if run pre-featurize-array 26316404",
+  "results": {
+    "xgb": {
+      "mae": 3.6588861256744756,
+      "rmse": 5.351211974566399,
+      "r2": 0.5776346766894508,
+      "spearman": 0.7962259621991982,
+      "fit_sec": 12.4
+    },
+    "hgb": {
+      "mae": 3.505081368318894,
+      "rmse": 5.172958519542581,
+      "r2": 0.6053047160466745,
+      "spearman": 0.8108157172720164,
+      "fit_sec": 14.2
+    },
+    "rf": {
+      "mae": 3.494285849976095,
+      "rmse": 5.211162832853825,
+      "r2": 0.5994532310184155,
+      "spearman": 0.8065004512693631,
+      "fit_sec": 491.7
+    },
+    "et": {
+      "mae": 3.547041407202795,
+      "rmse": 5.272373140174186,
+      "r2": 0.5899883252379383,
+      "spearman": 0.8031565265628332,
+      "fit_sec": 112.9
+    }
+  },
+  "best_by_mae": "rf"
+}

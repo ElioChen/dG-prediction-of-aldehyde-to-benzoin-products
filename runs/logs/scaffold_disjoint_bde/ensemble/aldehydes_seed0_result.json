@@ -1,0 +1,28 @@
+{
+  "which": "aldehydes",
+  "target": "bde_gxtb_kcal",
+  "n": 198730,
+  "n_xd": 30,
+  "eval_on": "test",
+  "params": {
+    "depth": 4,
+    "message_hidden": 500,
+    "ffn_hidden": 300,
+    "ffn_layers": 2,
+    "dropout": 0.0,
+    "batch_size": 64,
+    "max_epochs": 120,
+    "patience": 20,
+    "val_frac": 0.1,
+    "message_passing": "bond",
+    "aggregation": "mean"
+  },
+  "n_train": 160660,
+  "n_val": 17851,
+  "n_test": 20219,
+  "n_eval": 20219,
+  "MAE": 2.1136620436412326,
+  "RMSE": 4.016027486182436,
+  "R2": 0.7621093908602558,
+  "spearman_rho": 0.9057777798058448
+}

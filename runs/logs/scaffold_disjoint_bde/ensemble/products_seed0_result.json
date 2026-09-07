@@ -1,0 +1,28 @@
+{
+  "which": "products",
+  "target": "bde_gxtb_kcal",
+  "n": 173234,
+  "n_xd": 52,
+  "eval_on": "test",
+  "params": {
+    "depth": 4,
+    "message_hidden": 500,
+    "ffn_hidden": 300,
+    "ffn_layers": 2,
+    "dropout": 0.0,
+    "batch_size": 64,
+    "max_epochs": 120,
+    "patience": 20,
+    "val_frac": 0.1,
+    "message_passing": "bond",
+    "aggregation": "mean"
+  },
+  "n_train": 139952,
+  "n_val": 15550,
+  "n_test": 17732,
+  "n_eval": 17732,
+  "MAE": 3.216290787327459,
+  "RMSE": 5.410919350643638,
+  "R2": 0.8824705048136327,
+  "spearman_rho": 0.9434002920915168
+}

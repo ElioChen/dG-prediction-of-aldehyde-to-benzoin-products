@@ -49,7 +49,8 @@ arc recovered_aldehyde_library \
     data/cross_benzoin/homo_v6/aldehydes_all.csv \
     data/cross_benzoin/homo_v6/aldehydes_mordred_slim102.csv \
     data/cross_benzoin/homo_v6/aldehydes_bdfe_gxtb_descriptors.csv \
-    data/cross_benzoin/homo_v6/bdfe_gxtb_aldehydes
+    data/cross_benzoin/homo_v6/bdfe_gxtb_aldehydes \
+    data/cross_benzoin/homo_v6/products_all.csv
 
 # 2. DFT-SP labels reconstructed from the tracked cv_predictions dumps. Small, but
 #    these represent DFT compute that cannot be redone cheaply for rounds 1-7.
@@ -137,6 +138,16 @@ arc r1_9_10_models \
 arc rounds17_recovered_table_and_model \
     data/cross_benzoin/cross_round7/cross_train_table_7rounds_recovered_slim260.parquet \
     data/cross_benzoin/cross_round7/train_ensemble_7rounds_recovered_v1
+
+# 7. BDE post-array model sweep (2026-09-06): full-220k honest scaffold-disjoint
+#    retrain of B6 (ckpt + 5-seed deep ensemble), B4/B5 honest baselines, GBM
+#    bakeoff. New champion candidate = B6 deep ensemble (aldehyde MAE 1.851,
+#    product MAE 2.826, see pipeline/bde/STATUS.md). *.pt / runs/ are gitignored,
+#    this is their only backup besides git add -f of the small json/csv siblings.
+arc bde_post_sweep_20260906 \
+    runs/logs/scaffold_disjoint_bde \
+    pipeline/bde/POST_ARRAY_MODEL_SWEEP.md \
+    pipeline/bde/STATUS.md
 
 echo
 echo "Done $(date)"
