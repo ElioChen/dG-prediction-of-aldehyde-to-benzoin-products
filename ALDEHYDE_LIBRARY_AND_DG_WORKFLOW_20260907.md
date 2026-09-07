@@ -1,5 +1,7 @@
 # 醛数据库构建历史 + cross-benzoin dG 工作流 / 描述符工程（2026-09-07）
 
+> 英文版见 `ALDEHYDE_LIBRARY_AND_DG_WORKFLOW_20260907_EN.md`，两份改动时保持同步。
+>
 > 独立于 `PROJECT_SUMMARY_20260904.md`（那份是 AL 主动学习主线的时间线叙事）。
 > 这份文档回答两个更"底层"的问题：**醛结构库是怎么来的、备份现状如何**，以及
 > **dG 预测这条工作流具体长什么样、每一步的描述符工程细节**。技术参考性质，
@@ -76,7 +78,7 @@ git 本身（+ 已推送的 GitHub 远程）就是它的备份，不依赖 home 
 |---|---|---:|---|
 | `aldehydes_bdfe_gxtb_descriptors.csv` | 醛 BDE（键解离能）标签，g-xTB 单点 | 220,522 | ✅ bit-exact 从 home 备份重拼（`homo_v6_scratch_archive/bde/bdfe_gxtb` 逐块） |
 | `aldehydes_mordred_slim102.csv` | 醛侧 mordred 描述符（102 列精选子集） | ~220k | ✅ bit-exact 从 home 备份重拼 |
-| `aldehydes_all.csv` | 醛局部 3D 电子结构描述符（xtb/morfeus/multiwfn） | **209,526** | ✅ 09-06 全量重建（此前 purge 恢复只补了 42,336 行的局部子集）；**唯二缺口**：`G_gxtb`（整分子 g-xTB 自由能）09-06 重建没算，09-07 正在补算中（array `26432805`，见 §六） |
+| `aldehydes_all.csv` | 醛局部 3D 电子结构描述符（xtb/morfeus/multiwfn） | **209,526** | ✅ 09-06 全量重建（此前 purge 恢复只补了 42,336 行的局部子集）；`G_gxtb`（整分子 g-xTB 自由能）09-06 重建没算，**09-07 已补算完成**，覆盖率 99.07%（见 §六） |
 | `products_bdfe_gxtb_descriptors.csv` | 产物 BDE 标签 | 218,966 | ✅ 09-02 从 home 备份重拼 |
 | `products_all.csv` | 产物局部 3D 电子结构描述符 | **184,199** | ✅ 09-06 **史上第一次**全量版本（此前从未存在过全量版，purge 前也只有 partial） |
 | `aldehydes_scaffold_split_from_dG.csv` / `products_scaffold_split.csv` | 骨架不相交 train/val/test 划分 | 220,859 全覆盖 | ✅ 一直在 git 里，未受 purge 影响 |
@@ -107,8 +109,9 @@ git 本身（+ 已推送的 GitHub 远程）就是它的备份，不依赖 home 
 | `/gpfs/home4/schen3/benzoin_backups/recovery_20260902/` | `submit_backup_recovery_artifacts.sh` 管理的系统性归档：醛库三件套、DFT-SP 标签、round8/9/10 中间表、champion 模型目录、09-06 BDE model sweep 结果（`runs/logs/scaffold_disjoint_bde/`） |
 | git（`data/library/`、`*_scaffold_split*.csv`、champion 模型 `.joblib`/`.pt`、所有结果 `.json`/`_pred.csv`） | 体积可控的都直接 `git add -f` 进仓库，2026-09-07 已推送到 GitHub 远程，是最可靠的一层备份 |
 
-**当前唯一还没закрыт的缺口**：`aldehydes_all.csv` 里的 `G_gxtb` 列（详见 §六），
-不是"丢失"，是这次 09-06 重建从没算过，正在补算中。
+**曾经唯一还没关闭的缺口**：`aldehydes_all.csv` 里的 `G_gxtb` 列（详见 §六），
+不是"丢失"，是这次 09-06 重建从没算过。**2026-09-07 已补算完成**（覆盖率
+1.3% → 99.07%），这条线收尾。
 
 ---
 
@@ -254,9 +257,9 @@ mordred 总计 120/260（46%），是最大的单一来源，RDKit 2D 50/260（1
 
 ---
 
-## 六、当前已知缺口：`G_gxtb`（醛侧整分子 g-xTB 自由能）
+## 六、已收尾的缺口：`G_gxtb`（醛侧整分子 g-xTB 自由能）
 
-**现状**（2026-09-07 撰写时）：09-06 的 BDE 描述符库全量重建只算了 BDE 自己
+**背景**（2026-09-07 撰写时）：09-06 的 BDE 描述符库全量重建只算了 BDE 自己
 需要的局部键描述符，从没重新算过 §三.2 定义的整分子量 `G_gxtb`——这个量是
 `donor_G_gxtb`/`acceptor_G_gxtb`（260 个冠军特征里的 2 个）的来源，重建后
 209,526 个醛里只有 2,718 个（从旧的 42k 局部库回填）有值，其余 ~207k 是空的。
@@ -266,11 +269,13 @@ mordred 总计 120/260（46%），是最大的单一来源，RDKit 2D 50/260（1
 `PROJECT_SUMMARY_20260904.md §4.5`。修复之后这两个特征只是被正常
 median-impute，不再让整行数据蒸发。
 
-**正在补算**（不是重新做整个几何搜索，只是在已有的优化几何上补两个便宜的
+**补算已完成**（不是重新做整个几何搜索，只是在已有的优化几何上补两个便宜的
 单点能，见 `pipeline/bde/recompute_aldehyde_gxtb.py` 和 `PROJECT_SUMMARY
-§4.5` 的方法说明）：截至本文档撰写，array `26432805` 已完成过半，
-`pipeline/bde/merge_aldehyde_gxtb.py` 会在跑完后把结果并回
-`aldehydes_all.csv`（只填当前缺失的 `G_gxtb`，不动已有的 2,718 行）。
+§4.5` 的方法说明）：**2026-09-07**，array `26432805` 跑完（2175/2200 chunk，
+25 个已知不可恢复），`pipeline/bde/merge_aldehyde_gxtb.py` 把结果并回
+`aldehydes_all.csv`（只填缺失的 `G_gxtb`，不动已有的 2,718 行）——覆盖率
+1.3% → **99.07%**（207,580/209,526）。残留 ~0.93% 来自那 25 个不可恢复
+chunk，接受不再追。合并后 `predict_dg.py` 20-pair smoke test 干净。
 
 ---
 
