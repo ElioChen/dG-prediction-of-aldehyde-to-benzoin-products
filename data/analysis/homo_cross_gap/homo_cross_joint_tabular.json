@@ -1,0 +1,37 @@
+{
+  "built_by": "cross_benzoin/homo_cross_joint_tabular.py",
+  "n_homo": 25997,
+  "n_cross_train": 22771,
+  "n_cross_holdout": 448,
+  "features": "72 shared (34 prod QM + 22 donor-side ald QM + 16 RDKit global) + is_homo",
+  "results": {
+    "cross_only": {
+      "mae": 2.812445774725945,
+      "r2": 0.6317288023680535,
+      "rmse": 3.756944047528575
+    },
+    "naive_merge": {
+      "mae": 2.6884333066321657,
+      "r2": 0.6765662216666415,
+      "rmse": 3.52081768607613
+    },
+    "homo_only_zeroshot": {
+      "mae": 3.1091330379487503,
+      "r2": 0.5767959324801584,
+      "rmse": 4.027409281793869
+    },
+    "finetune": {
+      "mae": 2.84912126924582,
+      "r2": 0.6317382719338723,
+      "rmse": 3.756895745003333
+    }
+  },
+  "cross_reference_full_model": {
+    "ensemble_only_mae": 2.326,
+    "blend_mae": 2.215,
+    "single_xgb_mae": 2.548,
+    "gxtb_baseline_mae": 5.037
+  },
+  "verdict": "GREEN: homo transfer helps (+0.124 kcal over cross_only 72-feat XGB 2.812). Worth building the full 260-schema homo featurization + GNN homo-pretrain->finetune.",
+  "runtime_min": 7.6
+}
