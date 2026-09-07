@@ -1,0 +1,62 @@
+{
+  "built_by": "pipeline/analysis/homo_cross_gap_decomposition.py",
+  "dataset": "homo_unify_v1 (30k git-tracked homo subset with dG_orca + scaffold-disjoint split)",
+  "recipe": "72-feature Delta-learning, MLP + XGB-d8 + XGB-d10 mean ensemble (== finalize_correction.py)",
+  "label_spread": {
+    "delta_std_kcal": 5.389278082406102,
+    "dG_orca_std_kcal": 6.670145677923779
+  },
+  "results": {
+    "homo_scaffold": {
+      "tag": "homo_scaffold",
+      "n_train": 19030,
+      "n_test": 3518,
+      "mae": 2.608002285680003,
+      "rmse": 3.7653439405073703,
+      "r2": 0.7259059783264517,
+      "gxtb_baseline_mae": 4.434266431282993
+    },
+    "homo_random": {
+      "tag": "homo_random",
+      "n_train": 18197,
+      "n_test": 2600,
+      "mae": 2.26460871103598,
+      "rmse": 3.408926248925773,
+      "r2": 0.7276945357518515,
+      "gxtb_baseline_mae": 4.091133981495287
+    },
+    "homo_scaffold_sizematched": {
+      "tag": "homo_scaffold_sizematched",
+      "n_train": 19030,
+      "n_test": 3518,
+      "mae": 2.610276487166678,
+      "rmse": 3.758455360120633,
+      "r2": 0.7269079540313101,
+      "gxtb_baseline_mae": 4.434266431282993
+    }
+  },
+  "reference": {
+    "homo_headline": {
+      "random_split_mae_full_219k": 1.503,
+      "conformer_noise_floor_kcal_bulk": 0.92,
+      "conformer_noise_floor_kcal_k5_34mol": 2.14
+    },
+    "cross_r1_10": {
+      "blend_mae": 2.215,
+      "ensemble_only_mae": 2.326,
+      "gnn_only_mae": 2.313,
+      "single_xgb_mae": 2.548,
+      "gxtb_baseline_mae": 5.037,
+      "clean_train": 22771,
+      "holdout_n": 448,
+      "conformer_noise_floor_kcal": 2.88
+    }
+  },
+  "decomposition": {
+    "leakage_premium_homo_kcal": 0.3433935746440233,
+    "leakage_premium_homo_pct": 15.16348378289743,
+    "regime_matched_gap_vs_cross_ensemble_only_kcal": 0.2820022856800031,
+    "note": "homo_scaffold vs homo_random isolates the interpolation->extrapolation cost at ~22k train on the homo task; homo_scaffold vs cross ensemble-only (2.326, the no-GNN comparator) is what remains after matching split regime and train size -- attributable to task difficulty + the higher cross label-noise floor (~2.9 vs homo ~2.1 kcal single-conformer)."
+  },
+  "runtime_min": 37.6
+}
