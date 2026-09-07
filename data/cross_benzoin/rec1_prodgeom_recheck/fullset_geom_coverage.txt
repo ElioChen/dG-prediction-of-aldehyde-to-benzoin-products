@@ -1,0 +1,33 @@
+35528 pairs, splits: {'train': 22771, 'mixed': 11828, 'validation': 481, 'test': 448}
+product geoms indexed: 40003 on-disk + tar = 57395 total
+aldehyde geoms: 8709 by-numeric-id (recover dirs) + 19400 by-name (tarball xyz_ald)
+
+=== coverage ===
+  product geom      : 35.8%  (12714)
+  donor ald geom    : 5.6%
+  acceptor ald geom : 5.6%
+  ALL 3 geoms       : 0.6%  (210)
+
+=== all3 by split ===
+                        mean  sum  count
+new_scaffold_split                      
+mixed               0.000000    0  11828
+test                0.000000    0    448
+train               0.009222  210  22771
+validation          0.000000    0    481
+
+=== all3 by round ===
+             mean  sum  count
+round                        
+round1   0.000000    0    598
+round10  0.006602   13   1969
+round2   0.001143    2   1750
+round3   0.001133    2   1766
+round4   0.001211   10   8258
+round5   0.000000    0   4866
+round6   0.000000    0   7904
+round7   0.000000    0   7276
+round8   0.135593   48    354
+round9   0.171537  135    787
+
+[exited with code 0]
