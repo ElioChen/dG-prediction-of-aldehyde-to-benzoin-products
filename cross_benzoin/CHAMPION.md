@@ -57,17 +57,29 @@ Full log: `RUN_LOG_20260903.md`.
 
 ## Predicting ΔG for new aldehyde pairs
 
-**Assemble+predict half** (validated, MAE 1.65 on 5 known round10 pairs — reproduces
-the training featurization chain): if you already have a
-`cross_round*_dft_products.csv`-schema file (id, donor_id, acceptor_id,
-donor_smiles, acceptor_smiles, smiles, xtb_*, dG_gxtb_kcal, …):
+**⚠ 2026-09-06→07**: the 09-06 BDE library rebuild (`bde_post_sweep`) silently broke this
+tool for every new pair (a shared-file coverage-sentinel bug, see
+`[[predict-dg-g-gxtb-regression-fixed]]` in Claude memory / `RUN_LOG_20260903.md` 09-07).
+**Fixed** commit `c520acf`, re-smoke-tested 09-07 on 20 real round10 pairs — runs to
+completion, predictions in the right order of magnitude. The original "MAE 1.65 on 5
+known round10 pairs" validation below predates the regression; treat it as historical,
+not current, until a fresh precision check is run (the 09-07 smoke test only confirmed
+the pipeline *runs*, matching against true labels needs the right per-round DFT-SP file).
+
+**Assemble+predict half** (if you already have a `cross_round*_dft_products.csv`-schema
+file — id, donor_id, acceptor_id, donor_smiles, acceptor_smiles, smiles, xtb_*,
+dG_gxtb_kcal, …):
 
 ```
 /home/schen3/venv/nequip/bin/python cross_benzoin/predict_dg.py \
     --products-csv <pairs_products.csv> --out preds.csv
 ```
 → `preds.csv`: id, …, `dG_pred_kcal`, `ens_member_sigma` (cheap 3-learner spread,
-not the full bootstrap epistemic estimate).
+not the full bootstrap epistemic estimate), plus three Goal-3 reformulation columns
+added 2026-09-07 that are NOT capped by the ~2.9 kcal label-noise floor (validated AUC
+0.92-0.93, see `eval_reformulation_classification_ranking.py`): `dg_favorable` (dG<0),
+`dg_below_train_median`, `dg_rank_pct` (within-batch percentile, use for screening/
+ranking a candidate batch, not a single pair).
 
 **From scratch** (new pairs, needs the slow GFN2-xTB geometry — newly wired, not yet
 tested on genuinely novel pairs):
