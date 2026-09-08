@@ -75,7 +75,10 @@ def main() -> int:
     all_feats = [c for c in df.columns if c not in {
         "id", "donor_id", "acceptor_id", "pair_key", "reaction_type", "round",
         "donor_smiles", "acceptor_smiles", "smiles", "dG_xtb_kcal", "dG_gxtb_kcal",
-        "dG_orca_kcal", "donor_scaf_split", "acceptor_scaf_split", "new_scaffold_split"}]
+        "dG_orca_kcal", "donor_scaf_split", "acceptor_scaf_split", "new_scaffold_split",
+        # post-Tier-B self-consistent-relabel label/baseline columns (never features)
+        "dG_r2scan_kcal", "dG_b973c_kcal", "dG_gxtb_kcal_selfconsistent",
+        "dG_orca_kcal_stored", "label", "label_stored", "gxtb_stored", "grp"}]
     feats = _feature_blocks(all_feats)["all_raw_blocks+mordred"]
     print(f"{len(feats)} features (all_raw_blocks+mordred, matches production champion)")
 

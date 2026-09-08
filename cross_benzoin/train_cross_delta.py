@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -44,8 +45,11 @@ from assemble_cross_training_table import ALDEHYDE_FEATS, PRODUCT_FEATS, RDKIT_F
 
 TABLE = REPO / "data/cross_benzoin/cross_pilot_v1/cross_train_table.parquet"
 OUT = REPO / "data/cross_benzoin/cross_pilot_v1/train_v1"
-BASELINE_COL = "dG_gxtb_kcal"
-TARGET_COL = "dG_orca_kcal"
+# Defaults are the historical champion columns; both are env-overridable so the
+# post-Tier-B self-consistent retrain can run with CB_TARGET_COL=dG_r2scan_kcal
+# CB_BASELINE_COL=dG_b973c_kcal without editing this shared module (HANDOFF 1.3).
+BASELINE_COL = os.environ.get("CB_BASELINE_COL", "dG_gxtb_kcal")
+TARGET_COL = os.environ.get("CB_TARGET_COL", "dG_orca_kcal")
 # Molecule-disjoint train/val/test split (SHA256(InChIKey)-based, 80/10/10,
 # both aldehydes of a pair always in the same split) from the real 2M/4M
 # candidate release codex built on GitHub -- pulled via git-lfs. Using it
