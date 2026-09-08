@@ -1,0 +1,55 @@
+{
+  "n_holdout": 448,
+  "ensemble_only_mae": 2.325923600008154,
+  "per_seed_gnn_only_mae": [
+    2.3129611015319824,
+    2.2254562377929688,
+    2.2494957447052,
+    2.265519618988037,
+    2.287625789642334
+  ],
+  "seed_dirs": [
+    "gnn_attentive_10rounds_v1",
+    "gnn_attentive_10rounds_seed1",
+    "gnn_attentive_10rounds_seed2",
+    "gnn_attentive_10rounds_seed3",
+    "gnn_attentive_10rounds_seed4"
+  ],
+  "sweep": [
+    {
+      "n_seeds": 1,
+      "gnn_ens_only_mae": 2.3129611015319824,
+      "best_w_gnn": 0.5,
+      "blend_mae": 2.2149046202847815,
+      "delta_vs_shipped_2215": -9.537971521833555e-05
+    },
+    {
+      "n_seeds": 2,
+      "gnn_ens_only_mae": 2.219332218170166,
+      "best_w_gnn": 0.6500000000000001,
+      "blend_mae": 2.1756490081307445,
+      "delta_vs_shipped_2215": -0.03935099186925539
+    },
+    {
+      "n_seeds": 3,
+      "gnn_ens_only_mae": 2.19492244720459,
+      "best_w_gnn": 0.7000000000000001,
+      "blend_mae": 2.1624780298391477,
+      "delta_vs_shipped_2215": -0.05252197016085214
+    },
+    {
+      "n_seeds": 4,
+      "gnn_ens_only_mae": 2.1665070056915283,
+      "best_w_gnn": 0.7500000000000001,
+      "blend_mae": 2.136494580381804,
+      "delta_vs_shipped_2215": -0.07850541961819602
+    },
+    {
+      "n_seeds": 5,
+      "gnn_ens_only_mae": 2.166364908218384,
+      "best_w_gnn": 0.7500000000000001,
+      "blend_mae": 2.1366595672104602,
+      "delta_vs_shipped_2215": -0.07834043278953962
+    }
+  ]
+}
