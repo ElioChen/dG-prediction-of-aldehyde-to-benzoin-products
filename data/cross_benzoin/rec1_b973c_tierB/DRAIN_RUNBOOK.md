@@ -49,8 +49,10 @@ $PY cross_benzoin/patch_train_table_tierB_b973c.py \
     --out $R10/cross_train_table_10rounds_scaffold_split_labeled_slim257_b973c.parquet \
     --keep-unrelabeled drop --winsor
 #   review the printed per-column means/std + resid(r2scan-b973c) std (~0.9-1.1 expected).
-#   --winsor clips wbo_CC_new / mulliken tails to clean-train [p1,p99]; drop it for an
-#   A/B if wanted. Extend WINSOR_SUBSTR from docs/feature_audit_20260908.csv p1/p99 first.
+#   --winsor clips the audit's named heavy-tail feats (wbo_CC_new, mulliken_carbC,
+#   mulliken_CHO_C) to clean-train [p1,p99]. Per the audit: FIRST re-run
+#   cross_benzoin/feature_audit* on the regenerated geoms; only keep --winsor if the
+#   same pairs still tail. Drop it for an A/B.
 ```
 
 **3. champion retrain (CPU, ~1 h; use SLURM not login node for the full repeats=10)**

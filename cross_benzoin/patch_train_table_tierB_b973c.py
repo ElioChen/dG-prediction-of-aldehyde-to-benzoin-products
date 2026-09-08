@@ -36,9 +36,13 @@ DEF_TABLE = REPO / "data/cross_benzoin/cross_round10/cross_train_table_10rounds_
 DEF_LABELS = REPO / "data/cross_benzoin/rec1_b973c_tierB/rec1_b973c_tierB_labels.csv"
 DEF_F257 = REPO / "data/cross_benzoin/feature_list_257_no_nCHO_v2.json"
 NCHO = ["donor_n_CHO", "acceptor_n_CHO", "product_n_CHO"]
-# heavy-tailed features to winsorise at drain (docs/feature_audit_20260908.md).
-# extend from the audit csv's p99/p1 columns when the merge is real.
-WINSOR_SUBSTR = ["wbo_CC_new", "mulliken"]
+# Heavy-tail features the 2026-09-08 audit named explicitly (a handful of outlier
+# rows each, pathological funnel_v3 geoms). The audit says: re-run the audit AFTER
+# the Tier B geometry regen and winsorise at [p1,p99] only if the tails persist for
+# the same pairs. product_mordred_RPCS is deliberately NOT here (audit: expected
+# heavy tail for that CPSA descriptor, not a bug). Match by exact suffix so the
+# donor_/acceptor_/product_ prefixed variants are all caught.
+WINSOR_SUFFIX = ["wbo_CC_new", "mulliken_carbC", "mulliken_CHO_C"]
 
 
 def main() -> int:
@@ -108,7 +112,7 @@ def main() -> int:
     # ---- optional winsorisation of heavy-tail features --------------------------
     if args.winsor:
         tr = df["new_scaffold_split"] == "train"
-        wf = [c for c in f257 if any(s in c for s in WINSOR_SUBSTR)]
+        wf = [c for c in f257 if any(c == s or c.endswith("_" + s) for s in WINSOR_SUFFIX)]
         clipped = 0
         for c in wf:
             v = pd.to_numeric(df[c], errors="coerce")
