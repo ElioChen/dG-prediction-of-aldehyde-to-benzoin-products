@@ -166,7 +166,7 @@ def main() -> int:
     n_total = len(df)
     n_skip = 0
     with out_path.open("a", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=FIELDS)
+        w = csv.DictWriter(fh, fieldnames=FIELDS, lineterminator="\n")
         if write_header:
             w.writeheader()
             fh.flush()
