@@ -1,0 +1,46 @@
+{
+  "n_train": 412,
+  "n_holdout": 448,
+  "seeds": 3,
+  "self_consistent_target": {
+    "gxtb": {
+      "delta_MAE": 1.949,
+      "delta_MAE_sd": 0.007,
+      "raw_baseline_MAE": 2.463
+    },
+    "b973c": {
+      "delta_MAE": 0.696,
+      "delta_MAE_sd": 0.01,
+      "raw_baseline_MAE": 4.981
+    },
+    "gap_gxtb_minus_b973c": {
+      "mean": 1.252,
+      "ci90": [
+        1.11,
+        1.399
+      ],
+      "b973c_better": true
+    }
+  },
+  "stored_label_target": {
+    "gxtb": {
+      "delta_MAE": 3.061,
+      "delta_MAE_sd": 0.007,
+      "raw_baseline_MAE": 5.037
+    },
+    "b973c": {
+      "delta_MAE": 2.02,
+      "delta_MAE_sd": 0.008,
+      "raw_baseline_MAE": 3.089
+    },
+    "gap_gxtb_minus_b973c": {
+      "mean": 1.039,
+      "ci90": [
+        0.84,
+        1.24
+      ],
+      "b973c_better": true
+    }
+  },
+  "verdict": "A/B PROXY POSITIVE: B97-3c baseline Delta-model beats g-xTB baseline by 1.25 kcal (90% CI [1.11, 1.399]) on the self-consistent target. The std-ratio translates to dG-level accuracy -> pitch the full ~23k relabel campaign."
+}
