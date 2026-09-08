@@ -83,7 +83,36 @@ merge → champion retrain; the user deferred launching this pending Rec 1, so o
 becomes the main line — but confirm with the user before submitting the large featurize
 array, per the earlier decision).
 
-## Full B97-3c recompute (only after a human go on GREEN + intermediate win)
+## Full campaign — two tiers (draft proposal for the human go)
+
+Recheck verdict **GREEN** (n=128, ratio 0.325, resid_b973c std 1.008). A/B proxy
+(train 412 preliminary) **POSITIVE**: B97-3c baseline Δ-model holdout MAE beats g-xTB
+baseline by ~1 kcal on BOTH targets — self-consistent 1.95→0.70, **stored label
+3.06→2.02** (already ≈ champion 2.215, on 412 train + single-XGB).
+
+Per-pair cost (recheck sacct, 128 tasks @36 CPU): mean 47 min wall, **~28 CPU-h/pair**
+(funnel_v3 + GFN2-ohess + r2SCAN-3c + B97-3c + g-xTB SP, 3 species).
+
+**Tier A — B97-3c-SP-only, baseline vs EXISTING labels (~3-5 cluster-days).**
+Regen funnel_v3 rank-0 geom (GFN2 --opt, skip ohess; reuse stored xTB thermal from
+the training table `*_G_xtb` cols) + B97-3c/CPCM(DMSO) SP only. ~5-10 CPU-h/pair →
+23k pairs ≈ 150-230k CPU-h. Add `dG_b973c_kcal`, retrain champion (ensemble+GNN) with
+`BASELINE_COL=dG_b973c_kcal`. Expected holdout MAE ≈ 2.0 (from the A/B stored-label
+arm) — marginal over 2.215 but validated at scale, and delivers the column.
+
+**Tier B — self-consistent relabel (~1-2 cluster-weeks).**
+Regen geom + co-recompute r2SCAN-3c AND B97-3c on it (= re-run the label campaign + 1
+SP), 23-35k pairs, ~28 CPU-h/pair ≈ 0.6-1.0M CPU-h. New self-consistent
+`dG_orca_kcal` + `dG_b973c_kcal`. Expected holdout MAE ≈ 1.3-1.6 (self-consistent
+residual floor 0.7-1.0 degraded by real model error) → **project-level breakthrough**
+if it lands. Also fixes the purge's lost-geometry debt permanently.
+
+Recommendation pending full-train A/B: if self-consistent B97-3c MAE stays ~0.7-1.0
+and stored ~1.8-2.0 at train=1551 → pitch **Tier B** (the marginal Tier A isn't worth
+a campaign). Combine with Rec-3 direction 1 (baseline_risk heteroatom enrichment) in
+the same batch.
+
+### (historical) Full B97-3c recompute notes
 
 - Scope: 35,528 training pairs × 3 species, B97-3c/CPCM(DMSO) SP on production
   funnel_v3+ohess geom. Reuse stored r2SCAN label if repro_r2scan std small; else
