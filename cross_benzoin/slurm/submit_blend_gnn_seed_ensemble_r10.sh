@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=blend_gnn_seed_r10
-#SBATCH --partition=rome
+#SBATCH --partition=genoa
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
