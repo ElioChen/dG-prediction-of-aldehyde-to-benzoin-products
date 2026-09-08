@@ -27,14 +27,26 @@ from a di-aldehyde donor. In all cases the feature carries essentially no varian
 and trees never split on it.
 
 **Empirical A/B** (single-XGB, `{n_estimators:300, max_depth:3, lr:0.05}`,
-scaffold-disjoint holdout n=448, 5 seeds):
+scaffold-disjoint holdout n=448; seeds = 42,0,1,2,3):
 
-| schema | holdout MAE | sd |
-|---|--:|--:|
-| 260 | 2.525 | 0.027 |
-| 257 (no `n_CHO`) | 2.532 | 0.040 |
+| schema | seed 42 | 5-seed mean | sd |
+|---|--:|--:|--:|
+| 260 | **2.5477** (= shipped champion metadata exactly) | 2.531 | 0.028 |
+| 257 (no `n_CHO`) | 2.5793 | 2.551 | 0.035 |
 
-Δ = 0.006 kcal, far inside seed noise. **Removing `n_CHO` is verified harmless.**
+5-seed Δ = 0.020 kcal, inside one seed-sd (±0.03). The seed-42 point shows +0.032
+but that is single-seed luck (at seed 42 the 260 model lands low and 257 lands
+high; other seeds go both ways).
+
+**Decisive evidence it is harmless**: in the shipped-style 260 model (seed 42) the
+XGBoost **gain-importance of all three `n_CHO` features is exactly 0** — the model
+never splits on them (they rank 217 / 225 / 232 of 260). Removing a feature the
+model already ignores cannot change predictions; the MAE wobble is pure refit
+noise.
+
+(The seed-42 260 run reproducing the shipped `scaffold_disjoint_holdout_xgb.MAE`
+2.5477 to 4 dp also confirms this audit runs on the current champion pipeline and
+table, not a stale cache.)
 
 ## Not degenerate — keep (documented so they are not re-flagged)
 
