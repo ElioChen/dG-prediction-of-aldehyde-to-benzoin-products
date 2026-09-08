@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=gnn_seed_r10g
-#SBATCH --partition=genoa
+#SBATCH --job-name=gnn_seed_r10f
+#SBATCH --partition=fat_rome
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
