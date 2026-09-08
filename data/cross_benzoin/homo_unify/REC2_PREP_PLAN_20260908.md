@@ -47,3 +47,37 @@ purge 丢失的 homo `dG_orca_kcal` 标签（219k 中仅 30k 幸存于 `homo_uni
 - 若标签物理丢失且无归档 → 评估重算成本（219k × r2SCAN-3c SP，复用归档几何则 SP-only）
 
 优先级：低于 Tier B 主线；可在 Tier B / Rec-2 prep 之后作为下一条长跑候选。
+
+---
+
+## 09-08 更新：用户要求补**全 220k**（非 30k），CSV 完整（label + 描述符 + mordred），xyz 保持压缩
+
+### fat 节点成本
+`TRESBillingWeights`：fat_rome/fat_genoa `cpu=1.5`，rome/genoa `cpu=1.0` → **fat 贵 50%/CPU-h**（换 4.3× 内存）。
+
+### 全库补全 —— 盘点结果（09-08）
+
+| 资产 | 全库状态 | 动作 |
+|---|---|---|
+| 醛 QM 描述符 `aldehydes_all.csv` | ✅ 209,527 行 | 有 |
+| 醛 mordred `aldehydes_mordred_slim102.csv` | ✅ 220,524 行 | 有（另 home 备份 `mordred_aldehydes.tar.gz` 2.3G 全量 1826 列） |
+| 醛 BDE (alfabet + bdfe_gxtb) | ✅ 220,522 行 | 有 |
+| 产物 QM 描述符 `products_all.csv` | ✅ 184,199 行 | 有 |
+| 产物 BDE (alfabet + bdfe_gxtb) | ✅ ~219k 行 | 有 |
+| **产物 mordred** | ✅ **在 home 备份** `homo_v6_scratch_archive/mordred_products.tar.gz`（2.4G，2196 chunk，1826 列，覆盖全部 53 个 champion `product_mordred_*`，0 缺）| **恢复中**：job 26476123（genoa，<1h）→ `products_mordred_full.parquet` + `products_mordred_descriptors.csv` |
+| 产物几何 xyz | ✅ 归档 `bde_homo_product_featurize_20260902/chunk_*/geom.tar.zst` + home `homo_product_chunk_geoms_20260902.tar` 568M | 保持压缩（用户：xyz 可压缩） |
+| **DFT 标签 `dG_orca_kcal`（全 219k）** | ❌ **未找到**：`dft_sp_funnelv3/dft_labels_all.parquet`（build_homo_for_unification.py 引用的 219,364 标签）不在 restored repo，**不在任何 home 备份 tar**（全部 home 备份只含 cross 的 `dft_sp_cross/`）。仅 30k 幸存于 `homo_unify_v1_dft.csv` | **需重算** —— 见下 |
+
+### DFT 标签全库恢复方案（待用户确认，大工程）
+
+标签物理丢失。可行路径 = 重算，与 cross Tier B 同机制（`rec1_b973c_tierB_worker.py` 可指向 homo 对）：
+- homo dG = G(product) − 2·G(aldehyde)；需 r2SCAN-3c/CPCM(DMSO) SP：~184k 产物 + ~209k 醛 ≈ **~400k SP**
+- 若做**自洽 B97-3c**（与 post-Tier-B cross champion 可池化，推荐）：每物种 funnel_v3+ohess 几何 + r2SCAN + B97-3c + gxtb SP ≈ 9 CPU-h → **~2M+ CPU-h，~3-4 周**战役（量级≈ cross Tier B）
+- 若只 r2SCAN-3c SP（复用归档几何，非自洽）：~5 CPU-h/SP → ~2M CPU-h，仍是周级
+- **排序建议**：cross Tier B 落地并验证 → 再起「homo 自洽 B97-3c relabel」作为下一个大战役（同 worker、同标签方案）。现在先把便宜的描述符/mordred 补齐，标签留 30k。
+
+### 剩余低成本补全步骤（现在做）
+1. 恢复产物 mordred（job 26476123）✅ 进行中
+2. 恢复醛全量 mordred（`mordred_aldehydes.tar.gz`）—— 若 `aldehydes_mordred_slim102.csv` 不够用
+3. 校验四件套 id 对齐（醛/产物 × QM/mordred/BDE），产出一张 `homo_v6/LIBRARY_MANIFEST.md` 记录每个文件行数/覆盖率/id 规范
+4. 待 26476123 完成 → 更新 assembler 走全 220k（有标签的行才进训练，其余作候选/推理库）
