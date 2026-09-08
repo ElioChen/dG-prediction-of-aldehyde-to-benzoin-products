@@ -81,9 +81,16 @@ ALDEHYDE_FEATS = [
     "bde_gxtb_kcal",
 ]
 
+# n_CHO removed 2026-09-08: aldehydes_clean_v6 is filtered to exactly one formyl
+# group, so donor_n_CHO / acceptor_n_CHO are 1 for 99.7% of rows and product_n_CHO
+# is 0 for 99.4% (top value >99% each -> near-zero variance). Empirical A/B on the
+# r1-10 table: single-XGB scaffold-disjoint holdout MAE 2.525 (260 feats) vs 2.532
+# (257, no n_CHO), delta 0.006 << seed sd 0.03. See docs/feature_audit_20260908.md.
+# The shipped r1-10 champion keeps its own frozen 260-list; this drop takes effect
+# on the next assembly (post-Tier-B champion rebuild -> 257-feature schema v2).
 RDKIT_FEATS = ["MW", "LogP", "TPSA", "HBD", "HBA", "RotBonds", "ArRings",
                "ArHetRings", "AlRings", "Rings", "Heteroatoms", "FractionCSP3",
-               "BertzCT", "Kappa2", "NumStereocenters", "n_CHO"]
+               "BertzCT", "Kappa2", "NumStereocenters"]
 
 # Shared descriptors used for the |donor - acceptor| mismatch interaction block
 # (steric/electronic complementarity the doc says homo-only data can't teach).
