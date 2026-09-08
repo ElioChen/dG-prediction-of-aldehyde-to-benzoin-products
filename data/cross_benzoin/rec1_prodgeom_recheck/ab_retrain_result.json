@@ -1,46 +1,46 @@
 {
-  "n_train": 1532,
+  "n_train": 1551,
   "n_holdout": 448,
   "seeds": 5,
   "self_consistent_target": {
     "gxtb": {
-      "delta_MAE": 1.87,
-      "delta_MAE_sd": 0.013,
+      "delta_MAE": 1.88,
+      "delta_MAE_sd": 0.007,
       "raw_baseline_MAE": 2.463
     },
     "b973c": {
-      "delta_MAE": 0.653,
+      "delta_MAE": 0.652,
       "delta_MAE_sd": 0.004,
       "raw_baseline_MAE": 4.981
     },
     "gap_gxtb_minus_b973c": {
-      "mean": 1.217,
+      "mean": 1.227,
       "ci90": [
-        1.081,
-        1.358
+        1.089,
+        1.371
       ],
       "b973c_better": true
     }
   },
   "stored_label_target": {
     "gxtb": {
-      "delta_MAE": 2.665,
-      "delta_MAE_sd": 0.016,
+      "delta_MAE": 2.655,
+      "delta_MAE_sd": 0.014,
       "raw_baseline_MAE": 5.037
     },
     "b973c": {
-      "delta_MAE": 1.698,
-      "delta_MAE_sd": 0.005,
+      "delta_MAE": 1.694,
+      "delta_MAE_sd": 0.014,
       "raw_baseline_MAE": 3.089
     },
     "gap_gxtb_minus_b973c": {
-      "mean": 0.966,
+      "mean": 0.961,
       "ci90": [
-        0.795,
-        1.14
+        0.79,
+        1.134
       ],
       "b973c_better": true
     }
   },
-  "verdict": "A/B PROXY POSITIVE: B97-3c baseline Delta-model beats g-xTB baseline by 1.22 kcal (90% CI [1.081, 1.358]) on the self-consistent target. The std-ratio translates to dG-level accuracy -> pitch the full ~23k relabel campaign."
+  "verdict": "A/B PROXY POSITIVE: B97-3c baseline Delta-model beats g-xTB baseline by 1.23 kcal (90% CI [1.089, 1.371]) on the self-consistent target. The std-ratio translates to dG-level accuracy -> pitch the full ~23k relabel campaign."
 }

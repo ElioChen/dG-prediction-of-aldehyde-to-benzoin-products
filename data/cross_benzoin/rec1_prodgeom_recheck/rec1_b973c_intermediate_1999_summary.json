@@ -1,7 +1,7 @@
 {
-  "n_chunks": 1980,
-  "n_rows": 1980,
-  "n_ok": 1980,
+  "n_chunks": 1999,
+  "n_rows": 1999,
+  "n_ok": 1999,
   "pilot_ref_same_pairs": {
     "resid_gxtb_std": 4.32,
     "resid_b973c_std": 1.11,
@@ -10,38 +10,38 @@
   "prod_geom": {
     "overall": {
       "resid_gxtb": {
-        "n": 1980,
-        "mean": -1.165,
-        "mean_abs": 2.347,
-        "std": 2.745,
-        "median_abs": 1.955,
+        "n": 1999,
+        "mean": -1.154,
+        "mean_abs": 2.35,
+        "std": 2.751,
+        "median_abs": 1.951,
         "p90_abs": 4.755
       },
       "resid_b973c": {
-        "n": 1980,
-        "mean": -5.075,
-        "mean_abs": 5.075,
-        "std": 0.942,
-        "median_abs": 5.054,
-        "p90_abs": 6.244
+        "n": 1999,
+        "mean": -5.077,
+        "mean_abs": 5.077,
+        "std": 0.946,
+        "median_abs": 5.058,
+        "p90_abs": 6.245
       },
       "repro_r2scan": {
-        "n": 1980,
-        "mean": -3.771,
-        "mean_abs": 3.914,
-        "std": 3.179,
-        "median_abs": 3.19,
-        "p90_abs": 8.158
+        "n": 1999,
+        "mean": -3.788,
+        "mean_abs": 3.933,
+        "std": 3.191,
+        "median_abs": 3.22,
+        "p90_abs": 8.195
       },
       "repro_gxtb": {
-        "n": 1980,
+        "n": 1999,
         "mean": 0.016,
-        "mean_abs": 0.281,
-        "std": 0.993,
+        "mean_abs": 0.278,
+        "std": 0.988,
         "median_abs": 0.004,
-        "p90_abs": 0.615
+        "p90_abs": 0.614
       },
-      "std_ratio_b973c_over_gxtb": 0.343
+      "std_ratio_b973c_over_gxtb": 0.344
     },
     "holdout": {
       "resid_gxtb": {
@@ -325,110 +325,110 @@
     },
     "train_round7": {
       "resid_gxtb": {
-        "n": 323,
-        "mean": -1.494,
-        "mean_abs": 1.988,
-        "std": 2.009,
-        "median_abs": 1.642,
+        "n": 324,
+        "mean": -1.481,
+        "mean_abs": 1.99,
+        "std": 2.02,
+        "median_abs": 1.658,
         "p90_abs": 3.974
       },
       "resid_b973c": {
-        "n": 323,
-        "mean": -5.086,
-        "mean_abs": 5.086,
-        "std": 0.672,
-        "median_abs": 5.011,
-        "p90_abs": 5.97
+        "n": 324,
+        "mean": -5.091,
+        "mean_abs": 5.091,
+        "std": 0.676,
+        "median_abs": 5.027,
+        "p90_abs": 5.971
       },
       "repro_r2scan": {
-        "n": 323,
-        "mean": -2.329,
-        "mean_abs": 2.388,
-        "std": 1.811,
-        "median_abs": 2.058,
-        "p90_abs": 4.855
+        "n": 324,
+        "mean": -2.357,
+        "mean_abs": 2.416,
+        "std": 1.874,
+        "median_abs": 2.082,
+        "p90_abs": 4.96
       },
       "repro_gxtb": {
-        "n": 323,
+        "n": 324,
         "mean": 0.003,
         "mean_abs": 0.08,
-        "std": 0.267,
+        "std": 0.266,
         "median_abs": 0.0,
         "p90_abs": 0.185
       },
-      "std_ratio_b973c_over_gxtb": 0.334
+      "std_ratio_b973c_over_gxtb": 0.335
     },
     "train_round8": {
       "resid_gxtb": {
-        "n": 12,
-        "mean": -1.018,
-        "mean_abs": 1.912,
-        "std": 1.995,
+        "n": 16,
+        "mean": -0.752,
+        "mean_abs": 2.114,
+        "std": 2.327,
         "median_abs": 2.033,
-        "p90_abs": 3.209
+        "p90_abs": 3.677
       },
       "resid_b973c": {
-        "n": 12,
-        "mean": -4.878,
-        "mean_abs": 4.878,
-        "std": 0.885,
-        "median_abs": 5.051,
+        "n": 16,
+        "mean": -4.915,
+        "mean_abs": 4.915,
+        "std": 0.812,
+        "median_abs": 5.134,
         "p90_abs": 5.792
       },
       "repro_r2scan": {
-        "n": 12,
-        "mean": -2.478,
-        "mean_abs": 2.767,
-        "std": 2.372,
-        "median_abs": 2.591,
-        "p90_abs": 5.31
+        "n": 16,
+        "mean": -3.893,
+        "mean_abs": 4.11,
+        "std": 3.438,
+        "median_abs": 4.197,
+        "p90_abs": 7.889
       },
       "repro_gxtb": {
-        "n": 12,
-        "mean": -0.115,
-        "mean_abs": 0.117,
-        "std": 0.355,
-        "median_abs": 0.007,
-        "p90_abs": 0.025
+        "n": 16,
+        "mean": -0.084,
+        "mean_abs": 0.091,
+        "std": 0.312,
+        "median_abs": 0.004,
+        "p90_abs": 0.048
       },
-      "std_ratio_b973c_over_gxtb": 0.444
+      "std_ratio_b973c_over_gxtb": 0.349
     },
     "train_round9": {
       "resid_gxtb": {
-        "n": 21,
-        "mean": -0.744,
-        "mean_abs": 1.727,
-        "std": 1.849,
-        "median_abs": 1.576,
-        "p90_abs": 2.494
+        "n": 35,
+        "mean": -0.538,
+        "mean_abs": 2.101,
+        "std": 2.523,
+        "median_abs": 1.756,
+        "p90_abs": 4.036
       },
       "resid_b973c": {
-        "n": 21,
-        "mean": -4.975,
-        "mean_abs": 4.975,
-        "std": 1.071,
-        "median_abs": 4.969,
-        "p90_abs": 5.799
+        "n": 35,
+        "mean": -5.056,
+        "mean_abs": 5.056,
+        "std": 1.205,
+        "median_abs": 5.001,
+        "p90_abs": 6.365
       },
       "repro_r2scan": {
-        "n": 21,
-        "mean": -3.335,
-        "mean_abs": 3.335,
-        "std": 2.279,
-        "median_abs": 2.425,
-        "p90_abs": 5.855
+        "n": 35,
+        "mean": -3.782,
+        "mean_abs": 3.934,
+        "std": 2.942,
+        "median_abs": 2.489,
+        "p90_abs": 7.748
       },
       "repro_gxtb": {
-        "n": 21,
-        "mean": 0.023,
-        "mean_abs": 0.067,
-        "std": 0.201,
-        "median_abs": 0.0,
-        "p90_abs": 0.061
+        "n": 35,
+        "mean": 0.002,
+        "mean_abs": 0.068,
+        "std": 0.194,
+        "median_abs": 0.001,
+        "p90_abs": 0.093
       },
-      "std_ratio_b973c_over_gxtb": 0.579
+      "std_ratio_b973c_over_gxtb": 0.478
     }
   },
-  "verdict": "GREEN: B97-3c keeps low scatter on the production geometry (std 0.942 vs g-xTB 2.745, ratio 0.343). The pilot's 0.26 was not a one-shot-conformer artefact. -> proceed to full B97-3c-baseline recompute + Delta-model retrain.",
+  "verdict": "GREEN: B97-3c keeps low scatter on the production geometry (std 0.946 vs g-xTB 2.751, ratio 0.344). The pilot's 0.26 was not a one-shot-conformer artefact. -> proceed to full B97-3c-baseline recompute + Delta-model retrain.",
   "notes": []
 }
