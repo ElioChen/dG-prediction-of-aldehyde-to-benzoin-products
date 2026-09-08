@@ -131,6 +131,18 @@ arc r1_9_10_models \
     data/cross_benzoin/cross_round10/cross_train_table_10rounds_scaffold_split_labeled_slim260.parquet \
     data/cross_benzoin/cross_round10/round10_products_mordred.csv
 
+# 5d. Rec-1 Tier B campaign (job 26463424, launched 2026-09-08): the full
+#     self-consistent B97-3c relabel. shard_*.csv under data/.../rec1_b973c_tierB/
+#     is r2SCAN-3c + B97-3c DFT single-point compute (0.6-1M CPU-h) and is
+#     gitignored. Idempotent re-run captures whatever has completed so far; run
+#     again after the array drains and once more after the merge.
+arc rec1_b973c_tierB_shards \
+    data/cross_benzoin/rec1_b973c_tierB/rec1_b973c_tierB_pairs_35528.csv \
+    data/cross_benzoin/rec1_b973c_tierB/shards \
+    data/cross_benzoin/rec1_b973c_tierB/rec1_b973c_tierB_merged.csv \
+    data/cross_benzoin/rec1_prodgeom_recheck/rec1_b973c_intermediate_1999_merged.csv \
+    data/cross_benzoin/rec1_prodgeom_recheck/ab_retrain_result.json
+
 # 6. the rebuilt rounds1-7 training table + reproduction retrain (the recovery's
 #    validation result: MAE 1.877 vs historical 1.883, see
 #    [[rounds17-reproduction-confirmed]] in Claude memory). The full unpruned table
