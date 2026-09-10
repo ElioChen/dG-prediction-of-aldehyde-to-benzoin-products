@@ -41,12 +41,24 @@ full-library set. Top-up (post-campaign, if 100% wanted): GFN2-opt the
 `geom_extract_fail` ids from SMILES (plain `xtb --opt`, NO Hessian, reuse the
 stored xTB thermal), then re-run `homo_sp_from_geom_worker` on that sub-manifest.
 
-### superseded: self-consistent regen route
-`rec_homo_relabel_worker.py` + `build_homo_relabel_pairs.py` +
-`submit_homo_relabel.sh` (conf funnel + ohess + 3 SP per species, ~3 weeks) —
-kept in the repo but NOT the plan. Its 2-pair smoke (job 26538271) showed a
-consistent ~−5.5 kcal offset vs the stored 30k labels (geometry-protocol
-difference). Only revisit if cross-Tier-B-level label accuracy is wanted.
+### two-track (user 2026-09-10: "get homo re-prediction done ASAP, PREREQ = all data complete")
+The geom-archive gap must be FILLED, not just excluded. So the 184,052-row
+manifest is split (`split_homo_sp_manifest.py`):
+- **archived track** (~90%, `homo_sp_manifest_archived.csv`) -> `homo_sp_from_geom_worker.py`
+  (SP on the archived geom, reuse stored xTB thermal). Fast.
+- **regen track** (~10%, `homo_sp_manifest_regen.csv` -> adapt -> `homo_sp_regen_pairs.csv`)
+  -> `rec_homo_relabel_worker.py` via `submit_homo_regen.sh` (conf_funnel_v3 +
+  GFN2 --ohess fresh thermal + r2SCAN-3c + B97-3c + g-xTB SP, 2 species). ~2-3 CPU-h/pair.
+Both run in parallel. At merge, `merge_homo_sp.py` reads both shard dirs
+(regen shards use `pid`; rename to `id`), and CHECK the regen subset's label
+distribution vs the archived subset for a systematic offset (the regen 2-pair
+smoke, job 26538271, showed ~-5.5 kcal vs stored 30k -- may be genuine
+conformer improvement or a protocol diff; if the offset is real, add an
+`is_regen` column and either correct or let the model see the flag).
+
+`build_homo_relabel_pairs.py` + `submit_homo_relabel.sh` (the earlier
+161,630-row whole-library self-consistent plan) are retired -- the regen track
+above only does the ~10% gap.
 
 ## Phase 2 — merge + assemble (build while Phase 1 runs)
 
