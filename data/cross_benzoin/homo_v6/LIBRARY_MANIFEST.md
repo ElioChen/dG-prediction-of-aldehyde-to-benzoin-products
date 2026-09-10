@@ -40,3 +40,25 @@ After `norm_id`, aldehyde-side coverage is ~209.3k/209.5k (99.9%) and product-si
 
 - rows: 30000 ; columns: ['id', 'dG_orca_kcal']
 - label ids in product ref: 24569 ; in aldehyde ref: 28658
+
+## product Mordred — RESTORED 2026-09-09 (job 26485904, from 2026-07 home backup, no recompute)
+
+`homo_v6/products_mordred_full.parquet` (218916 x 1827) + `products_mordred_descriptors.csv`
+(same rows, id + 1826 `mordred_*` cols). Source: `~/benzoin_backups/homo_v6_scratch_archive/
+mordred_products.tar.gz` (1095 chunk CSVs). id = int64, 0 dups after norm_id. 210638/218916
+rows carry any mordred value (rest = geometry failures in the 2026-07 featurize -> assembler
+median-impute, same as `predict_dg.py` for new pairs).
+
+| check | result |
+|---|---|
+| covers `products_all.csv` (184199 QM ids) | 182588 / 184199 = **99.13%** (1611 impute) |
+| covers `homo_unify_v1_dft.csv` (30000 label ids) | **29821 / 30000 = 99.40%** (179 impute) |
+
+**This closes the only missing 30k-unified-table component.** The homo-specific QM feature
+block for the 30k lives in `homo_unify/homo_unify_v1_products.csv` (30000 x 72, 100% label
+coverage) — NOT `homo_v6/products_all.csv` (that only covers 24569/30000 and is the full-220k
+reference, not the 30k path). BDE + scaffold-split lookups also 100% (`homo_unify_v1_bde.csv`,
+`homo_unify_v1_scaffold_split_lookup.csv`).
+
+Full-220k unified table remains blocked only on the physically-lost DFT labels
+(-> approved post-Tier-B homo self-consistent B97-3c relabel campaign, HANDOFF §1.5).
