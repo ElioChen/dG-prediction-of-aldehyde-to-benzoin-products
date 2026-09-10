@@ -92,10 +92,20 @@ def main() -> int:
     mad = (r - med).abs().median() or 1e-6
     band = 6.0 * 1.4826 * mad
     ok["resid_outlier"] = (r - med).abs() > band
-    n_out = int(ok["resid_outlier"].sum())
-    print(f"resid_b973c robust band: median={med:.2f} +/- {band:.2f}  -> {n_out} outlier rows "
-          f"(silent-SP-failure suspects, excluded from _labels.csv)")
-    ok_clean = ok[~ok["resid_outlier"]].copy()
+    # On the QC rows (a surviving 30k label exists), also exclude when the new
+    # r2SCAN-3c dG disagrees with the stored label by >> the ~2.9 kcal noise
+    # floor: |repro_r2scan| > 15. resid_b973c can be clean (SPs internally
+    # consistent) yet the archived geometry is a poor conformer vs the 2026-06
+    # label -- a genuine geometry mismatch on a hard/flexible molecule, not
+    # trainable signal.
+    rp = pd.to_numeric(ok["repro_r2scan"], errors="coerce")
+    ok["repro_outlier"] = rp.notna() & (rp.abs() > 15.0)
+    ok["excluded"] = ok["resid_outlier"] | ok["repro_outlier"]
+    n_out = int(ok["excluded"].sum())
+    print(f"resid_b973c robust band: median={med:.2f} +/- {band:.2f}; "
+          f"|repro_r2scan|>15 on QC rows -> {int(ok['resid_outlier'].sum())} resid + "
+          f"{int(ok['repro_outlier'].sum())} repro = {n_out} excluded from _labels.csv")
+    ok_clean = ok[~ok["excluded"]].copy()
     df.to_csv(f"{args.out_prefix}_merged.csv", index=False)
     ok_clean[["id", "dG_r2scan_kcal", "dG_b973c_kcal"]].to_csv(
         f"{args.out_prefix}_labels.csv", index=False)
