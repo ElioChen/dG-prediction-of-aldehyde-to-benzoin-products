@@ -80,19 +80,20 @@ genoa short-borrow ~10 min), pointed at the 4 new seed dirs + `$NEW`. Expect bes
 - `sbatch cross_benzoin/slurm/submit_backup_recovery_artifacts.sh`
 - update memory `cross-r1-10-champion-and-label-ceiling`
 
-**7. launch the homo full-library relabel campaign** (user-directed 2026-09-10;
-infrastructure prepared this session — full plan
-`data/cross_benzoin/homo_standalone/CAMPAIGN_PLAN.md`). Independent of steps 1-6
-(only shares cluster capacity) — start once Tier B's arms have freed their slots:
+**7. launch the homo full-library relabel campaign — FAST SP-ONLY ROUTE**
+(user-directed 2026-09-10; full plan `data/cross_benzoin/homo_standalone/CAMPAIGN_PLAN.md`).
+DFT SP (r2SCAN-3c + B97-3c) on the archived geoms, reuse stored xTB thermal —
+~2-3 days, not the ~3-week self-consistent regen. Independent of steps 1-6
+(shares cluster only). Start once Tier B's arms free their slots:
 ```bash
-# smoke first if not already green (job 26538271):
-#   check data/cross_benzoin/homo_standalone/relabel/smoke/smoke.csv has 2 rows, dG_r2scan filled
-# then, multi-arm (mirror Tier B's rome QOS-128 + fat_genoa split):
-sbatch --partition=rome      --array=0-6734%128    cross_benzoin/slurm/submit_homo_relabel.sh
-sbatch --partition=fat_genoa --array=6735-13469%150 cross_benzoin/slurm/submit_homo_relabel.sh
-# build a campaign monitor on data/cross_benzoin/homo_standalone/relabel/shards/*.done (/13470)
-# Phase 2/3 (merge + assemble + single-XGB + single-GNN) = post-drain of THIS campaign,
-# ~3 weeks out; see CAMPAIGN_PLAN.md.
+# smoke first if not already green (job 26539727):
+#   relabel_sp/smoke/smoke.csv has 3 rows, dG_r2scan_kcal + dG_b973c_kcal filled
+# manifest already built (relabel_sp/homo_sp_manifest.csv, 184,052 rows). Multi-arm:
+sbatch --partition=rome      --array=0-4600%128    cross_benzoin/slurm/submit_homo_sp.sh
+sbatch --partition=fat_genoa --array=4601-9202%150 cross_benzoin/slurm/submit_homo_sp.sh
+# campaign monitor on relabel_sp/shards/*.done (/9203)
+# Phase 2/3 (merge_homo_sp.py [to write] + assemble full-lib table + single-XGB +
+# single-GNN via submit_homo_standalone*.sh repointed) = ~3 days out. CAMPAIGN_PLAN.md.
 ```
 
 ## Rollback

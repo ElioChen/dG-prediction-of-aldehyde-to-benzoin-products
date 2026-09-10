@@ -5,26 +5,39 @@ recompute the DFT labels that were lost in the purge; use a **single XGBoost**
 and a **single GNN**, reported independently — not the iterated champion blend.
 **Launch: after cross Tier B drains** (user pick; ~09-11).
 
-## Phase 1 — relabel campaign (the "补算")
+## Phase 1 — relabel campaign (the "补算") — **FAST SP-ONLY ROUTE** (adopted 2026-09-10)
 
-The full-library homo DFT ΔG labels are physically gone (30k of ~219k survive).
-Recompute, self-consistently, with the same protocol as cross Tier B.
+The full-library homo DFT ΔG labels are physically gone (30k of ~219k survive,
+no backup anywhere — git / scratch / home all checked). Recompute by **DFT
+single-point on the archived 2026-09 GFN2-opt geometries**, reusing the stored
+xTB RRHO thermal — NO conformer search, NO Hessian. This is how the original
+homo labels were made (memo `full-dft-sp-funnelv3-autolaunch`): ~10-20× cheaper
+than the self-consistent regen, and geometry-consistent with the g-xTB /
+descriptor library.
 
 | | |
 |---|---|
-| worker | `cross_benzoin/rec_homo_relabel_worker.py` — homo fork of the Tier B worker: **2 species/pair** {product, aldehyde} (not 3), `dG_lvl = (G_lvl[prod] − 2·G_lvl[ald])·627.509` |
-| per species | conf_funnel_v3 rank → GFN2 `--ohess tight --alpb dmso` → r2SCAN-3c + B97-3c + g-xTB SP on that geometry (`_species` reused verbatim from the Tier B worker) |
-| pair list | `cross_benzoin/build_homo_relabel_pairs.py` → `homo_relabel_pairs.csv` = **161,630 rows** (2,000 front-loaded QC pairs that already have a 30k label + **159,630 to relabel**) |
-| array | `cross_benzoin/slurm/submit_homo_relabel.sh` — CHUNK 12 → 13,470 tasks, `%250`, `--array`/`--partition` overridable for multi-arm (same split style as Tier B: rome QOS-128 arm + fat_genoa arm) |
-| shards | `data/cross_benzoin/homo_standalone/relabel/shards/shard_%05d.csv`, `.done` markers, pid-skip resume |
-| scale | ~323k species SP (2 × 161.6k), ≈ Tier B × 4.5; **~3 weeks** at ~250 concurrent |
-| split | `homo_v6/products_scaffold_split.csv` (train 175,636 / val 21,899 / test 21,886); ~1,086 relabel pairs have no split → impute/exclude |
-| smoke | job 26538271 (genoa, 2 pairs) — verify before the full array |
+| geometry store | `data/cross_benzoin/bde_homo_product_featurize_20260902/chunk_*/geom.tar.zst` (members `xyz/pNNNNNN.xyz` + `ald_xyz/aNNNNNN.xyz`); home copy `~/benzoin_backups/bde_homo_rebuild_20260902/homo_product_chunk_geoms_20260902.tar` |
+| thermal (reused) | product `G_product − xtb_energy`, aldehyde `G_xtb − xtb_energy` (from the `*_all.csv`) |
+| manifest | `cross_benzoin/build_homo_sp_manifest.py` → `relabel_sp/homo_sp_manifest.{parquet,csv}` = **184,052 rows** (24,554 carry a surviving 30k label = QC block, front-loaded; split train 145,940 / test 18,529 / val 18,498 / 1,085 nan) |
+| worker | `cross_benzoin/homo_sp_from_geom_worker.py` — extract prod+ald xyz from the zst, `calc_orca_sp` r2SCAN-3c (label) + B97-3c (Δ-baseline) per species, `dG_lvl = (G_lvl[prod] − 2·G_lvl[ald])·627.509`; append+fsync, resume by `id` |
+| array | `cross_benzoin/slurm/submit_homo_sp.sh` — CHUNK 20 → 9,203 tasks, `%250`, 24 cpu, `--sp-workers 16`; `--array`/`--partition` overridable for multi-arm |
+| shards | `relabel_sp/shards/shard_%05d.csv`, `.done` markers |
+| scale | ~184k pairs × 2 species × 2 methods ≈ 736k SPs, but SP-only → **~2-3 days** at ~250 concurrent (original 1-method 219k run was ~18h / ~100k core-h) |
+| smoke | job 26539727 (genoa, 3 QC pairs) — verify before the full array |
 
-**True failure** = col6 `dG_r2scan_kcal` empty (same convention as Tier B).
-**QC:** the 2,000 front pairs carry `label` (surviving 30k value) → `repro_r2scan`
-column = new − old; a tight distribution confirms the campaign reproduces the
-old labels self-consistently before trusting the 159k new ones.
+**True failure** = `dG_r2scan_kcal` empty. **QC:** the 24,554 label-carrying rows
+give `repro_r2scan = new − stored`; expect a possible constant offset vs the
+old 30k (different geometry vintage) — a *tight* distribution around whatever
+the offset is confirms the SPs are clean. Absolute offset is harmless for a
+from-scratch model (learned target). **Do not merge new + old 30k labels.**
+
+### superseded: self-consistent regen route
+`rec_homo_relabel_worker.py` + `build_homo_relabel_pairs.py` +
+`submit_homo_relabel.sh` (conf funnel + ohess + 3 SP per species, ~3 weeks) —
+kept in the repo but NOT the plan. Its 2-pair smoke (job 26538271) showed a
+consistent ~−5.5 kcal offset vs the stored 30k labels (geometry-protocol
+difference). Only revisit if cross-Tier-B-level label accuracy is wanted.
 
 ## Phase 2 — merge + assemble (build while Phase 1 runs)
 
