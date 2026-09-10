@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=homo_regen
-#SBATCH --partition=fat_genoa
+#SBATCH --partition=genoa
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=48G
 #SBATCH --time=16:00:00
-#SBATCH --array=0-770%80
+#SBATCH --array=0-770%12
 #SBATCH --requeue
 #SBATCH --output=/gpfs/scratch1/shared/schen3/benzoin-dg-restored/data/cross_benzoin/homo_standalone/relabel_sp/regen_logs/hr_%A_%a.out
 #

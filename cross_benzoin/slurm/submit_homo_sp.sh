@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=homo_sp
-#SBATCH --partition=rome
+#SBATCH --partition=genoa
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=48G
 #SBATCH --time=06:00:00
-#SBATCH --array=0-8971%250
+#SBATCH --array=0-8971%60
 #SBATCH --requeue
 #SBATCH --output=/gpfs/scratch1/shared/schen3/benzoin-dg-restored/data/cross_benzoin/homo_standalone/relabel_sp/logs/hsp_%A_%a.out
 #
