@@ -79,7 +79,21 @@ genoa short-borrow ~10 min), pointed at the 4 new seed dirs + `$NEW`. Expect bes
 - rewrite `cross_benzoin/CHAMPION.md` (new champion = r1-10-b973c), `PROJECT_SUMMARY_20260907*.md`
 - `sbatch cross_benzoin/slurm/submit_backup_recovery_artifacts.sh`
 - update memory `cross-r1-10-champion-and-label-ceiling`
-- then trigger §1.5 homo full-library self-consistent B97-3c relabel campaign
+
+**7. launch the homo full-library relabel campaign** (user-directed 2026-09-10;
+infrastructure prepared this session — full plan
+`data/cross_benzoin/homo_standalone/CAMPAIGN_PLAN.md`). Independent of steps 1-6
+(only shares cluster capacity) — start once Tier B's arms have freed their slots:
+```bash
+# smoke first if not already green (job 26538271):
+#   check data/cross_benzoin/homo_standalone/relabel/smoke/smoke.csv has 2 rows, dG_r2scan filled
+# then, multi-arm (mirror Tier B's rome QOS-128 + fat_genoa split):
+sbatch --partition=rome      --array=0-6734%128    cross_benzoin/slurm/submit_homo_relabel.sh
+sbatch --partition=fat_genoa --array=6735-13469%150 cross_benzoin/slurm/submit_homo_relabel.sh
+# build a campaign monitor on data/cross_benzoin/homo_standalone/relabel/shards/*.done (/13470)
+# Phase 2/3 (merge + assemble + single-XGB + single-GNN) = post-drain of THIS campaign,
+# ~3 weeks out; see CAMPAIGN_PLAN.md.
+```
 
 ## Rollback
 
