@@ -224,3 +224,41 @@ trusting the file and finding out at model-training time.
 Memory `working-style-journal-plan-understand` (journal + plan + understand every
 step) and this journal + plan themselves.
 
+### 2026-09-10 (evening cont. 2) — QOS corrected, homo SP launched, day close
+
+**QOS understanding corrected (user).** `MaxJobsPU=128` is **per partition** ->
+rome 128 + genoa 128 = a 256 combined ceiling. Rule: never run to it -- target
+<= ~100 combined (both projects) per partition, <= ~200 across both, own
+steady-state <= ~90; fat partitions <= ~75% occupancy. `CLUSTER_SHARING.md` +
+`_ZH` rewritten. **Found my Tier B sitting at 128 on rome** (old arm 26467946
+throttled to %50 but not converged, 16 h walltime) -> `scancel --state=RUNNING`,
+re-throttled both Tier B rome arms to %30 + %25 (~55 combined). Could not
+identify the NHC session among the 4 current peers to send the proposal; it is
+in the repo doc, complying on my side.
+
+**smoke v4 (per-atom thermal bound + dG gate).** 9 rows, 8 usable, 0 with
+|dG| > 200 -- the +/-1e6 garbage is gone. **resid_b973c median -5.21 +/- MAD
+0.61** -- exactly the pilot's -5.24 +/- ~1.1 level-of-theory scatter -> the
+r2SCAN-3c and B97-3c SPs are internally consistent on every row. The residual
+-26 / -49 kcal `repro_r2scan` rows have *clean* resid_b973c -> not a silent SP
+failure, a genuine archived-geometry-vs-2026-06-label conformer mismatch on a
+hard/flexible molecule (di-boronic-acid benzoin). Those are the v6 library's
+by-design hard cases; `merge_homo_sp.py` excludes them from `_labels.csv` via
+two label-free / QC gates: resid_b973c 6-MAD-sigma band + |repro_r2scan|>15 on
+the QC rows. Not chased further -- the model sees the residual noise, the
+conformal PI widens, `dg_high_sigma` flags it at inference.
+
+**homo SP campaign LAUNCHED** on **genoa** (not fat -- per CLUSTER_SHARING):
+`26555994` archived (%60, 179,431 pairs) + `26555995` regen (%12, 4,621 pairs).
+Monitor `bmiabhrw6`. Worker now robust vs 5 contamination classes; merge catches
+the 6th.
+
+**Day close.** Docs delivered: `PROJECT_PLAN`(+ZH), `CHEMICAL_SPACE`(+ZH),
+`CLUSTER_SHARING`(+ZH), `LAB_JOURNAL`(+ZH). Memories
+`working-style-journal-plan-understand`, `share-cluster-nodes`. Compute: cross
+Tier B ~72% on rome (deprioritized, ~55 concurrent); homo SP relabel launched
+clean on genoa after 4 worker fixes + 2 merge QC gates. Open threads: send
+cluster rules to NHC when identifiable; on homo SP drain -> merge + assemble +
+single-XGB/GNN; on Tier B drain -> DRAIN_RUNBOOK; the flying-dataset build
+(`CHEMICAL_SPACE.md` s8) is the next design task.
+
