@@ -28,7 +28,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 import pandas as pd
@@ -109,63 +109,89 @@ def main() -> int:
     print(f"chunk skip={a.skip}: {len(df)} rows, {len(df)-len(todo)} already done, "
           f"{len(todo)} to do, methods={methods}", flush=True)
 
+    rowmap = {str(r.id): r for r in todo}
+
     # 1. extract every needed geom once
     geom = {}
     for r in todo:
-        geom[("p", r.id)] = _extract(r.prod_arc, r.prod_mem, geodir)
-        geom[("a", r.id)] = _extract(r.ald_arc, r.ald_mem, geodir)
+        geom[("p", str(r.id))] = _extract(r.prod_arc, r.prod_mem, geodir)
+        geom[("a", str(r.id))] = _extract(r.ald_arc, r.ald_mem, geodir)
 
-    # 2. flatten to SP jobs, run pool
-    jobs, jkey = [], []
+    # 2. submit all SP jobs; 3. write each pair's row as soon as its SPs land
+    #    (incremental + fsync so a wall-clock kill or requeue loses < 1 pair)
+    n_meth = len(methods)
+    pending = {}          # id -> {(meth,role): E}
+    need = {}             # id -> how many SP results still expected
+    futs = {}
+    ex = ProcessPoolExecutor(max_workers=a.sp_workers)
     for r in todo:
-        gp, ga = geom[("p", r.id)], geom[("a", r.id)]
+        rid = str(r.id)
+        gp, ga = geom[("p", rid)], geom[("a", rid)]
+        pending[rid] = {}
+        cnt = 0
         for meth in methods:
             for role, g, chg in (("prod", gp, r.charge_prod), ("ald", ga, r.charge_ald)):
                 if g is None:
+                    pending[rid][(meth, role)] = None
                     continue
-                jobs.append((str(g), meth, "", chg, a.maxcore))
-                jkey.append((r.id, meth, role))
-    E = {}
-    if jobs:
-        with ProcessPoolExecutor(max_workers=a.sp_workers) as ex:
-            for k, val in zip(jkey, ex.map(_sp, jobs)):
-                E[k] = val
+                futs[ex.submit(_sp, (str(g), meth, "", chg, a.maxcore))] = (rid, meth, role)
+                cnt += 1
+        need[rid] = cnt
 
-    # 3. assemble rows
     write_header = not out_path.exists() or out_path.stat().st_size == 0
-    with out_path.open("a", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=FIELDS, lineterminator="\n")
-        if write_header:
-            w.writeheader(); fh.flush()
-        for r in todo:
-            rec = {k: None for k in FIELDS}
-            rec.update(id=r.id, donor_id=r.donor_id,
-                       new_scaffold_split=getattr(r, "new_scaffold_split", None),
-                       label_stored=getattr(r, "label_stored", None))
-            gp, ga = geom[("p", r.id)], geom[("a", r.id)]
-            if gp is None or ga is None:
-                rec["error"] = f"geom_extract_fail(p={gp is not None},a={ga is not None})"
-                w.writerow(rec); fh.flush(); os.fsync(fh.fileno()); continue
+    fh = out_path.open("a", newline="")
+    w = csv.DictWriter(fh, fieldnames=FIELDS, lineterminator="\n")
+    if write_header:
+        w.writeheader(); fh.flush()
+
+    def _emit(rid):
+        r = rowmap[rid]
+        E = pending[rid]
+        rec = {k: None for k in FIELDS}
+        rec.update(id=r.id, donor_id=r.donor_id,
+                   new_scaffold_split=getattr(r, "new_scaffold_split", None),
+                   label_stored=getattr(r, "label_stored", None))
+        gp, ga = geom[("p", rid)], geom[("a", rid)]
+        if gp is None or ga is None:
+            rec["error"] = f"geom_extract_fail(p={gp is not None},a={ga is not None})"
+        else:
             try:
                 for meth in methods:
                     mk = METHOD_KEY[meth]
-                    ep, ea = E.get((r.id, meth, "prod")), E.get((r.id, meth, "ald"))
+                    ep, ea = E.get((meth, "prod")), E.get((meth, "ald"))
                     rec[f"E_prod_{mk}"], rec[f"E_ald_{mk}"] = ep, ea
                     if ep is None or ea is None:
                         rec["error"] = f"{meth}:sp_fail(p={ep is not None},a={ea is not None})"
                         break
-                    G_prod = ep + float(r.thermal_prod)
-                    G_ald = ea + float(r.thermal_ald)
-                    rec[f"dG_{mk}_kcal"] = (G_prod - 2.0 * G_ald) * HK
+                    rec[f"dG_{mk}_kcal"] = (
+                        (ep + float(r.thermal_prod)) - 2.0 * (ea + float(r.thermal_ald))) * HK
                 if rec["error"] is None and rec["dG_r2scan_kcal"] is not None \
                         and pd.notna(getattr(r, "label_stored", None)):
                     rec["repro_r2scan"] = rec["dG_r2scan_kcal"] - float(r.label_stored)
             except Exception as e:  # noqa: BLE001
                 rec["error"] = str(e)[:180]
-            w.writerow(rec); fh.flush(); os.fsync(fh.fileno())
-            print(f"  id={rec['id']} split={rec['new_scaffold_split']} "
-                  f"dG_r2scan={rec['dG_r2scan_kcal']} dG_b973c={rec['dG_b973c_kcal']} "
-                  f"repro={rec['repro_r2scan']} err={rec['error']}", flush=True)
+        w.writerow(rec); fh.flush(); os.fsync(fh.fileno())
+        print(f"  id={rec['id']} split={rec['new_scaffold_split']} "
+              f"dG_r2scan={rec['dG_r2scan_kcal']} dG_b973c={rec['dG_b973c_kcal']} "
+              f"repro={rec['repro_r2scan']} err={rec['error']}", flush=True)
+
+    # pairs with no SP jobs at all (both geoms missing) -> emit now
+    for rid, k in list(need.items()):
+        if k == 0:
+            _emit(rid); need.pop(rid)
+
+    for fut in as_completed(futs):
+        rid, meth, role = futs[fut]
+        try:
+            pending[rid][(meth, role)] = fut.result()
+        except Exception:
+            pending[rid][(meth, role)] = None
+        need[rid] -= 1
+        if need[rid] == 0:
+            _emit(rid)
+
+    ex.shutdown(wait=True)
+    fh.close()
     shutil.rmtree(wroot, ignore_errors=True)
     print(f"chunk skip={a.skip} done", flush=True)
     return 0
