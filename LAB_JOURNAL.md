@@ -158,3 +158,69 @@ concurrency and scales up only as Tier B vacates. Saved as memory
   now cross-chunk index reuse in geom archives, and id-misaligned `G_xtb`).
   Treat every stored value from `homo_v6/*_all.csv` as suspect until
   bounds-checked.
+
+### 2026-09-10 (evening cont.) — 4th homo-SP contamination source + project re-framing
+
+**Problem 4 — smoke #3 (thermal recompute in place): still 27 %→ small % garbage.**
+The bounds check `0 ≤ thermal ≤ 1.6 Ha` was too loose. A concrete miss: aldehyde
+`O=Cc1c(O)ccc(C(F)(F)F)c1Br` (18 atoms) had a *stored* thermal of **1.229 Ha**
+(should be ~0.13). 1.229 < 1.6 so it passed, and it enters ΔG as `−2·thermal_ald`
+→ a ~1500 kcal/mol error.
+**Root cause.** The Gibbs thermal correction scales ~linearly with atom count
+(~0.003–0.012 Ha/atom for these organics: 13-atom aldehyde 0.072, 26-atom 0.136).
+An *absolute* bound cannot separate a legitimate large-molecule thermal from a
+misaligned small-molecule one; a **per-atom** bound can.
+**Fix (commit `b4706df`).** `_th_ok(v, n_atoms)` requires `0.001 ≤ v/N ≤ 0.020`
+(N = heavy+H from the SMILES). A recomputed thermal that is itself out of band is
+rejected. Plus a hard gate: any `|dG_r2scan| > 200 kcal/mol` → `error=dG_implausible`
+at the worker, so garbage never reaches a shard. Verified the bound rejects the
+1.229 Ha value (0.068/atom) and passes the legit 0.13 (0.0072/atom). Smoke v4
+(`26554455`) running.
+*Note:* a residual ~1–3 % of pairs (e.g. a di-boronic-acid benzoin with a huge
+conformer surface) will still have noisy single-conformer labels — those are the
+"library includes uncomputable/hard examples by design" cases the user flagged;
+the merge `repro_r2scan` tail + the assembly-time |dG| clip handle them, we do
+not chase them.
+
+**Principle note (recovered-CSV data quality).** Four distinct defects in
+post-purge / post-featurize `homo_v6/*_all.csv` files have now bitten:
+float ids, cross-chunk geom-index reuse, gross `G_xtb` misalignment, and subtle
+`G_xtb` misalignment. **Every stored xTB quantity is now bounds-checked before
+use** (per-atom thermal band, |dG| plausibility gate). This is cheaper than
+trusting the file and finding out at model-training time.
+
+**Project re-framing (user input, acted on today).**
+1. *homo* library = `aldehydes_clean_v6.csv` (220,860), filtered — and it
+   **deliberately contains molecules that cannot be optimized/DFT'd**. That
+   attrition is a library property, not a bug; a "can't compute" is a valid
+   recorded outcome.
+2. *cross* library was **built wrong**. `candidates_v3` (~1.24 M pairs) is an
+   arbitrary constructed subset, not the space. The **real cross space is
+   220,860² ≈ 4.88 × 10¹⁰ ordered aldehyde pairs**.
+3. Do not materialize the SMILES. Build a **"flying dataset"** — a lazy,
+   pair-addressed virtual dataset: freeze a canonical `ald_idx` for the 220,860
+   aldehydes, keep per-aldehyde caches (geometry / QM / Mordred / BDE / xTB
+   energetics), and generate a pair's product SMILES + 260 features + baseline +
+   split *on demand* from the two aldehyde caches. Spec written:
+   **`CHEMICAL_SPACE.md`** (frozen index → re-keyed caches → `pair(i,j)` read
+   API → labels/splits → migrate the 35,528 existing labels → retire
+   `candidates_v3`). Build order is deliberately small-step with a bit-level
+   feature-reproduction check before anything downstream trusts it.
+4. **Past AL (rounds 1–10) is parked; cross AL will be redone** over the flying
+   dataset. The 35,528 DFT labels are retained as data; the r1-10 blend
+   (MAE 2.215) is now a *reference* model, not the frozen forward line.
+5. **Catalyst Space** filled in from the sibling GitHub repos
+   (`nhc-benzoin-pipeline` = TS_CC/TS_CN + microkinetic ee(t);
+   `nhc-benzoin-active-learning` = multi-objective pool AL over ~13 M
+   stereoisomers, objectives = Kozuch–Shaik energy span + |ee|, both censored;
+   `stereo-catalyst-engine` = Bayesian-opt catalyst design; `nhc-pkah-predictor`
+   = azolium pKaH gate). This project = the *substrate* axis; those = the
+   *catalyst* axis; the **substrate × catalyst integration is the open gap**
+   (`PROJECT_PLAN.md` §3.3), and whether this project takes it on needs user
+   scoping.
+
+**Deliverables today (cont.).** `PROJECT_PLAN.md` updated (v6-library caveat,
+§2.11 flying dataset, §2.7 AL parked, §3 rewritten). `CHEMICAL_SPACE.md` created.
+Memory `working-style-journal-plan-understand` (journal + plan + understand every
+step) and this journal + plan themselves.
+
