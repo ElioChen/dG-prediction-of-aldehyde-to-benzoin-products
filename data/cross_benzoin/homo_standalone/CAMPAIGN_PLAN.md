@@ -32,6 +32,15 @@ old 30k (different geometry vintage) — a *tight* distribution around whatever
 the offset is confirms the SPs are clean. Absolute offset is harmless for a
 from-scratch model (learned target). **Do not merge new + old 30k labels.**
 
+**Known geometry-archive gap (~5-10%, found 2026-09-10):** the 2026-09
+`bde_homo_product_featurize` geom archive is partial for chunks ~1400-1830
+(chunk_1650 has 13/100 product xyz, 1550 has 29, 1700 has 69) plus ~59 chunks
+with no `geom.tar.zst`. Those pairs record `geom_extract_fail` and are dropped
+by `merge_homo_sp.py` -- the model trains on ~165-175k of 184k, still a strong
+full-library set. Top-up (post-campaign, if 100% wanted): GFN2-opt the
+`geom_extract_fail` ids from SMILES (plain `xtb --opt`, NO Hessian, reuse the
+stored xTB thermal), then re-run `homo_sp_from_geom_worker` on that sub-manifest.
+
 ### superseded: self-consistent regen route
 `rec_homo_relabel_worker.py` + `build_homo_relabel_pairs.py` +
 `submit_homo_relabel.sh` (conf funnel + ohess + 3 SP per species, ~3 weeks) —
