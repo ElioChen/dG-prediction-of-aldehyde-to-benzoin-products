@@ -79,8 +79,26 @@ def main() -> int:
     is_err = err.ne("") & err.ne("nan")
     ok = df[df["dG_r2scan_kcal"].notna() & ~is_err].copy()
     true_fail = df[df["dG_r2scan_kcal"].isna()]
+
+    # LABEL-FREE outlier gate. resid_b973c = dG_r2scan - dG_b973c is computed on
+    # ONE geometry with ONE thermal, so it is pure r2SCAN-3c-vs-B97-3c level-of-
+    # theory scatter: pilot = a ~-5.2 kcal constant offset with std ~1.1. A row
+    # whose resid_b973c is far from the population median means one of its two
+    # SPs failed silently (typical on the hard molecules the v6 library keeps on
+    # purpose -- di-boronic acids, hypervalent, huge conformer surfaces). Flag
+    # by a robust (MAD-based) 6-sigma band; these are dropped from _labels.csv.
+    r = pd.to_numeric(ok["resid_b973c"], errors="coerce")
+    med = r.median()
+    mad = (r - med).abs().median() or 1e-6
+    band = 6.0 * 1.4826 * mad
+    ok["resid_outlier"] = (r - med).abs() > band
+    n_out = int(ok["resid_outlier"].sum())
+    print(f"resid_b973c robust band: median={med:.2f} +/- {band:.2f}  -> {n_out} outlier rows "
+          f"(silent-SP-failure suspects, excluded from _labels.csv)")
+    ok_clean = ok[~ok["resid_outlier"]].copy()
     df.to_csv(f"{args.out_prefix}_merged.csv", index=False)
-    ok[["id", "dG_r2scan_kcal", "dG_b973c_kcal"]].to_csv(f"{args.out_prefix}_labels.csv", index=False)
+    ok_clean[["id", "dG_r2scan_kcal", "dG_b973c_kcal"]].to_csv(
+        f"{args.out_prefix}_labels.csv", index=False)
 
     man = pd.read_csv(args.manifest, dtype={"id": str}, usecols=["id"])
     mids = set(man["id"].astype(str).str.strip())
@@ -92,8 +110,9 @@ def main() -> int:
     for _, r in true_fail.head(15).iterrows():
         print(f"  FAIL {r['id']}: {r.get('error')!r}")
 
-    qc = ok[ok["repro_r2scan"].notna()]
+    qc = ok_clean[ok_clean["repro_r2scan"].notna()]
     out = {"n_shards": len(files), "n_unique_id": len(df), "n_ok": len(ok),
+           "n_resid_outlier_excluded": n_out, "n_labels": len(ok_clean),
            "n_true_fail": int(len(true_fail)), "n_error_tagged": int(is_err.sum()),
            "manifest_n": len(mids), "coverage": cov,
            "coverage_pct": round(100 * cov / len(mids), 2),

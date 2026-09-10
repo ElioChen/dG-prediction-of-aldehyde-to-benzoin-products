@@ -12,8 +12,10 @@
 > (reporting draft), `HANDOFF_<date>.md` (session handoff).
 >
 > Top-level structure requested by the user:
-> **1. dG Simulation Workflow · 2. Prediction Optimization Workflow · 3. Catalyst Space**
-> (+ 4. cross-cutting infrastructure).
+> **1. dG Simulation Workflow · 2. Prediction Optimization Workflow**
+> (3. Catalyst Space is out of scope — see §3; + 4. cross-cutting infrastructure).
+>
+> Bilingual: English here, 中文 in `PROJECT_PLAN_ZH.md` (keep in sync).
 
 ---
 
@@ -31,7 +33,8 @@ they differ it is the **cross** case (A + B → AB).
 the r2SCAN-3c / CPCM(DMSO) level with a GFN2-xTB RRHO thermal correction.
 This is the *thermodynamics* of the coupling — it tells us which pairings are
 downhill (favorable products) and by how much. It is **not** the kinetic
-barrier and **not** catalyst-dependent (see §3).
+barrier and **not** catalyst-dependent; the catalyst side is a separate project
+(§3, out of scope here).
 
 **Why predict it instead of computing it.** The useful design question is
 "given ~10⁶ possible aldehyde pairs, which ones give a favorable benzoin?"
@@ -48,7 +51,6 @@ model's most uncertain calls.
   calibrated uncertainty and a favorable/unfavorable + rank decision layer.
 - (Goal 3) Deployment: score large candidate libraries, hand chemists a ranked
   shortlist, and route the model's high-risk calls to DFT.
-- (Goal 4, frontier) Bring the catalyst into the picture (§3).
 
 **Current headline (2026-09-10).** cross **reference model** = r1-10 blend,
 scaffold-disjoint holdout MAE **2.215 kcal/mol** (g-xTB baseline 5.037), on the
@@ -59,8 +61,8 @@ so cross AL will be redone over a proper **"flying dataset"** (§2.11); the past
 AL rounds and the r1-10 champion are kept as reference, not the forward line.
 Active compute: (a) **B97-3c cheap-baseline lever** (Tier B relabel, may break
 the 2.9 floor) and (b) a **from-scratch full-library homo model** with
-recomputed DFT labels. `Catalyst Space` (§3) is a mature *separate* effort in
-sibling repos; its integration with this substrate-ΔG project is unscoped.
+recomputed DFT labels. `Catalyst Space` (§3) is **out of scope** for this project — this project is
+the substrate axis only.
 
 ---
 
@@ -441,96 +443,25 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
 
 ---
 
-## 3. Catalyst Space — a mature separate effort; INTEGRATION with this project is ❌
+## 3. Catalyst Space — OUT OF SCOPE for this project (2026-09-10, user)
 
-*Everything above computes and predicts the **uncatalyzed thermodynamics** of
-the coupling. The real benzoin reaction is catalyst-mediated, and the catalyst
-sets both the rate and, through the Breslow-intermediate equilibria, which
-enantiomer forms. There **is** a mature catalyst-side effort — but in sibling
-repos, on a fixed substrate. What this project is missing is the **link**
-between the two: substrate pair × catalyst. §3.3 is the open scoping question.
-The `nhc-*` / `sourceB-kinetics` / `qm-benzoin` jobs on the cluster belong to
-that effort — do not touch them from this project's sessions.*
+**This project is the *substrate* axis only.** It predicts whether an aldehyde
+pair gives a thermodynamically favorable benzoin (uncatalyzed ΔG). It does **not**
+model the NHC catalyst, the kinetic barriers, or the enantioselectivity.
 
-### 3.1 Scope of the current model vs the real reaction — 🔄 (understood, documented here)
-- **Principle.** ΔG(A+B→AB) is necessary but not sufficient: a
-  thermodynamically favorable pair still won't form the benzoin if (a) the
-  catalyst can't make the acyl-anion from that aldehyde, (b) the kinetic barrier
-  is too high, or (c) a competing pathway (homo-coupling, Cannizzaro, aldol)
-  wins. The current deliverable is a **thermodynamic pre-filter**.
-- **Status.** This limitation is now stated (was implicit). The model's
-  favorable/rank output should be read as "worth a closer look", not "will work".
-- **Missing.** An explicit statement in `predict_dg.py` output / docs that the
-  score is uncatalyzed thermodynamics.
-
-### 3.2 The NHC catalyst effort — mature, in sibling repos (2026-09-10, from GitHub)
-- **Mechanism it models.** NHC (a singlet carbene from an azolium salt + base)
-  adds to a benzaldehyde → tautomerizes to the nucleophilic **Breslow
-  intermediate** → attacks a 2nd aldehyde through **TS_CC** (C–C bond, sets the
-  two new stereocentres; enumerated over 4 diastereomers RR/RS/SR/SS) →
-  **TS_CN** releases the catalyst and delivers the benzoin (R or S). Both TS
-  families are diastereomer-specific, so which is rate-/selectivity-determining
-  is a computed question, not intuition.
-- **Repos (all `ElioChen/…`, private):**
-  - **`nhc-benzoin-pipeline`** — the QC pipeline: NHC SMILES → species +
-    stereoisomers → locate TS_CC & TS_CN per diastereomer → thermochemistry →
-    microkinetic ee(t). Output: "for catalyst X, which enantiomer forms and by
-    how much" (`selectivity_summary.csv`). r2SCAN-3c SPs. This is the
-    `nhc-gsp-*` / `sourceB-kinetics` / `qm-benzoin` compute seen on the cluster
-    — **do not touch from this project's sessions.**
-  - **`nhc-benzoin-active-learning`** — multi-objective pool-based AL over a
-    **~13 M-member absolute-stereoisomer library** (~4.7 M achiral parents;
-    another framing: a 7 M chiral pool via `build_nhc_pool.py`). Two objectives,
-    both read off one DFT ΔG profile of the catalytic cycle:
-    **rate** = `energy_span_kcalmol` (Kozuch–Shaik energetic span δE, TOF ∝
-    exp(−δE/RT)); **selectivity** = `abs_ee`. Both right-censorable (unconverged
-    TS → δE is a lower bound) and independently missing; surrogate = one model
-    per objective, `CensoredRegressor` (Tobit-style EM). Only ~5–10 acquisition
-    rounds affordable ever → it is a *screening surrogate*, not classic BO.
-  - **`nhc-active-learning`** — sibling AL module (7 M chiral library).
-  - **`stereo-catalyst-engine`** — a stereoselective-catalyst-design workflow,
-    one component of a larger **Bayesian-optimization** loop; benzoin now,
-    Stetter + other NHC reactions planned; catalysts from a
-    "predicted-synthesizable NHC database".
-  - **`nhc-pkah-predictor`** — predicts the NHC conjugate-acid pKaH (can the
-    azolium be deprotonated to the active carbene at all — a hard prerequisite
-    gate on any catalyst candidate). QM (GFN2/ORCA) + LightGBM on CM5 charges.
-- **Status.** This is an active, well-developed effort — **but it is a separate
-  project**. Its substrate is essentially fixed (PhCHO homo-coupling); it varies
-  the catalyst.
-
-### 3.3 The missing piece: substrate-pair × catalyst integration — ❌
-- **Principle.** A chemist's real question is 2D: *for aldehyde pair (A, B),
-  which NHC gives the cross-benzoin, fast and selectively?* This project models
-  the **substrate axis** (does the pair give a favorable benzoin at all,
-  uncatalyzed thermodynamics). The NHC repos model the **catalyst axis** (rate +
-  ee, for a fixed substrate). Neither covers the joint space.
-- **Status.** Not started. No joint representation, no catalyzed labels over
-  varied substrate pairs, no combined model.
-- **Missing (needs user scoping).** (a) Does this project extend to the joint
-  space, or does it stay the substrate pre-filter and hand off to the NHC
-  pipeline? (b) If joint: a catalyzed ΔG‡ / product-ratio label over
-  (pair × catalyst); a representation that composes the aldehyde features with
-  a catalyst descriptor set; whether the NHC AL framework (multi-objective,
-  censored) is reused.
-
-### 3.4 Kinetics vs thermodynamics — ❌ (this project) / ✅ (NHC repos)
-- **Principle.** Cross-vs-homo selectivity in benzoin condensation is frequently
-  **kinetic** (set by relative barriers, not relative ΔG). A pure thermodynamic
-  score can be qualitatively wrong where kinetics dominates. The NHC pipeline
-  computes barriers + microkinetics; this project does not.
-- **Missing (needs user scoping).** Whether a barrier/kinetics surrogate enters
-  this project's screening story, or that stays in the NHC pipeline.
-
-### 3.5 Screening library & hit criterion — 🅿️ to be redefined on the flying dataset
-- **Principle.** Deployment needs a defined universe + a "hit" rule. Current
-  mechanics: score a candidate CSV, rank by `dg_rank_pct`, flag `baseline_risk`.
-- **Status.** The old `candidates_v3` pool is retired (§2.11). The screening
-  universe becomes the flying dataset over the 220,860² space.
-- **Missing.** The flying dataset (§2.11); a documented hit criterion
-  (e.g. `dg_favorable` ∧ ¬`baseline_risk` ∧ conformal upper bound < 0); a
-  delivered ranked chemist-facing shortlist (= Goal 3 completion). Catalyst
-  awareness (§3.3–3.4) would make it a design tool rather than a pre-filter.
+- **Boundary.** Read the model's favorable / rank output as "worth a closer
+  look", not "will work" — a **thermodynamic pre-filter**. `predict_dg.py` docs
+  should say so explicitly (small ❌ to add).
+- **The catalyst side is a separate, mature effort** in sibling repos
+  (`ElioChen/nhc-benzoin-pipeline`, `nhc-benzoin-active-learning`,
+  `nhc-active-learning`, `stereo-catalyst-engine`, `nhc-pkah-predictor`):
+  TS_CC / TS_CN per diastereomer → microkinetics → rate (Kozuch–Shaik energy
+  span) + |ee|, with multi-objective pool AL over a ~13 M-stereoisomer NHC
+  library. **Not managed here.** The `nhc-gsp-*` / `sourceB-kinetics` /
+  `qm-benzoin` cluster jobs belong to it — do not touch them from this
+  project's sessions.
+- **Any substrate × catalyst integration is the user's / the NHC project's
+  call, not this plan's.**
 
 ---
 
