@@ -27,6 +27,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -64,9 +65,17 @@ def _extract(arc: str, member: str, dst: Path) -> Path | None:
 
 
 def _sp(args):
+    """Run one ORCA SP in its OWN scratch dir (calc_orca_sp writes orca_sp/ next
+    to the xyz, so concurrent SPs on the same geometry MUST get separate copies)."""
     xyz, method, basis, charge, maxcore = args
-    return T.calc_orca_sp(Path(xyz), method, basis, DMSO, charge=int(charge),
-                          maxcore_mb=maxcore, orca_bin=ORCA, timeout=7200)
+    wd = Path(tempfile.mkdtemp(prefix="hsp_", dir=os.environ.get("TMPDIR", "/tmp")))
+    try:
+        local = wd / "mol.xyz"
+        shutil.copy(xyz, local)
+        return T.calc_orca_sp(local, method, basis, DMSO, charge=int(charge),
+                              maxcore_mb=maxcore, orca_bin=ORCA, timeout=7200)
+    finally:
+        shutil.rmtree(wd, ignore_errors=True)
 
 
 def main() -> int:
