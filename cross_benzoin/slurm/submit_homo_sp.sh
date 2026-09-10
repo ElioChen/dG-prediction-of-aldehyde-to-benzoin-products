@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=48G
 #SBATCH --time=06:00:00
-#SBATCH --array=0-9202%250
+#SBATCH --array=0-8971%250
 #SBATCH --requeue
 #SBATCH --output=/gpfs/scratch1/shared/schen3/benzoin-dg-restored/data/cross_benzoin/homo_standalone/relabel_sp/logs/hsp_%A_%a.out
 #
@@ -16,13 +16,14 @@
 set -o pipefail
 REPO=/gpfs/scratch1/shared/schen3/benzoin-dg-restored
 PY=/home/schen3/venv/nhc-workflow/bin/python
-MAN="$REPO/data/cross_benzoin/homo_standalone/relabel_sp/homo_sp_manifest.csv"
+MAN="$REPO/data/cross_benzoin/homo_standalone/relabel_sp/homo_sp_manifest_archived.csv"
 OUTD="$REPO/data/cross_benzoin/homo_standalone/relabel_sp/shards"
 CHUNK=20
 mkdir -p "$OUTD" "$REPO/data/cross_benzoin/homo_standalone/relabel_sp/logs"
 source /etc/profile 2>/dev/null; module load 2023 2>/dev/null
 export PATH="/home/schen3/xtb/bin:/home/schen3/orca:$PATH"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+export XTB_BIN=/home/schen3/xtb/bin/xtb XTBPATH=/home/schen3/xtb/share/xtb
 export ORCA_BIN=/home/schen3/orca/orca ORCA_SCF=default
 cd "$REPO"
 

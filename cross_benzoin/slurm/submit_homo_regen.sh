@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=48G
 #SBATCH --time=16:00:00
-#SBATCH --array=0-999%80
+#SBATCH --array=0-770%80
 #SBATCH --requeue
 #SBATCH --output=/gpfs/scratch1/shared/schen3/benzoin-dg-restored/data/cross_benzoin/homo_standalone/relabel_sp/regen_logs/hr_%A_%a.out
 #

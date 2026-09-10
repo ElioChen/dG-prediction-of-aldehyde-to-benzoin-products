@@ -45,7 +45,13 @@ METHOD_KEY = {"r2SCAN-3c": "r2scan", "B97-3c": "b973c"}
 FIELDS = ["id", "donor_id", "new_scaffold_split", "label_stored",
           "dG_r2scan_kcal", "dG_b973c_kcal",
           "E_prod_r2scan", "E_ald_r2scan", "E_prod_b973c", "E_ald_b973c",
-          "repro_r2scan", "error"]
+          "th_prod_used", "th_ald_used", "th_src", "repro_r2scan", "error"]
+
+# GFN2 Gibbs thermal correction (G - E_el) is always positive and small for
+# these organics; the recovered aldehydes_all.csv G_xtb column is misaligned
+# for ~8% of rows (negatives, +80 Ha, duplicated values). Out-of-bounds ->
+# recompute the thermal from the archived geometry with xtb --ohess.
+THERMAL_LO, THERMAL_HI = 0.0, 1.6
 
 
 def _n_heavy_h(smi) -> int | None:
@@ -103,6 +109,33 @@ def _sp(args):
                               maxcore_mb=maxcore, orca_bin=ORCA, timeout=7200)
     finally:
         shutil.rmtree(wd, ignore_errors=True)
+
+
+def _thermal_job(args):
+    """GFN2 --ohess on the archived geometry -> (G - E_el) Eh, for rows whose
+    stored xTB thermal is corrupt. None on failure."""
+    xyz, = args
+    wd = Path(tempfile.mkdtemp(prefix="hth_", dir=os.environ.get("TMPDIR", "/tmp")))
+    try:
+        xyz_str = Path(xyz).read_text()
+        stdout, _ = T.run_ohess(xyz_str, wd, os.environ.get("XTB_BIN", "xtb"),
+                                solvent="dmso", cores=1, timeout=5400)
+        G = T.parse_xtb_G(stdout)
+        E = T._parse_xtb_energy(stdout)
+        if G is None or E is None:
+            return None
+        return G - E
+    except Exception:
+        return None
+    finally:
+        shutil.rmtree(wd, ignore_errors=True)
+
+
+def _th_ok(v) -> bool:
+    try:
+        return THERMAL_LO <= float(v) <= THERMAL_HI
+    except Exception:
+        return False
 
 
 def main() -> int:
@@ -165,6 +198,11 @@ def main() -> int:
                     continue
                 futs[ex.submit(_sp, (str(g), meth, "", chg, a.maxcore))] = (rid, meth, role)
                 cnt += 1
+        # recompute thermal from the geom when the stored value is corrupt
+        for role, g, stored in (("prod", gp, r.thermal_prod), ("ald", ga, r.thermal_ald)):
+            if g is not None and not _th_ok(stored):
+                futs[ex.submit(_thermal_job, (str(g),))] = (rid, "thermal", role)
+                cnt += 1
         need[rid] = cnt
 
     write_header = not out_path.exists() or out_path.stat().st_size == 0
@@ -185,15 +223,28 @@ def main() -> int:
             rec["error"] = f"geom_extract_fail(p={gp is not None},a={ga is not None})"
         else:
             try:
-                for meth in methods:
-                    mk = METHOD_KEY[meth]
-                    ep, ea = E.get((meth, "prod")), E.get((meth, "ald"))
-                    rec[f"E_prod_{mk}"], rec[f"E_ald_{mk}"] = ep, ea
-                    if ep is None or ea is None:
-                        rec["error"] = f"{meth}:sp_fail(p={ep is not None},a={ea is not None})"
-                        break
-                    rec[f"dG_{mk}_kcal"] = (
-                        (ep + float(r.thermal_prod)) - 2.0 * (ea + float(r.thermal_ald))) * HK
+                # thermal: stored if in-bounds, else the recomputed ohess value
+                src = []
+                if _th_ok(r.thermal_prod):
+                    th_p = float(r.thermal_prod); src.append("p:stored")
+                else:
+                    th_p = E.get(("thermal", "prod")); src.append("p:recomp")
+                if _th_ok(r.thermal_ald):
+                    th_a = float(r.thermal_ald); src.append("a:stored")
+                else:
+                    th_a = E.get(("thermal", "ald")); src.append("a:recomp")
+                rec["th_prod_used"], rec["th_ald_used"], rec["th_src"] = th_p, th_a, ",".join(src)
+                if th_p is None or th_a is None:
+                    rec["error"] = f"thermal_recompute_fail(p={th_p is not None},a={th_a is not None})"
+                else:
+                    for meth in methods:
+                        mk = METHOD_KEY[meth]
+                        ep, ea = E.get((meth, "prod")), E.get((meth, "ald"))
+                        rec[f"E_prod_{mk}"], rec[f"E_ald_{mk}"] = ep, ea
+                        if ep is None or ea is None:
+                            rec["error"] = f"{meth}:sp_fail(p={ep is not None},a={ea is not None})"
+                            break
+                        rec[f"dG_{mk}_kcal"] = ((ep + th_p) - 2.0 * (ea + th_a)) * HK
                 if rec["error"] is None and rec["dG_r2scan_kcal"] is not None \
                         and pd.notna(getattr(r, "label_stored", None)):
                     rec["repro_r2scan"] = rec["dG_r2scan_kcal"] - float(r.label_stored)
