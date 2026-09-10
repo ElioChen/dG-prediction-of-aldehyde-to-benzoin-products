@@ -50,12 +50,17 @@ model's most uncertain calls.
   shortlist, and route the model's high-risk calls to DFT.
 - (Goal 4, frontier) Bring the catalyst into the picture (§3).
 
-**Current headline (2026-09-10).** cross champion = r1-10 blend, scaffold-disjoint
-holdout MAE **2.215 kcal/mol** (g-xTB physical baseline 5.037), sitting on a
-single-conformer DFT label-noise floor of ≈ 2.9 kcal/mol. Goal 3 tooling
-shipped. Two active fronts: (a) the **B97-3c cheap-baseline lever** (Tier B
-relabel campaign, may break the 2.9 floor) and (b) a **from-scratch full-library
-homo model** with recomputed DFT labels.
+**Current headline (2026-09-10).** cross **reference model** = r1-10 blend,
+scaffold-disjoint holdout MAE **2.215 kcal/mol** (g-xTB baseline 5.037), on the
+≈ 2.9 kcal/mol single-conformer label-noise floor. Goal 3 tooling shipped.
+**The project is being re-based** on the user's 2026-09-10 input: the cross
+chemical space was mis-defined (`candidates_v3` ≠ the real 220,860² pair space),
+so cross AL will be redone over a proper **"flying dataset"** (§2.11); the past
+AL rounds and the r1-10 champion are kept as reference, not the forward line.
+Active compute: (a) **B97-3c cheap-baseline lever** (Tier B relabel, may break
+the 2.9 floor) and (b) a **from-scratch full-library homo model** with
+recomputed DFT labels. `Catalyst Space` (§3) is a mature *separate* effort in
+sibling repos; its integration with this substrate-ΔG project is unscoped.
 
 ---
 
@@ -77,18 +82,27 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
 - **Status.** Definition frozen. `dG = (G_prod − G_don − G_acc) · 627.509`.
 - **Missing.** Nothing.
 
-### 1.2 Aldehyde structure library — ✅ (with recovery scars)
-- **Principle.** The universe of monomers. Curated from a large enumeration,
-  filtered to synthesizable mono-aldehydes, categorized (aliphatic /
-  aromatic-carbocyclic / aromatic-heterocyclic) so sampling can be class-balanced.
-- **Status.** `data/cross_benzoin/homo_v6/aldehydes_all.csv` — 209,526 rows with
-  QM descriptors; ~220k with Mordred / BDE. Product library
-  `products_all.csv` — 184,199 rows with a valid built structure.
-- **Missing / risk.** The recovered CSVs carry data-quality defects surfaced
-  2026-09-10: (a) `"2.0"`-style float ids that string-join to ~0 rows unless
+### 1.2 Aldehyde structure library — ✅ (this is the ground truth; see also §2.11)
+- **Principle.** The universe of monomers. `data/library/aldehydes_clean_v6.csv`
+  = **220,860 aldehydes** — a large enumeration filtered to synthesizable
+  mono-aldehydes, categorized (`cho_class` ∈ aliphatic / aromatic-carbocyclic /
+  aromatic-heterocyclic) for class-balanced sampling, with an `xtb_risk` flag.
+  **The v6 library is deliberately inclusive**: it contains molecules that will
+  *fail* GFN2 optimization or DFT (strained, hypervalent, huge, pathological
+  conformer surfaces). That attrition (~5–15% through the pipeline) is a
+  *property of the library*, not a pipeline bug — a "can't compute this one"
+  outcome is a valid, recorded result.
+- **Status.** Downstream caches: `homo_v6/aldehydes_all.csv` 209,526 rows with QM
+  descriptors; ~220k with Mordred / BDE; homo product library `products_all.csv`
+  184,199 rows with a valid built structure (the gap to 220k ≈ the uncomputable
+  fraction + build failures).
+- **Missing / risk.** The recovered/rebuilt CSVs carry defects (surfaced
+  2026-09-10): (a) `"2.0"`-style float ids that string-join to ~0 rows unless
   normalized (`qc.norm_id`); (b) the `G_xtb` column is **id-misaligned for ~8%
-  of rows** (thermal −84…+87 Ha; two molecules sharing one value). Any workflow
-  reusing stored xTB energies must bounds-check them.
+  of rows** (thermal −84…+87 Ha, or subtle e.g. 1.23 Ha on a 19-atom aldehyde;
+  same values in the home backup → not a purge corruption, a featurize bug).
+  **Rule: bounds-check every stored xTB energy / thermal before use** (per-atom
+  band 0.001–0.020 Eh/atom for the Gibbs thermal correction).
 
 ### 1.3 Conformer generation — `conf_funnel_v3` — ✅
 - **Principle.** A molecule's free energy depends on which 3D conformer you
@@ -282,22 +296,27 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   `blend_gnn_seed_ensemble_r10.py`.
 - **Missing.** Re-sweep `w_gnn` after the Tier B + 4-seed retrain.
 
-### 2.7 Active learning — 10 rounds — ✅ (and the verdict is: stop)
-- **Principle.** The candidate pool is ~1.24 M unlabeled pairs; DFT is expensive.
-  So each round: score the pool with a **pair-grouped bootstrap ensemble**, rank
-  by prediction std (an epistemic-uncertainty proxy = query-by-committee),
-  DFT-label the top ~900–8,000, retrain. Rounds 8–10 switched to
-  category-balanced + phosphorus-targeted stratified draws (coverage-driven, the
-  pool was mapped).
-- **Result.** 10 closed loops (2026-07-14 → 09-04). The **round10 ablation**
-  separated *diagnosis* from *fixing*: AL genuinely found blind spots (r1-9 MAE
-  2.78 on the picks vs 2.17 on its holdout; uncertainty–error Pearson r 0.40),
-  but **training on 1,370 of them moved MAE −0.03** (within noise). Likely: +6.6%
-  marginal data; the hard cases are irreducible-noise-hard, not coverage-hard;
-  ~21k pairs is near-plateau for this feature set.
-- **Status.** **Recommendation: no more ~2k-scale AL rounds** (Rec-3). Redirect
-  the DFT budget to label *quality* (the B97-3c lever) instead of label *quantity*.
-- **Missing.** Nothing to do — this line is intentionally closed.
+### 2.7 Active learning — rounds 1–10 done, but 🅿️ PARKED / to be redone
+- **Principle.** DFT is expensive; the useful question is which pairs to label
+  next. Each round: score the unlabeled pool with a **pair-grouped bootstrap
+  ensemble**, rank by prediction std (query-by-committee epistemic proxy),
+  DFT-label the top batch, retrain.
+- **What was done (2026-07-14 → 09-04).** 10 closed loops over the
+  `candidates_v3` pool (~1.24 M pairs), producing the 35,528-pair labeled set
+  and the r1-10 blend champion (MAE 2.215). The round10 ablation separated
+  *diagnosis* from *fixing*: AL genuinely found blind spots (r1-9 MAE 2.78 on the
+  picks vs 2.17 on holdout), but **training on 1,370 of them moved MAE −0.03**
+  (within noise) → ~2k-scale rounds don't move the needle.
+- **Status (user, 2026-09-10): the past AL is set aside for now, and cross AL
+  will be redone.** Reason: the `candidates_v3` pool was **not the real chemical
+  space** — the cross library was constructed wrong (§2.11). A fresh AL campaign
+  will run over a correctly-defined pool (the flying dataset over the 220,860²
+  space) once that and the improved labels (Tier B / B97-3c) are in place.
+- **What is retained.** The 35,528 DFT-labeled pairs are still valid data. The
+  r1-10 blend is kept as a **reference model**, not the forward line.
+- **Missing.** A correctly-scoped candidate pool (§2.11); a fresh acquisition
+  strategy decision (uncertainty vs multi-objective vs coverage) informed by the
+  corrected space; the redone campaign.
 
 ### 2.8 Evaluation & uncertainty — ✅
 - **Principle.** (a) Point error: scaffold-disjoint holdout MAE / R². (b)
@@ -387,16 +406,51 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   A partial-data preview showed holdout ens MAE 2.53 → 0.69 (control-isolated) —
   strong signal, not the headline yet.
 
+### 2.11 Chemical-space definition & the "flying dataset" — ❌ needs building (user, 2026-09-10)
+- **Principle.** A screening model is only as meaningful as the space it screens.
+  Two corrections from the user:
+  1. **homo space** = the 220,860 v6 aldehydes paired with themselves. Some are
+     uncomputable by design (§1.2) — that's a recorded outcome, not a gap.
+  2. **cross space** — the old `candidates_v3` pool (~1.24 M pairs) was a
+     **wrongly-constructed subset**, not the real space. The real cross space is
+     **every ordered pair of v6 aldehydes: 220,860² ≈ 4.88 × 10¹⁰** (~2.44 × 10¹⁰
+     unordered; the donor/acceptor roles are chemically distinct so ordered is
+     the honest count). `candidates_v3` should be retired as "the pool".
+- **The "flying dataset" — the design.** You cannot and should not materialize
+  48 billion product SMILES. Instead, a **lazy / virtual** dataset:
+  - **Base index.** The v6 aldehyde library is the single source of truth,
+    frozen with a canonical integer index `0 … 220,859` (stable, never an
+    enumerate-on-the-fly index; = the library `index` column / InChIKey).
+  - **A pair is an address**: `(donor_idx, acceptor_idx)`. No pair table on disk.
+  - **Per-aldehyde caches** (compute-once, reuse-everywhere): geometry, xTB
+    energies + thermal, local QM descriptors, Mordred, BDE — keyed by the base
+    index. These already largely exist under `homo_v6/`.
+  - **On-demand generation**: given a pair address, a generator produces the
+    product SMILES (reaction template), assembles the 260-feature row from the
+    two aldehyde caches + product-side features + pair/interaction terms, and
+    (optionally) the g-xTB / B97-3c baseline — all lazily, streamed, cached at
+    most transiently.
+  - **Deliverable**: a documented spec + a thin read API
+    (`pair(i, j) -> {smiles, features, baseline, split}`) so any future step
+    (simulation, labeling, prediction, AL acquisition) reads the space uniformly
+    without a giant file. Split assignment (scaffold-disjoint) is computed from
+    the two aldehydes' scaffolds on the fly.
+- **Status.** Not built. `CHEMICAL_SPACE.md` (spec) to be written.
+- **Missing.** The spec; the canonical frozen aldehyde index; the read API; a
+  decision on how DFT-label storage keys into it; retirement of `candidates_v3`.
+
 ---
 
-## 3. Catalyst Space — ❌ largely not started (frontier)
+## 3. Catalyst Space — a mature separate effort; INTEGRATION with this project is ❌
 
 *Everything above computes and predicts the **uncatalyzed thermodynamics** of
 the coupling. The real benzoin reaction is catalyst-mediated, and the catalyst
 sets both the rate and, through the Breslow-intermediate equilibria, which
-product forms. This section is the frontier and is presently outside the
-built pipeline — it needs a scoping conversation with the user before work
-starts.*
+enantiomer forms. There **is** a mature catalyst-side effort — but in sibling
+repos, on a fixed substrate. What this project is missing is the **link**
+between the two: substrate pair × catalyst. §3.3 is the open scoping question.
+The `nhc-*` / `sourceB-kinetics` / `qm-benzoin` jobs on the cluster belong to
+that effort — do not touch them from this project's sessions.*
 
 ### 3.1 Scope of the current model vs the real reaction — 🔄 (understood, documented here)
 - **Principle.** ΔG(A+B→AB) is necessary but not sufficient: a
@@ -409,45 +463,74 @@ starts.*
 - **Missing.** An explicit statement in `predict_dg.py` output / docs that the
   score is uncatalyzed thermodynamics.
 
-### 3.2 NHC catalyst family — ❌ (separate project exists)
-- **Principle.** NHCs vary in electronics (triazolium vs imidazolium vs
-  thiazolium), sterics (N-aryl substituents), and chirality. The catalyst
-  choice changes the Breslow intermediate's nucleophilicity and the
-  facial/regio selectivity.
-- **Status.** A related **NHC-benzoin kinetics project** runs on the same
-  account (`nhc-gsp-*`, `sourceB-kinetics`, `qm-benzoin` jobs) — **out of scope
-  for this session, do not touch**. Its relationship to this ΔG project is not
-  yet integrated.
-- **Missing.** Everything on this project's side: a catalyst descriptor set, a
-  catalyst library, any catalyst-aware label or model. **Needs user scoping.**
+### 3.2 The NHC catalyst effort — mature, in sibling repos (2026-09-10, from GitHub)
+- **Mechanism it models.** NHC (a singlet carbene from an azolium salt + base)
+  adds to a benzaldehyde → tautomerizes to the nucleophilic **Breslow
+  intermediate** → attacks a 2nd aldehyde through **TS_CC** (C–C bond, sets the
+  two new stereocentres; enumerated over 4 diastereomers RR/RS/SR/SS) →
+  **TS_CN** releases the catalyst and delivers the benzoin (R or S). Both TS
+  families are diastereomer-specific, so which is rate-/selectivity-determining
+  is a computed question, not intuition.
+- **Repos (all `ElioChen/…`, private):**
+  - **`nhc-benzoin-pipeline`** — the QC pipeline: NHC SMILES → species +
+    stereoisomers → locate TS_CC & TS_CN per diastereomer → thermochemistry →
+    microkinetic ee(t). Output: "for catalyst X, which enantiomer forms and by
+    how much" (`selectivity_summary.csv`). r2SCAN-3c SPs. This is the
+    `nhc-gsp-*` / `sourceB-kinetics` / `qm-benzoin` compute seen on the cluster
+    — **do not touch from this project's sessions.**
+  - **`nhc-benzoin-active-learning`** — multi-objective pool-based AL over a
+    **~13 M-member absolute-stereoisomer library** (~4.7 M achiral parents;
+    another framing: a 7 M chiral pool via `build_nhc_pool.py`). Two objectives,
+    both read off one DFT ΔG profile of the catalytic cycle:
+    **rate** = `energy_span_kcalmol` (Kozuch–Shaik energetic span δE, TOF ∝
+    exp(−δE/RT)); **selectivity** = `abs_ee`. Both right-censorable (unconverged
+    TS → δE is a lower bound) and independently missing; surrogate = one model
+    per objective, `CensoredRegressor` (Tobit-style EM). Only ~5–10 acquisition
+    rounds affordable ever → it is a *screening surrogate*, not classic BO.
+  - **`nhc-active-learning`** — sibling AL module (7 M chiral library).
+  - **`stereo-catalyst-engine`** — a stereoselective-catalyst-design workflow,
+    one component of a larger **Bayesian-optimization** loop; benzoin now,
+    Stetter + other NHC reactions planned; catalysts from a
+    "predicted-synthesizable NHC database".
+  - **`nhc-pkah-predictor`** — predicts the NHC conjugate-acid pKaH (can the
+    azolium be deprotonated to the active carbene at all — a hard prerequisite
+    gate on any catalyst candidate). QM (GFN2/ORCA) + LightGBM on CM5 charges.
+- **Status.** This is an active, well-developed effort — **but it is a separate
+  project**. Its substrate is essentially fixed (PhCHO homo-coupling); it varies
+  the catalyst.
 
-### 3.3 Catalyst–substrate matching — ❌
-- **Principle.** The design goal a chemist actually has: "for aldehyde pair X,
-  which catalyst gives the cross-benzoin selectively?" This is a 2D problem
-  (substrate pair × catalyst) the current 1D (substrate pair) model does not
-  address.
-- **Status.** Not started.
-- **Missing.** A joint representation; labels (catalyzed ΔG‡ or product ratios);
-  a model. **Needs user scoping** — likely leans on the NHC kinetics project.
+### 3.3 The missing piece: substrate-pair × catalyst integration — ❌
+- **Principle.** A chemist's real question is 2D: *for aldehyde pair (A, B),
+  which NHC gives the cross-benzoin, fast and selectively?* This project models
+  the **substrate axis** (does the pair give a favorable benzoin at all,
+  uncatalyzed thermodynamics). The NHC repos model the **catalyst axis** (rate +
+  ee, for a fixed substrate). Neither covers the joint space.
+- **Status.** Not started. No joint representation, no catalyzed labels over
+  varied substrate pairs, no combined model.
+- **Missing (needs user scoping).** (a) Does this project extend to the joint
+  space, or does it stay the substrate pre-filter and hand off to the NHC
+  pipeline? (b) If joint: a catalyzed ΔG‡ / product-ratio label over
+  (pair × catalyst); a representation that composes the aldehyde features with
+  a catalyst descriptor set; whether the NHC AL framework (multi-objective,
+  censored) is reused.
 
-### 3.4 Kinetics / barriers vs thermodynamics — ❌
-- **Principle.** Selectivity in benzoin condensation is often **kinetic** (the
-  cross vs homo product ratio is set by relative barriers, not relative ΔG).
-  A thermodynamic model can be qualitatively misleading where kinetics dominates.
-- **Status.** Not in this project. The NHC project computes barriers.
-- **Missing.** Whether / how to bring a barrier surrogate into the screening
-  story. **Needs user scoping.**
+### 3.4 Kinetics vs thermodynamics — ❌ (this project) / ✅ (NHC repos)
+- **Principle.** Cross-vs-homo selectivity in benzoin condensation is frequently
+  **kinetic** (set by relative barriers, not relative ΔG). A pure thermodynamic
+  score can be qualitatively wrong where kinetics dominates. The NHC pipeline
+  computes barriers + microkinetics; this project does not.
+- **Missing (needs user scoping).** Whether a barrier/kinetics surrogate enters
+  this project's screening story, or that stays in the NHC pipeline.
 
-### 3.5 Screening / candidate space definition — 🅿️ partial
-- **Principle.** Deployment needs a defined universe to screen and a defined
-  "hit" criterion. Currently: score a candidate CSV of pairs, rank by
-  `dg_rank_pct`, flag `baseline_risk` for DFT.
-- **Status.** The mechanics exist (`predict_dg.py`, `candidates_v3` pool of
-  ~1.24 M pairs). No curated "final screening library" or documented hit
-  criterion / chemist-facing shortlist yet.
-- **Missing.** A defined screening library + acceptance criteria + a delivered
-  ranked shortlist (Goal 3 completion). Catalyst-awareness (§3.2–3.4) would
-  make it a real design tool.
+### 3.5 Screening library & hit criterion — 🅿️ to be redefined on the flying dataset
+- **Principle.** Deployment needs a defined universe + a "hit" rule. Current
+  mechanics: score a candidate CSV, rank by `dg_rank_pct`, flag `baseline_risk`.
+- **Status.** The old `candidates_v3` pool is retired (§2.11). The screening
+  universe becomes the flying dataset over the 220,860² space.
+- **Missing.** The flying dataset (§2.11); a documented hit criterion
+  (e.g. `dg_favorable` ∧ ¬`baseline_risk` ∧ conformal upper bound < 0); a
+  delivered ranked chemist-facing shortlist (= Goal 3 completion). Catalyst
+  awareness (§3.3–3.4) would make it a design tool rather than a pre-filter.
 
 ---
 
@@ -467,8 +550,15 @@ starts.*
 
 ## 5. Settled decisions — do not re-litigate without new evidence
 
-- cross champion = **r1-10 blend, MAE 2.215**. Frozen until a retrain beats it.
-- **Label-noise floor ≈ 2.9 kcal/mol** (single-conformer r2SCAN-3c). Champion is on it.
+- cross **reference model** = r1-10 blend, MAE 2.215 (produced by the now-parked
+  AL rounds 1–10). It is a baseline to beat, **not** the frozen forward line —
+  cross AL is being redone on a correctly-defined space (§2.7, §2.11).
+- **The `candidates_v3` pool was wrong.** The real cross space = 220,860² ordered
+  aldehyde pairs; build the flying dataset (§2.11), retire `candidates_v3`.
+- The **v6 aldehyde library includes uncomputable molecules by design** — a
+  "can't compute" is a recorded result, not a bug.
+- **Label-noise floor ≈ 2.9 kcal/mol** (single-conformer r2SCAN-3c). The
+  reference model is on it.
 - **No geometry-method bias** in the DFT labels (three-species ΔΔG ablation; the
   product-side g-xTB vs GFN2 bias cancels in the ΔG difference). Label-quality
   investigation is **closed**.
@@ -487,17 +577,29 @@ starts.*
 
 ## 6. Immediate next actions (2026-09-10)
 
-1. **cross Tier B** 🔄 — throttled low (sharing nodes). On drain (monitor
-   `bvuteg5xb`): `DRAIN_RUNBOOK.md` steps 1-6 → champion + GNN(4-seed) retrain,
+**Compute in flight (both throttled to share the cluster with the NHC project):**
+1. **cross Tier B** 🔄 — B97-3c relabel, ~72%. On drain (monitor `bvuteg5xb`):
+   `DRAIN_RUNBOOK.md` steps 1-6 → champion + GNN(4-seed) retrain with
    `CB_BASELINE_COL=dG_b973c_kcal`, schema v2. Verdict: does holdout MAE fall to
-   ~1.0–1.5?
-2. **homo from-scratch labels** 🔄 — clean campaign relaunching after the 3-bug
-   fix + manifest split. Archived track (`submit_homo_sp.sh`, 179,431) + regen
-   track (`submit_homo_regen.sh`, 4,621). On drain (monitor to rebuild):
-   `merge_homo_sp.py` → QC (repro vs stored 30k) → `--full-library` assembler →
-   single XGB + single GNN.
-3. **Rec-2 unification** 🟡 — once (2) lands, assemble the unified table, retrain,
-   test whether −0.11 survives.
-4. **Catalyst Space** ❌ — needs a scoping conversation with the user: which of
-   §3.2–3.5 is in scope, and how it connects to the NHC kinetics project.
-5. Keep `LAB_JOURNAL.md` current; close it each evening.
+   ~1.0–1.5? *(This retrain is a better-labels experiment on the r1-10 data — it
+   informs the reference model, not the redone AL.)*
+2. **homo from-scratch labels** 🔄 — clean campaign after 3 contamination bugs +
+   a 4th (per-atom thermal bound). Archived track (`submit_homo_sp.sh`, 179,431)
+   + regen track (`submit_homo_regen.sh`, 4,621). On drain: `merge_homo_sp.py` →
+   QC → `--full-library` assembler → single XGB + single GNN.
+
+**Design / structure work (no compute, do carefully — user: understand every step):**
+3. **Flying dataset spec** (§2.11) — write `CHEMICAL_SPACE.md`: freeze the
+   canonical v6 aldehyde index, define the `pair(i, j)` read API, decide DFT-label
+   keying, retire `candidates_v3`. Prerequisite for redone cross AL and for
+   Goal-3 screening.
+4. **Rec-2 unification** 🟡 — once homo labels land: unified table → retrain →
+   does −0.11 survive at 260-feat + GNN?
+5. **Catalyst Space scoping** — a conversation with the user: does this project
+   extend into substrate × catalyst (§3.3), or stay the substrate pre-filter and
+   hand off to `nhc-benzoin-pipeline`? What, if anything, gets integrated from
+   the NHC repos (§3.2).
+6. **Redone cross AL** — after (3) and better labels: decide acquisition strategy
+   over the flying dataset, run a fresh campaign.
+
+Keep `LAB_JOURNAL.md` current; close it each evening.
