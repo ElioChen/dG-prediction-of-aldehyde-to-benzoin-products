@@ -47,11 +47,17 @@ FIELDS = ["id", "donor_id", "new_scaffold_split", "label_stored",
           "E_prod_r2scan", "E_ald_r2scan", "E_prod_b973c", "E_ald_b973c",
           "th_prod_used", "th_ald_used", "th_src", "repro_r2scan", "error"]
 
-# GFN2 Gibbs thermal correction (G - E_el) is always positive and small for
-# these organics; the recovered aldehydes_all.csv G_xtb column is misaligned
-# for ~8% of rows (negatives, +80 Ha, duplicated values). Out-of-bounds ->
-# recompute the thermal from the archived geometry with xtb --ohess.
-THERMAL_LO, THERMAL_HI = 0.0, 1.6
+# GFN2 Gibbs thermal correction (G - E_el, Eh) is always positive and scales
+# ~linearly with atom count: for these organics it runs ~0.003-0.012 Eh/atom
+# (5-atom aldehyde 0.072, 26-atom 0.136, 60-atom product ~0.7). The recovered
+# aldehydes_all.csv G_xtb column is id-misaligned for ~8% of rows (negatives,
+# +80 Eh, duplicated values, and subtle ones like 1.23 Eh on a 19-atom
+# aldehyde). A per-atom bound catches all of them; out-of-bounds -> recompute
+# the thermal from the archived geometry with xtb --ohess.
+THERMAL_PER_ATOM_LO, THERMAL_PER_ATOM_HI = 0.001, 0.020
+# a real benzoin dG is roughly -40..+50 kcal/mol; anything past this is a
+# geometry/energy/thermal artefact, not chemistry.
+DG_IMPLAUSIBLE_KCAL = 200.0
 
 
 def _n_heavy_h(smi) -> int | None:
@@ -131,9 +137,13 @@ def _thermal_job(args):
         shutil.rmtree(wd, ignore_errors=True)
 
 
-def _th_ok(v) -> bool:
+def _th_ok(v, n_atoms) -> bool:
+    """Per-atom bound: thermal/N must sit in the physical band for organics."""
     try:
-        return THERMAL_LO <= float(v) <= THERMAL_HI
+        v = float(v)
+        if not n_atoms or n_atoms <= 0:
+            return 0.0 < v < 1.6          # fall back to a loose absolute bound
+        return THERMAL_PER_ATOM_LO <= v / n_atoms <= THERMAL_PER_ATOM_HI
     except Exception:
         return False
 
@@ -199,8 +209,10 @@ def main() -> int:
                 futs[ex.submit(_sp, (str(g), meth, "", chg, a.maxcore))] = (rid, meth, role)
                 cnt += 1
         # recompute thermal from the geom when the stored value is corrupt
-        for role, g, stored in (("prod", gp, r.thermal_prod), ("ald", ga, r.thermal_ald)):
-            if g is not None and not _th_ok(stored):
+        n_p, n_a = _n_heavy_h(r.prod_smiles), _n_heavy_h(r.ald_smiles)
+        for role, g, stored, n in (("prod", gp, r.thermal_prod, n_p),
+                                   ("ald", ga, r.thermal_ald, n_a)):
+            if g is not None and not _th_ok(stored, n):
                 futs[ex.submit(_thermal_job, (str(g),))] = (rid, "thermal", role)
                 cnt += 1
         need[rid] = cnt
@@ -223,19 +235,25 @@ def main() -> int:
             rec["error"] = f"geom_extract_fail(p={gp is not None},a={ga is not None})"
         else:
             try:
+                n_p, n_a = _n_heavy_h(r.prod_smiles), _n_heavy_h(r.ald_smiles)
                 # thermal: stored if in-bounds, else the recomputed ohess value
                 src = []
-                if _th_ok(r.thermal_prod):
+                if _th_ok(r.thermal_prod, n_p):
                     th_p = float(r.thermal_prod); src.append("p:stored")
                 else:
                     th_p = E.get(("thermal", "prod")); src.append("p:recomp")
-                if _th_ok(r.thermal_ald):
+                if _th_ok(r.thermal_ald, n_a):
                     th_a = float(r.thermal_ald); src.append("a:stored")
                 else:
                     th_a = E.get(("thermal", "ald")); src.append("a:recomp")
+                # a recomputed thermal that is itself out of the physical band -> reject
+                if th_p is not None and not _th_ok(th_p, n_p):
+                    th_p = None
+                if th_a is not None and not _th_ok(th_a, n_a):
+                    th_a = None
                 rec["th_prod_used"], rec["th_ald_used"], rec["th_src"] = th_p, th_a, ",".join(src)
                 if th_p is None or th_a is None:
-                    rec["error"] = f"thermal_recompute_fail(p={th_p is not None},a={th_a is not None})"
+                    rec["error"] = f"bad_thermal(p={th_p is not None},a={th_a is not None})"
                 else:
                     for meth in methods:
                         mk = METHOD_KEY[meth]
@@ -245,6 +263,9 @@ def main() -> int:
                             rec["error"] = f"{meth}:sp_fail(p={ep is not None},a={ea is not None})"
                             break
                         rec[f"dG_{mk}_kcal"] = ((ep + th_p) - 2.0 * (ea + th_a)) * HK
+                    dgr = rec.get("dG_r2scan_kcal")
+                    if rec["error"] is None and dgr is not None and abs(dgr) > DG_IMPLAUSIBLE_KCAL:
+                        rec["error"] = f"dG_implausible({dgr:.0f})"
                 if rec["error"] is None and rec["dG_r2scan_kcal"] is not None \
                         and pd.notna(getattr(r, "label_stored", None)):
                     rec["repro_r2scan"] = rec["dG_r2scan_kcal"] - float(r.label_stored)
