@@ -48,20 +48,47 @@ FIELDS = ["id", "donor_id", "new_scaffold_split", "label_stored",
           "repro_r2scan", "error"]
 
 
-def _extract(arc: str, member: str, dst: Path) -> Path | None:
-    out = dst / member.replace("/", "_")
-    if out.exists():
-        return out
+def _n_heavy_h(smi) -> int | None:
     try:
-        r = subprocess.run(["tar", "--zstd", "-xf", arc, "-C", str(dst), member],
-                           capture_output=True, text=True, timeout=300)
-        src = dst / member
-        if r.returncode == 0 and src.exists():
-            src.rename(out)
-            return out
+        from rdkit import Chem
+        m = Chem.MolFromSmiles(str(smi))
+        if m is None:
+            return None
+        return m.GetNumAtoms() + sum(a.GetTotalNumHs() for a in m.GetAtoms())
     except Exception:
-        pass
-    return None
+        return None
+
+
+def _xyz_natoms(p: Path) -> int | None:
+    try:
+        with open(p) as fh:
+            return int(fh.readline().split()[0])
+    except Exception:
+        return None
+
+
+def _extract(arc: str, member: str, dst: Path, want_atoms: int | None = None) -> Path | None:
+    """Extract ONE member; cache under a key that includes the archive (member
+    basenames like `xyz/p000089.xyz` are per-chunk local indices and collide
+    across chunks -- caching by basename alone serves the wrong molecule).
+    If want_atoms is given, reject a geometry whose atom count doesn't match."""
+    chunk = Path(arc).parent.name  # chunk_NNNN
+    out = dst / f"{chunk}__{member.replace('/', '_')}"
+    if not out.exists():
+        try:
+            r = subprocess.run(["tar", "--zstd", "-xf", arc, "-C", str(dst), member],
+                               capture_output=True, text=True, timeout=300)
+            src = dst / member
+            if r.returncode != 0 or not src.exists():
+                return None
+            src.replace(out)
+        except Exception:
+            return None
+    if want_atoms is not None:
+        n = _xyz_natoms(out)
+        if n is None or n != want_atoms:
+            return None
+    return out
 
 
 def _sp(args):
@@ -114,8 +141,10 @@ def main() -> int:
     # 1. extract every needed geom once
     geom = {}
     for r in todo:
-        geom[("p", str(r.id))] = _extract(r.prod_arc, r.prod_mem, geodir)
-        geom[("a", str(r.id))] = _extract(r.ald_arc, r.ald_mem, geodir)
+        geom[("p", str(r.id))] = _extract(r.prod_arc, r.prod_mem, geodir,
+                                          _n_heavy_h(r.prod_smiles))
+        geom[("a", str(r.id))] = _extract(r.ald_arc, r.ald_mem, geodir,
+                                          _n_heavy_h(r.ald_smiles))
 
     # 2. submit all SP jobs; 3. write each pair's row as soon as its SPs land
     #    (incremental + fsync so a wall-clock kill or requeue loses < 1 pair)
