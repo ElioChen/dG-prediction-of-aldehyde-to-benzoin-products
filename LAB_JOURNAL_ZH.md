@@ -162,3 +162,49 @@ merge 时对比 regen 子集 vs archived 子集的标签分布看有没有系统
   `homo_v6/*_all.csv` 已经咬了 4 次：float id、跨 chunk 几何序号复用、`G_xtb` 粗错位、
   `G_xtb` 细错位。**每个存储的 xТБ 量现在用前都界检**（每原子热校正带、|dG| 合理性门）。
   这比信文件、到模型训练时才发现便宜。
+
+### 2026-09-11 —— 会话恢复、真实吞吐 ETA、flying dataset 第 1-2 步
+
+**接续被打断的上午会话。** 真正工作仓库是 `benzoin-dg-restored`，不是环境默认给的
+陈旧 `benzoin-dg` 壳。找到打断前未提交的工作 —— `assemble_homo_standalone_table.py
+--full-library`（HANDOFF_20260910 §1.3 标的"待写"模式）+ `merge_homo_sp.py` 的双目录
+glob —— 用磁盘上已有的部分 shard 冒烟测试通过（11,362 行×200 特征；merge 判决 GREEN，
+无偏移），提交（`a0cdc17`）。重建了三个会话监控（guardian、Tier B drain、homo SP
+drain）—— 它们不随会话存活，这是第三次照交接文档的重建配方重写了。
+
+**"要不要上 fat 节点加速？"** 查 `sinfo -s`：`fat_rome`/`fat_genoa` 集群里都是 0
+空闲节点——现在上去也不会更快，而且还比 rome/genoa 贵 50%（正是昨晚撤出的理由）。真正
+的杠杆是 rome 的空闲（121 个空闲节点，我们和 NHC 都没在那抢）——把 Tier B 两条 rome
+臂 throttle 从 29+25 提到 50+40（用了那个看着像权限拒绝但实际生效的 `ArrayTaskThrottle`
+更新，集群反复出现的怪癖）。
+
+**homo SP 真实 ETA 比承诺的差很多。** 没信 09-10 那个"~2 天"的估计，直接测实际吞吐：
+archived 轨 ~45 shard/h，regen 轨 ~4.1 shard/h —— 都外推到 **~7-7.5 天**，不是 2 天，
+因为昨晚的 QOS 公平性修正把并发从计划的 ~250 砍到了 genoa 单区 72。诊断了*为什么*卡在
+那：我们 genoa 上的占用（homo_sp 60 + homo_regen 12）加上 NHC 自己的 `nhc-gsp-*`
+作业（~54）已经顶在共享的每分区 128 QOS 上限——genoa 加不动了，fat_genoa 也满。跟
+Tier B 一样的修法：rome 有真实空闲、NHC 也基本不在那，加了两条 rome 补给臂
+（`26573745` archived 3000-8971%25、`26573746` regen 300-770%6，起始编号避开 genoa
+已派发的低段）。加完后预计：archived ~5.4 天 / regen ~4.8 天（≈09-16/17）。下一个杠杆
+（还没拉，等 drain 通知再动，免得撞车）：Tier B drain 后把它腾出的 ~90 个 rome 名额大部
+分转给 homo_sp archived，ETA 有望压到 drain 后 +2-3 天。
+
+**两条战役都在等 compute 时，推进 flying dataset（CHEMICAL_SPACE.md §8）第 1-2 步。**
+正是 PROJECT_PLAN §6 第 3 项标的"无计算、慢慢理解"的下一步。第 1 步：冻结了
+`data/chemical_space/aldehyde_index.parquet`（220,859 行——修正了两份计划文档里传播
+的一个 off-by-one，CSV 是 220,860 *行*含表头，不是 220,860 个醛）。发现并复用（不重算）
+了 `candidates_v3/aldehydes_with_scaffold_split.parquet` 里给这同一批醛已经算好的
+Bemis-Murcko scaffold（`pipeline/bde/build_scaffold_splits.py` 给 BDE 项目复用的同一个
+文件）——先在**全量** 220,524 行重叠上校验了它的 `id` 列逐位 == `ald_idx`（0 处不符，
+raw SMILES 精确匹配），不是抽样，才信这个合并。第 2 步结果是校验而不是重建：
+`homo_v6/aldehydes_all.csv` 现有的 `id`（经 `qc.norm_id`）在全量 209,526 行上已经
+1:1 等于 `ald_idx`，两边 0 孤儿——早就 key 对了，只是没写文档。路上真发现一个问题：
+那个文件的 `smiles` 列不可靠地 canonical（1.24% 跟新算的 canonical 形式只是表示法不同，
+比如 Kekulized vs 小写芳香）——以后的缓存 join 要用 `ald_idx`，不能用 SMILES 字符串
+相等，这正是冻结索引要消除的漂移。parquet 用 `git add -f` 提交（默认被 gitignore，跟
+项目里其它"不能再丢一次"的产物一个纪律）。
+
+--- 快照（2026-09-11）：两条计算战役都还在跑（Tier B ~78%，homo SP 慢但已加速）；
+flying dataset 构建顺序到第 2/6 步；PROJECT_PLAN + CHEMICAL_SPACE（+ZH）已同步更新。
+下一个设计步骤：第 3 步—— `chemical_space.py` 的 `pair(i,j)` 特征路径，必须对 ~20
+个已知对做校验。 ---
