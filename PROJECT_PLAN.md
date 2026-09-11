@@ -56,7 +56,7 @@ model's most uncertain calls.
 scaffold-disjoint holdout MAE **2.215 kcal/mol** (g-xTB baseline 5.037), on the
 ≈ 2.9 kcal/mol single-conformer label-noise floor. Goal 3 tooling shipped.
 **The project is being re-based** on the user's 2026-09-10 input: the cross
-chemical space was mis-defined (`candidates_v3` ≠ the real 220,860² pair space),
+chemical space was mis-defined (`candidates_v3` ≠ the real 220,859² pair space),
 so cross AL will be redone over a proper **"flying dataset"** (§2.11); the past
 AL rounds and the r1-10 champion are kept as reference, not the forward line.
 Active compute: (a) **B97-3c cheap-baseline lever** (Tier B relabel, may break
@@ -86,7 +86,7 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
 
 ### 1.2 Aldehyde structure library — ✅ (this is the ground truth; see also §2.11)
 - **Principle.** The universe of monomers. `data/library/aldehydes_clean_v6.csv`
-  = **220,860 aldehydes** — a large enumeration filtered to synthesizable
+  = **220,859 aldehydes** — a large enumeration filtered to synthesizable
   mono-aldehydes, categorized (`cho_class` ∈ aliphatic / aromatic-carbocyclic /
   aromatic-heterocyclic) for class-balanced sampling, with an `xtb_risk` flag.
   **The v6 library is deliberately inclusive**: it contains molecules that will
@@ -312,7 +312,7 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
 - **Status (user, 2026-09-10): the past AL is set aside for now, and cross AL
   will be redone.** Reason: the `candidates_v3` pool was **not the real chemical
   space** — the cross library was constructed wrong (§2.11). A fresh AL campaign
-  will run over a correctly-defined pool (the flying dataset over the 220,860²
+  will run over a correctly-defined pool (the flying dataset over the 220,859²
   space) once that and the improved labels (Tier B / B97-3c) are in place.
 - **What is retained.** The 35,528 DFT-labeled pairs are still valid data. The
   r1-10 blend is kept as a **reference model**, not the forward line.
@@ -411,11 +411,11 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
 ### 2.11 Chemical-space definition & the "flying dataset" — ❌ needs building (user, 2026-09-10)
 - **Principle.** A screening model is only as meaningful as the space it screens.
   Two corrections from the user:
-  1. **homo space** = the 220,860 v6 aldehydes paired with themselves. Some are
+  1. **homo space** = the 220,859 v6 aldehydes paired with themselves. Some are
      uncomputable by design (§1.2) — that's a recorded outcome, not a gap.
   2. **cross space** — the old `candidates_v3` pool (~1.24 M pairs) was a
      **wrongly-constructed subset**, not the real space. The real cross space is
-     **every ordered pair of v6 aldehydes: 220,860² ≈ 4.88 × 10¹⁰** (~2.44 × 10¹⁰
+     **every ordered pair of v6 aldehydes: 220,859² ≈ 4.88 × 10¹⁰** (~2.44 × 10¹⁰
      unordered; the donor/acceptor roles are chemically distinct so ordered is
      the honest count). `candidates_v3` should be retired as "the pool".
 - **The "flying dataset" — the design.** You cannot and should not materialize
@@ -437,9 +437,16 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
     (simulation, labeling, prediction, AL acquisition) reads the space uniformly
     without a giant file. Split assignment (scaffold-disjoint) is computed from
     the two aldehydes' scaffolds on the fly.
-- **Status.** Not built. `CHEMICAL_SPACE.md` (spec) to be written.
-- **Missing.** The spec; the canonical frozen aldehyde index; the read API; a
-  decision on how DFT-label storage keys into it; retirement of `candidates_v3`.
+- **Status.** 🔄 `CHEMICAL_SPACE.md` (spec, §8 build order) written 2026-09-10.
+  Build order steps 1-2 done 2026-09-11: `data/chemical_space/aldehyde_index.parquet`
+  frozen (220,859 rows, `ald_idx`, canonical SMILES, scaffold reused from
+  `candidates_v3`'s aldehyde-side split with a verified exact positional match);
+  `homo_v6/aldehydes_all.csv` confirmed already `ald_idx`-keyed (209,526/209,526,
+  0 orphans) — its `smiles` column is not reliably canonical (1.24% representation
+  drift), so downstream joins should use `ald_idx`, not SMILES string equality.
+- **Missing.** Steps 3-6: the `chemical_space.py` `pair(i, j)` read API (with the
+  step-3 verification against ~20 known pairs — do not skip it); labels/split/
+  baselines; migrating the 35,528 existing labels; retiring `candidates_v3`.
 
 ---
 
@@ -484,7 +491,7 @@ model the NHC catalyst, the kinetic barriers, or the enantioselectivity.
 - cross **reference model** = r1-10 blend, MAE 2.215 (produced by the now-parked
   AL rounds 1–10). It is a baseline to beat, **not** the frozen forward line —
   cross AL is being redone on a correctly-defined space (§2.7, §2.11).
-- **The `candidates_v3` pool was wrong.** The real cross space = 220,860² ordered
+- **The `candidates_v3` pool was wrong.** The real cross space = 220,859² ordered
   aldehyde pairs; build the flying dataset (§2.11), retire `candidates_v3`.
 - The **v6 aldehyde library includes uncomputable molecules by design** — a
   "can't compute" is a recorded result, not a bug.
@@ -520,10 +527,11 @@ model the NHC catalyst, the kinetic barriers, or the enantioselectivity.
    QC → `--full-library` assembler → single XGB + single GNN.
 
 **Design / structure work (no compute, do carefully — user: understand every step):**
-3. **Flying dataset spec** (§2.11) — write `CHEMICAL_SPACE.md`: freeze the
-   canonical v6 aldehyde index, define the `pair(i, j)` read API, decide DFT-label
-   keying, retire `candidates_v3`. Prerequisite for redone cross AL and for
-   Goal-3 screening.
+3. **Flying dataset build** (§2.11) — 🔄 steps 1-2 done 2026-09-11 (index frozen,
+   `aldehydes_all.csv` confirmed `ald_idx`-keyed). Next: step 3, write
+   `chemical_space.py`'s `pair(i, j)` feature path and verify it against ~20
+   known pairs from the current champion table before trusting it for anything
+   else. Prerequisite for redone cross AL and for Goal-3 screening.
 4. **Rec-2 unification** 🟡 — once homo labels land: unified table → retrain →
    does −0.11 survive at 260-feat + GNN?
 5. **Catalyst Space scoping** — a conversation with the user: does this project

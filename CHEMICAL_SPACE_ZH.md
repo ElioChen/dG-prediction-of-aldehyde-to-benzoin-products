@@ -1,6 +1,7 @@
 # 化学空间 & Flying Dataset —— 规范
 
-> 状态：**规范，未实现。** 2026-09-10 按用户要求写（"cross 的建库之前根本不对，真正的
+> 状态：**规范 2026-09-10 写完；构建顺序第 1-2 步 2026-09-11 完成**（`aldehyde_index.parquet`
+> 已冻结，见 §8）。2026-09-10 按用户要求写（"cross 的建库之前根本不对，真正的
 > 化学空间应该是 220k 的平方 … 需要知道 flying dataset，方便以后读取以及模拟、预测"）。
 > 见 `PROJECT_PLAN_ZH.md` §2.11。English: `CHEMICAL_SPACE.md`（保持同步）。
 >
@@ -27,9 +28,9 @@ cross 模型的训练/筛选是针对 `candidates_v3`（~124 万有向对）。�
 
 | | |
 |---|---|
-| **基础库** | `data/library/aldehydes_clean_v6.csv` —— **220,860** 行（单醛，过滤后，带 `cho_class` + `xtb_risk`）。设计上包含算不出来的分子（见 `PROJECT_PLAN_ZH.md` §1.2）。 |
-| **homo 空间** | 220,860 个对角对 `(i, i)`。 |
-| **cross 空间** | 所有有向 `(i, j)`：**220,860² = 4.877 × 10¹⁰** 有向对（488 亿）。无向 ≈ 2.44 × 10¹⁰。 |
+| **基础库** | `data/library/aldehydes_clean_v6.csv` —— **220,859** 行（CSV 220,860 行含表头，2026-09-11 修正 off-by-one）（单醛，过滤后，带 `cho_class` + `xtb_risk`）。设计上包含算不出来的分子（见 `PROJECT_PLAN_ZH.md` §1.2）。 |
+| **homo 空间** | 220,859 个对角对 `(i, i)`。 |
+| **cross 空间** | 所有有向 `(i, j)`：**220,859² = 4.878 × 10¹⁰** 有向对（488 亿）。无向 ≈ 2.44 × 10¹⁰。 |
 | **已落地** | ~35,528 对有 DFT 标签（已暂停的 AL 1–10 轮）。其余全是虚拟的。 |
 
 任何文件都不会存全部对。一个对是一个**地址**，按需计算。
@@ -43,8 +44,9 @@ cross 模型的训练/筛选是针对 `candidates_v3`（~124 万有向对）。�
 - 一起带：canonical SMILES（RDKit canonical，单一固定协议）、`InChIKey`（人类可读次级
   键）、`cho_class`、`xtb_risk`、Bemis–Murcko scaffold SMILES、`computable` 标志
   （一旦确认某分子几何/DFT 失败就置 false，下游直接跳过不再重试）。
-- 产物：`data/chemical_space/aldehyde_index.parquet`（待建）。这个文件是唯一真值源；
-  `homo_v6/*` 缓存要重新 key 到它。
+- 产物：`data/chemical_space/aldehyde_index.parquet` —— **2026-09-11 已冻结**
+  （`cross_benzoin/build_aldehyde_index.py`）。这个文件是唯一真值源；`homo_v6/*`
+  缓存要重新 key 到它（构建顺序第 2 步，见 §8）。
 
 ---
 
@@ -76,7 +78,7 @@ space = FlyingDataset(index="data/chemical_space/aldehyde_index.parquet",
                       caches="data/cross_benzoin/homo_v6/",
                       labels="data/chemical_space/dft_labels.parquet")
 
-space.n_aldehydes                      # 220860
+space.n_aldehydes                      # 220859
 space.pair(i, j)                       # -> dict:
     {  donor_idx, acceptor_idx,
        donor_smiles, acceptor_smiles, product_smiles,   # 产物由反应模板生成
@@ -127,9 +129,20 @@ space.features_batch(pairs)                             # 一批对的向量化�
 
 ## 8. 构建顺序（每步小、理解清楚、验证过）
 
-1. 从 `aldehydes_clean_v6.csv` 冻结 `aldehyde_index.parquet`（派 `ald_idx`、canonical
-   SMILES、scaffold、`cho_class`、`xtb_risk`；`computable` 初始未知）。
-2. 把一个现有缓存（`aldehydes_all.csv`）重新 key 到 `ald_idx`，对几个已知对做往返校验。
+1. ✅ **2026-09-11 完成。** 冻结了 `aldehyde_index.parquet`（220,859 行；
+   `ald_idx`、canonical SMILES、`InChIKey`、`cho_class`、`xtb_risk`、scaffold；
+   `computable` 留未知）。scaffold 复用（不重算）`candidates_v3/aldehydes_with_scaffold_split.parquet`
+   —— 其 `id` 列在全量 220,524 行重叠上逐位校验 == `ald_idx`（0 处不符，raw SMILES
+   精确匹配），所以按行序合并是安全的。335 行（不在那个 parquet 里）scaffold 为
+   None；0 行 RDKit 标准化失败；0 个 canonical SMILES 重复。脚本：
+   `cross_benzoin/build_aldehyde_index.py`。
+2. ✅ **2026-09-11 完成 —— 结果是校验，不是重建。** 核对 `homo_v6/aldehydes_all.csv`
+   现有的 `id` 列（经 `qc.norm_id`）对 `ald_idx`：**全量**（不是抽样）209,526/209,526
+   行 1:1 匹配、两边 0 孤儿 —— `aldehydes_all.csv` 其实早就用 `ald_idx` 正确 key 了，
+   只是没写文档。真发现一个问题：它的 `smiles` 列**不可靠地 canonical** —— 2,604/209,526
+   （1.24%）跟新算的 `smiles_canonical` 只是表示法不同（比如 Kekulized 大写芳香 vs
+   RDKit 小写 canonical 形式 —— 同一分子，抽样 8 个手工核对过）。**所以：以后的缓存要
+   join 到 `ald_idx`，不要 join 到 SMILES 字符串相等** —— 这正是冻结索引要消除的漂移。
 3. 先写 `chemical_space.py` 的 `pair(i, j)` 特征路径；校验
    `space.pair(i, j).features` 对 ~20 个已知对**逐位复现**当前冠军训练表的一行
    （尽可能 bit 级）。

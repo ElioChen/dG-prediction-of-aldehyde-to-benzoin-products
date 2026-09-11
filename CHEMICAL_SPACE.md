@@ -1,6 +1,7 @@
 # Chemical Space & the Flying Dataset — specification
 
-> Status: **spec, not built.** Written 2026-09-10 on the user's direction
+> Status: **spec written 2026-09-10; build order step 1 done 2026-09-11**
+> (`aldehyde_index.parquet` frozen, see sec8). Written 2026-09-10 on the user's direction
 > ("cross 的建库之前根本不对，真正的化学空间应该是 220k 的平方 … 需要知道 flying
 > dataset，方便以后读取以及模拟，预测"). See `PROJECT_PLAN.md` §2.11.
 >
@@ -31,9 +32,9 @@ pairs are the honest count.
 
 | | |
 |---|---|
-| **Base library** | `data/library/aldehydes_clean_v6.csv` — **220,860** rows (mono-aldehydes, filtered, `cho_class` + `xtb_risk` tagged). Deliberately includes molecules that fail xTB/DFT (§ `PROJECT_PLAN.md` 1.2). |
-| **homo space** | the 220,860 diagonal pairs `(i, i)`. |
-| **cross space** | all ordered `(i, j)`, `i ≠ j` optional-included: **220,860² = 4.877 × 10¹⁰** ordered pairs (48.8 billion). Unordered ≈ 2.44 × 10¹⁰. |
+| **Base library** | `data/library/aldehydes_clean_v6.csv` — **220,859** rows (the CSV has 220,860 lines incl. header -- corrected 2026-09-11, was off by one) (mono-aldehydes, filtered, `cho_class` + `xtb_risk` tagged). Deliberately includes molecules that fail xTB/DFT (§ `PROJECT_PLAN.md` 1.2). |
+| **homo space** | the 220,859 diagonal pairs `(i, i)`. |
+| **cross space** | all ordered `(i, j)`, `i ≠ j` optional-included: **220,859² = 4.878 × 10¹⁰** ordered pairs (48.8 billion). Unordered ≈ 2.44 × 10¹⁰. |
 | **materialized** | ~35,528 pairs have a DFT label today (the parked AL rounds 1–10). Everything else is virtual. |
 
 No file will ever hold all pairs. A pair is an **address**, computed on demand.
@@ -50,8 +51,10 @@ No file will ever hold all pairs. A pair is an **address**, computed on demand.
   Bemis–Murcko scaffold SMILES, and a `computable` flag (set false once a
   molecule is confirmed to fail geometry/DFT — so downstream can skip it without
   re-attempting).
-- Artifact: `data/chemical_space/aldehyde_index.parquet` (to create). This file
-  is the single source of truth; `homo_v6/*` caches must be re-keyed to it.
+- Artifact: `data/chemical_space/aldehyde_index.parquet` — **frozen 2026-09-11**
+  (`cross_benzoin/build_aldehyde_index.py`). This file is the single source of
+  truth; `homo_v6/*` caches must be re-keyed to it (build-order step 2, not yet
+  done).
 
 ---
 
@@ -85,7 +88,7 @@ space = FlyingDataset(index="data/chemical_space/aldehyde_index.parquet",
                       caches="data/cross_benzoin/homo_v6/",
                       labels="data/chemical_space/dft_labels.parquet")
 
-space.n_aldehydes                      # 220860
+space.n_aldehydes                      # 220859
 space.pair(i, j)                       # -> dict:
     {  donor_idx, acceptor_idx,
        donor_smiles, acceptor_smiles, product_smiles,   # product from the reaction template
@@ -142,11 +145,27 @@ space.features_batch(pairs)                             # vectorized assembly fo
 
 ## 8. Build order (each step small, understood, verified)
 
-1. Freeze `aldehyde_index.parquet` from `aldehydes_clean_v6.csv` (assign
-   `ald_idx`, canonical SMILES, scaffold, `cho_class`, `xtb_risk`; leave
-   `computable` unknown initially).
-2. Re-key one existing cache (`aldehydes_all.csv`) to `ald_idx`, verify a
-   round-trip against a handful of known pairs.
+1. ✅ **Done 2026-09-11.** Froze `aldehyde_index.parquet` from
+   `aldehydes_clean_v6.csv` (220,859 rows; `ald_idx`, canonical SMILES,
+   `InChIKey`, `cho_class`, `xtb_risk`, scaffold, `computable` left unknown).
+   Reused rather than recomputed the Bemis-Murcko scaffold from
+   `candidates_v3/aldehydes_with_scaffold_split.parquet` — its `id` column
+   verified positionally == `ald_idx` on the full 220,524-row overlap (0
+   mismatches, exact raw-SMILES match), so this was a safe row-order merge.
+   335 rows (absent from that parquet) have `scaffold=None`; 0 rows failed
+   RDKit canonicalization; 0 canonical-SMILES duplicates. Script:
+   `cross_benzoin/build_aldehyde_index.py`.
+2. ✅ **Done 2026-09-11 — turned out to be verification, not a rebuild.**
+   Checked `homo_v6/aldehydes_all.csv`'s existing `id` column (after
+   `qc.norm_id`) against `ald_idx` for the **full population**, not a sample:
+   209,526/209,526 rows matched 1:1, 0 orphans on either side — `aldehydes_all.csv`
+   was already correctly keyed by `ald_idx`, just not documented as such. One
+   real finding: its `smiles` column is **not reliably canonical** — 2,604/209,526
+   (1.24%) differ from `aldehyde_index.parquet`'s freshly-computed
+   `smiles_canonical` by representation only (e.g. Kekulized upper-case aromatic
+   vs RDKit's lower-case canonical form — same molecule, checked by hand on 8
+   samples). **So: join future caches to `ald_idx`, not to `smiles` string
+   equality** — this is exactly the drift the frozen index exists to remove.
 3. Write `chemical_space.py` `pair(i, j)` for the feature path only; check that
    `space.pair(i, j).features` reproduces a row of the current champion training
    table for ~20 known pairs (bit-level where possible).
