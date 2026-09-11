@@ -132,6 +132,34 @@ space.features_batch(pairs)                             # vectorized assembly fo
 
 ---
 
+## 5b. Ablation: is the lazy tier good enough on its own? (2026-09-11)
+
+User question after the sec5 correction: "why 260 features, on what, and might
+we redesign them" -- prompted a direct test of whether the flying dataset
+could be made fully lazy (screen without ever touching DFT). Same single-XGB
+recipe as the production champion (`cross_benzoin/ablation_lazy_vs_full_features.py`,
+round-10 table, 5 seeds):
+
+| feature set | n_feats | holdout MAE | R2 |
+|---|---|---|---|
+| FULL (production champion) | 257 | **2.544 ± 0.020** | 0.69 |
+| LAZY (drop the 91 product QM + product_mordred_ cols) | 166 | **3.548 ± 0.016** | ~0.38 |
+| g-xTB baseline, no model | -- | 5.037 | -0.14 |
+
+**Verdict: no, the 91 dropped (product-side QM + Mordred, ~1/3 of the schema)
+carry real signal -- +1.00 kcal/mol MAE (+39.5%), seed-sd only ~0.02 so this is
+~50x the noise, not a coin flip.** The lazy-only model is still a large
+improvement over the raw baseline (useful as a first-pass, DFT-free filter),
+but it is not a substitute for the full pipeline. **Implication for a future
+descriptor redesign:** don't try to eliminate product-side geometric
+information -- look for a *cheaper way to obtain it* (e.g. a fast geometry
+proxy, a partial/coarse compute, or a learned encoder that infers product-like
+signal from the two aldehydes without a real optimization), not for dropping
+it. This reframes "redesign the descriptors" from a pure feature-selection
+question into a compute-cost question.
+
+---
+
 ## 6. DFT-label storage
 
 - `data/chemical_space/dft_labels.parquet` — one row per computed pair:
