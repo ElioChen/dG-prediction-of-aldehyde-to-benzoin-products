@@ -262,3 +262,68 @@ cluster rules to NHC when identifiable; on homo SP drain -> merge + assemble +
 single-XGB/GNN; on Tier B drain -> DRAIN_RUNBOOK; the flying-dataset build
 (`CHEMICAL_SPACE.md` s8) is the next design task.
 
+
+### 2026-09-11 — session resume, real-throughput ETA, flying dataset steps 1-2
+
+**Resumed an interrupted morning session.** Working repo is
+`benzoin-dg-restored`, not the stale `benzoin-dg` shell the environment
+defaults to. Found uncommitted work from before the interruption --
+`assemble_homo_standalone_table.py --full-library` (the mode HANDOFF_20260910
+sec1.3 marked "to write") and `merge_homo_sp.py`'s two-directory glob -- smoke
+tested both against the partial shard output already on disk (11,362 rows x
+200 features; merge verdict GREEN, no offset), committed (`a0cdc17`).
+Rebuilt the three session monitors (guardian, Tier B drain, homo SP drain) --
+they do not survive a session end, this is the third time writing them from
+the handoff's rebuild recipe.
+
+**"Should we use fat nodes to go faster?"** Checked `sinfo -s`: both
+`fat_rome` and `fat_genoa` were at 0 idle nodes cluster-wide -- fat wouldn't
+even queue faster right now, on top of already costing 50% more (the reason
+we moved off it last night). The real lever was idle `rome` capacity (121
+idle nodes, nothing of ours or NHC's contending there) -- raised Tier B's two
+rome arm throttles 29+25 -> 50+40 (uses the `ArrayTaskThrottle` update that
+looks like a permission error but works, per the recurring cluster quirk).
+
+**homo SP real ETA came in much worse than promised.** Measured actual
+throughput instead of trusting the 09-10 "~2 days" estimate: archived track
+~45 shard/h, regen ~4.1 shard/h -- both extrapolate to **~7-7.5 days**, not 2,
+because last night's QOS-fairness correction cut concurrency from a planned
+~250 down to a genoa-only 72. Diagnosed *why* it's stuck there: our genoa
+usage (homo_sp 60 + homo_regen 12) plus NHC's own `nhc-gsp-*` jobs (~54) are
+already sitting on the shared 128-per-partition QOS cap -- genoa has no more
+room, and fat_genoa is also full. Same fix as Tier B: rome has real slack and
+essentially zero NHC presence, so launched two top-up arms there
+(`26573745` archived 3000-8971%25, `26573746` regen 300-770%6, ranges chosen
+to avoid re-doing genoa's already-dispatched low indices). Projected ETA after
+the boost: ~5.4d archived / ~4.8d regen (~09-16/17). Next lever (not yet
+pulled, waiting for the drain notification so it doesn't collide): once Tier B
+drains, redirect most of its ~90 rome slots into homo_sp archived -- could pull
+the ETA back to drain +2-3d.
+
+**Flying dataset (CHEMICAL_SPACE.md sec8), steps 1-2, while both campaigns
+wait on compute.** This is exactly the "no compute, understood carefully"
+work item 3 of PROJECT_PLAN sec6 flagged as next. Step 1: froze
+`data/chemical_space/aldehyde_index.parquet` (220,859 rows -- corrected an
+off-by-one that had propagated through both plan docs, the CSV has 220,860
+*lines* including the header, not 220,860 aldehydes). Found and reused,
+rather than recomputed, the Bemis-Murcko scaffold already computed for this
+exact library in `candidates_v3/aldehydes_with_scaffold_split.parquet` (the
+same file `pipeline/bde/build_scaffold_splits.py` reused for BDE) -- verified
+its `id` column is positionally == `ald_idx` on the *full* 220,524-row
+overlap (0 mismatches, exact raw-SMILES match), not a sample, before trusting
+the merge. Step 2 turned into a verification rather than a rebuild:
+`homo_v6/aldehydes_all.csv`'s existing `id` (after `qc.norm_id`) already
+equals `ald_idx` 1:1 across its full 209,526 rows, 0 orphans either side --
+it was already correctly keyed, just undocumented as such. Real finding along
+the way: that file's `smiles` column is not reliably canonical (1.24% differ
+from the freshly-computed canonical form by representation only, e.g.
+Kekulized vs lower-case aromatic) -- future cache joins must key on `ald_idx`,
+not SMILES string equality, which is exactly the kind of drift the frozen
+index exists to remove. `git add -f`'d the parquet (gitignored by default,
+same discipline as everything else that must not repeat the purge loss).
+
+--- Snapshot (2026-09-11): both compute campaigns still in flight (Tier B
+~78%, homo SP slow but boosted); flying dataset build order at step 2/6;
+PROJECT_PLAN + CHEMICAL_SPACE (+ZH) updated to match. Next design step: 3 --
+`chemical_space.py`'s `pair(i,j)` feature path, with the mandatory ~20-pair
+verification against the current champion table. ---
