@@ -179,3 +179,9 @@ _Last updated: 2026-07-15._
 | `data/cross_benzoin/homo_unify/train_unified_v2_slim120/` | Re-test result: cross-row-only CV MAE 2.374 vs cross-only's 2.397 (-1.0%, down from -1.9% at the 4120-row scale) |
 | `data/cross_benzoin/cross_round6/` | Round 6: 4,000 pairs selected by uncertainty from screen10k's remainder, `cross_round6_dft_products.csv` (7,996 rows) submitted as DFT-SP array job 24667830 |
 | `cross_benzoin/docs/REPORT_cross_ensemble_and_unification_20260716_{EN,ZH}.md` | This session's deep-dive report |
+
+## Chronological work record — 2026-07-13 to 2026-07-21
+
+| Path | Purpose |
+|---|---|
+| `cross_benzoin/docs/TIMELINE_20260713_to_20260721_{EN,ZH}.md` | Dated narrative of the whole 07-13→07-21 arc: cross-benzoin rounds 2→9 (blend MAE ~2.7 → **2.074**), the scaffold-disjoint evaluation rebuild (n=29 → n=450 honest test), the BDE-prediction project takeover (honest aldehyde 1.579 / product 3.060), plus the mordred / MLP+XGB-ensemble / attentive-GNN architecture wins and the infra fixes. Bilingual pair, cites job IDs + artifact paths as evidence |

@@ -47,12 +47,14 @@ def _s(xs):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--shards-glob", default=str(D / "shards/shard_*.csv"))
+    ap.add_argument("--shards-glob", action="append", default=None,
+                     help="repeatable; default = both archived shards/ and regen_shards/")
     ap.add_argument("--out-prefix", default=str(D / "homo_sp"))
     ap.add_argument("--manifest", default=str(MANIFEST))
     args = ap.parse_args()
+    globs = args.shards_glob or [str(D / "shards/shard_*.csv"), str(D / "regen_shards/shard_*.csv")]
 
-    files = sorted(glob.glob(args.shards_glob))
+    files = sorted(f for g in globs for f in glob.glob(g))
     if not files:
         print("no shard csvs yet")
         return 1
