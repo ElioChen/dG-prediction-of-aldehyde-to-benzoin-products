@@ -324,13 +324,15 @@ Goal 3 工具已交付。**项目正在按用户 2026-09-10 的输入重新奠�
     baseline, split}`），让未来任何步骤（模拟、标注、预测、AL 采集）统一读这个空间，
     不用一张巨表。split 分配（骨架不相交）由两个醛的 scaffold 现算。
 - **状态。** `CHEMICAL_SPACE_ZH.md`（规范，§8 构建顺序）2026-09-10 写完。构建顺序
-  第 1-2 步 2026-09-11 完成：`data/chemical_space/aldehyde_index.parquet` 已冻结
-  （220,859 行，`ald_idx` + canonical SMILES + 复用 `candidates_v3` 醛侧 scaffold，
-  逐位校验过匹配）；`homo_v6/aldehydes_all.csv` 核实早已用 `ald_idx` 正确 key
-  （209,526/209,526，0 孤儿）。
-- **缺。** 第 3-6 步：`chemical_space.py` 的 `pair(i, j)` 读取 API（含第3步对 ~20
-  个已知对的校验，不能跳）；标签/split/基线；迁移现有 35,528 个标签；`candidates_v3`
-  退役。（详见 `CHEMICAL_SPACE_ZH.md`。）
+  第 1-3 步 2026-09-11 完成：索引冻结；`aldehydes_all.csv` 核实已 `ald_idx` key；
+  `chemical_space.py` 的 `pair(i,j)` 写完并对 20 个已知对校验通过（确定性的
+  RDKit-2D/interaction/product_smiles 逐位精确匹配，QM 在已知的重算噪声带内）。
+  **实现中修正了 spec 的一个乐观假设**：260 特征里只有 donor/acceptor 局部 QM +
+  三个 RDKit-2D 块 + interaction 项真是惰性的；`product_*` QM 和 `product_mordred_*`
+  其实都要走 DFT/xTB（产物自己的优化几何），跟 baseline/label 一样不是惰性的——细节
+  见 `CHEMICAL_SPACE_ZH.md` §5/§8。
+- **缺。** 第 4-6 步：把标签/split/基线接进读取 API；迁移现有 35,528 个标签；
+  `candidates_v3` 退役。（详见 `CHEMICAL_SPACE_ZH.md`。）
 
 ---
 
@@ -398,10 +400,9 @@ Goal 3 工具已交付。**项目正在按用户 2026-09-10 的输入重新奠�
    drain 后：`merge_homo_sp.py` → QC → `--full-library` assembler → 单 XGB + 单 GNN。
 
 **设计 / 结构工作（无计算，慢慢做 —— 用户：理解每一步）：**
-3. **Flying dataset 构建**（§2.11）—— 🔄 第 1-2 步 2026-09-11 完成（索引已冻结、
-   `aldehydes_all.csv` 核实已用 `ald_idx` key）。下一步：第 3 步，写
-   `chemical_space.py` 的 `pair(i, j)` 特征路径，对 ~20 个已知对校验后才能信它。
-   重做 cross AL 和 Goal-3 筛选的前提。
+3. **Flying dataset 构建**（§2.11）—— 🔄 第 1-3 步 2026-09-11 完成（索引冻结、
+   `aldehydes_all.csv` 已 key、`pair(i,j)` 写完并校验通过）。下一步：第 4 步，
+   把标签/split/基线接进读取 API。重做 cross AL 和 Goal-3 筛选的前提。
 4. **Rec-2 统一** 🟡 —— homo 标签落地后：统一表 → 重训 → −0.11 在 260-feat + GNN 下存活吗？
 5. **催化剂空间不在范围** —— 本项目只管底物。任何联合是用户 / NHC 项目的事。
 6. **重做 cross AL** —— (3) 和更好的标签之后：在 flying dataset 上定采集策略，跑新战役。

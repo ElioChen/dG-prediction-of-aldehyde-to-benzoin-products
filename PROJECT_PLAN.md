@@ -438,15 +438,21 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
     without a giant file. Split assignment (scaffold-disjoint) is computed from
     the two aldehydes' scaffolds on the fly.
 - **Status.** 🔄 `CHEMICAL_SPACE.md` (spec, §8 build order) written 2026-09-10.
-  Build order steps 1-2 done 2026-09-11: `data/chemical_space/aldehyde_index.parquet`
-  frozen (220,859 rows, `ald_idx`, canonical SMILES, scaffold reused from
-  `candidates_v3`'s aldehyde-side split with a verified exact positional match);
-  `homo_v6/aldehydes_all.csv` confirmed already `ald_idx`-keyed (209,526/209,526,
-  0 orphans) — its `smiles` column is not reliably canonical (1.24% representation
-  drift), so downstream joins should use `ald_idx`, not SMILES string equality.
-- **Missing.** Steps 3-6: the `chemical_space.py` `pair(i, j)` read API (with the
-  step-3 verification against ~20 known pairs — do not skip it); labels/split/
-  baselines; migrating the 35,528 existing labels; retiring `candidates_v3`.
+  Build order steps 1-3 done 2026-09-11: `data/chemical_space/aldehyde_index.parquet`
+  frozen (220,859 rows); `homo_v6/aldehydes_all.csv` confirmed already
+  `ald_idx`-keyed; `cross_benzoin/chemical_space.py`'s `FlyingDataset.pair(i,j)`
+  written and verified against 20 known pairs from the round-10 champion table
+  (`verify_chemical_space_pair.py`) — the deterministic tiers (RDKit-2D,
+  `interaction_*`, product SMILES) matched bit-exact, donor/acceptor QM matched
+  within the already-known aldehyde-recompute noise band. **Correction found
+  along the way:** only part of the 260-feature schema is actually lazy —
+  `product_*` QM and `product_mordred_*` (checked: uses `ignore_3D=False`,
+  needs the product's real optimized geometry) both require the DFT/xTB
+  pipeline, same as the baselines and the label. `pair(i,j)` returns a
+  `lazy_features` dict (always available) + `computed_full`/`known_row` (only
+  for pairs already run through that pipeline) rather than one flat vector.
+- **Missing.** Steps 4-6: labels/split/baselines wired into the read API;
+  migrating the 35,528 existing labels; retiring `candidates_v3`.
 
 ---
 
@@ -527,11 +533,10 @@ model the NHC catalyst, the kinetic barriers, or the enantioselectivity.
    QC → `--full-library` assembler → single XGB + single GNN.
 
 **Design / structure work (no compute, do carefully — user: understand every step):**
-3. **Flying dataset build** (§2.11) — 🔄 steps 1-2 done 2026-09-11 (index frozen,
-   `aldehydes_all.csv` confirmed `ald_idx`-keyed). Next: step 3, write
-   `chemical_space.py`'s `pair(i, j)` feature path and verify it against ~20
-   known pairs from the current champion table before trusting it for anything
-   else. Prerequisite for redone cross AL and for Goal-3 screening.
+3. **Flying dataset build** (§2.11) — 🔄 steps 1-3 done 2026-09-11 (index frozen,
+   `aldehydes_all.csv` confirmed `ald_idx`-keyed, `pair(i,j)` written + verified).
+   Next: step 4, wire labels/split/baselines into the read API. Prerequisite
+   for redone cross AL and for Goal-3 screening.
 4. **Rec-2 unification** 🟡 — once homo labels land: unified table → retrain →
    does −0.11 survive at 260-feat + GNN?
 5. **Catalyst Space scoping** — a conversation with the user: does this project

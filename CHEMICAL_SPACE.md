@@ -1,7 +1,8 @@
 # Chemical Space & the Flying Dataset — specification
 
-> Status: **spec written 2026-09-10; build order step 1 done 2026-09-11**
-> (`aldehyde_index.parquet` frozen, see sec8). Written 2026-09-10 on the user's direction
+> Status: **spec written 2026-09-10; build order steps 1-3 done 2026-09-11**
+> (`aldehyde_index.parquet` frozen, `chemical_space.py`'s `pair(i,j)` feature
+> path written + verified, see sec8). Written 2026-09-10 on the user's direction
 > ("cross 的建库之前根本不对，真正的化学空间应该是 220k 的平方 … 需要知道 flying
 > dataset，方便以后读取以及模拟，预测"). See `PROJECT_PLAN.md` §2.11.
 >
@@ -109,6 +110,20 @@ space.features_batch(pairs)                             # vectorized assembly fo
   pipeline uses) — deterministic from (donor, acceptor).
 - **feature assembly**: reuse `assemble_cross_training_table*`'s column logic,
   refactored to operate on one pair from cache dicts instead of a merged table.
+- **correction found while implementing step 3 (2026-09-11):** only part of the
+  260-feature schema is actually lazy. `donor_*`/`acceptor_*` local QM + BDE
+  (aldehyde-index cache) and all three RDKit-2D blocks and `interaction_*`
+  terms are genuinely computable from just the two aldehydes -- **but**
+  `product_*` QM (mulliken/wbo/fukui/vbur/sterimol/hb_*/dih_core) and
+  `product_mordred_*` (checked: `ignore_3D=False`, several families are
+  inherently 3D) both come from xTB/DFT run on the product's own optimized
+  geometry, same as `baseline_gxtb`/`baseline_b973c`/`label_dG` -- **none of
+  those four groups are lazy.** `pair(i, j)` therefore returns a `lazy_features`
+  dict (always available) plus a `computed_full` flag + `known_row` (only
+  populated if the address has already been through the DFT/xTB pipeline, read
+  back verbatim rather than recomputed). This is a correction to the "features:
+  np.ndarray[260], assembled from caches, lazily" line above, not a redesign of
+  the address/cache architecture.
 - **scaffold_split**: a pair is `train` iff *neither* aldehyde's scaffold is in
   the held-out scaffold set; `test`/`validation` iff *both* are; else `mixed`
   (excluded). Held-out scaffold sets are frozen in the index file.
@@ -166,9 +181,23 @@ space.features_batch(pairs)                             # vectorized assembly fo
    vs RDKit's lower-case canonical form — same molecule, checked by hand on 8
    samples). **So: join future caches to `ald_idx`, not to `smiles` string
    equality** — this is exactly the drift the frozen index exists to remove.
-3. Write `chemical_space.py` `pair(i, j)` for the feature path only; check that
-   `space.pair(i, j).features` reproduces a row of the current champion training
-   table for ~20 known pairs (bit-level where possible).
+3. ✅ **Done 2026-09-11.** `cross_benzoin/chemical_space.py` `FlyingDataset.pair(i,j)`
+   -- see sec5's correction note for what "the feature path" turned out to mean
+   (a lazy tier + a cache-hit tier, not one flat 260-vector). Verification
+   (`cross_benzoin/verify_chemical_space_pair.py`, 20 random pairs sampled from
+   the round-10 champion table): the two deterministic lazy tiers matched
+   **bit-exact** -- RDKit-2D 600/600, `interaction_*` all matched, `product_smiles`
+   20/20. Donor/acceptor QM matched 995/1380 (72%) within 0.2% relative
+   tolerance; the rest differ by up to a few % -- **not a bug**, this is the
+   already-characterized `aldehyde-recompute-fidelity` effect (the round-10
+   table's QM snapshot slightly predates the current, since-regenerated
+   `aldehydes_all.csv`; judged by relative deviation, not equality, per that
+   memory). One real bug caught and fixed along the way: the first verification
+   draft searched for a matching `pair_key` to recover a row's (donor,
+   acceptor) address, which silently picked the wrong row when a `pair_key`
+   paired with both role orderings in the table -- fixed by resolving each
+   row's own donor_smiles/acceptor_smiles directly instead of round-tripping
+   through the address lookup.
 4. Add labels + split + baselines.
 5. Migrate the 35,528 labels; retire `candidates_v3` (move, don't delete).
 6. Only then: point the redone AL / screening at it.

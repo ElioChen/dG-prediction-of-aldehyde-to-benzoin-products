@@ -1,7 +1,8 @@
 # 化学空间 & Flying Dataset —— 规范
 
-> 状态：**规范 2026-09-10 写完；构建顺序第 1-2 步 2026-09-11 完成**（`aldehyde_index.parquet`
-> 已冻结，见 §8）。2026-09-10 按用户要求写（"cross 的建库之前根本不对，真正的
+> 状态：**规范 2026-09-10 写完；构建顺序第 1-3 步 2026-09-11 完成**（`aldehyde_index.parquet`
+> 已冻结 + `chemical_space.py` 的 `pair(i,j)` 特征路径已写并校验，见 §8）。2026-09-10
+> 按用户要求写（"cross 的建库之前根本不对，真正的
 > 化学空间应该是 220k 的平方 … 需要知道 flying dataset，方便以后读取以及模拟、预测"）。
 > 见 `PROJECT_PLAN_ZH.md` §2.11。English: `CHEMICAL_SPACE.md`（保持同步）。
 >
@@ -143,9 +144,22 @@ space.features_batch(pairs)                             # 一批对的向量化�
    （1.24%）跟新算的 `smiles_canonical` 只是表示法不同（比如 Kekulized 大写芳香 vs
    RDKit 小写 canonical 形式 —— 同一分子，抽样 8 个手工核对过）。**所以：以后的缓存要
    join 到 `ald_idx`，不要 join 到 SMILES 字符串相等** —— 这正是冻结索引要消除的漂移。
-3. 先写 `chemical_space.py` 的 `pair(i, j)` 特征路径；校验
-   `space.pair(i, j).features` 对 ~20 个已知对**逐位复现**当前冠军训练表的一行
-   （尽可能 bit 级）。
+3. ✅ **2026-09-11 完成。** `cross_benzoin/chemical_space.py` 的
+   `FlyingDataset.pair(i,j)`。实现中发现一个需要修正的地方：260 特征里只有一部分
+   真是惰性的——donor/acceptor 局部 QM+BDE（醛索引缓存）+ 三个 RDKit-2D 块 +
+   `interaction_*` 项确实能从两个醛缓存拼出来；但 `product_*` QM 和
+   `product_mordred_*`（查过：用 `ignore_3D=False`，好几个描述符族本质是 3D 的）
+   都需要产物自己的优化几何，跟 baseline / label 一样要走 DFT/xTB 流水线，**不是
+   惰性的**。所以 `pair(i,j)` 返回一个永远有的 `lazy_features` dict + 只有已算过
+   的对才有的 `computed_full`/`known_row`（原样读回，不重算），而不是承诺里那个
+   单一的 260 维向量。**校验**（`verify_chemical_space_pair.py`，从 round10 冠军表
+   抽 20 个已知对）：两个确定性层——RDKit-2D 600/600、`interaction_*` 全部、
+   product_smiles 20/20——**逐位精确匹配**；donor/acceptor QM 在 0.2% 相对容差内
+   995/1380 匹配，其余的偏差跟已知的"醛重算保真度"现象一致（round10 表用的 QM
+   快照比现在重算过的 `aldehydes_all.csv` 略早，判断标准是相对偏差不是相等）——
+   不是 bug。路上还抓到并修了校验脚本自己的一个真 bug：靠搜索匹配 `pair_key` 来
+   反推 (donor,acceptor) 地址，在某个 `pair_key` 同时对应两种角色顺序时会静默取
+   错行；改成直接用每一行自己的 donor/acceptor SMILES 解析地址。
 4. 加标签 + split + 基线。
 5. 迁移 35,528 个标签；退役 `candidates_v3`（移走，不删）。
 6. 之后才：把重做的 AL / 筛选指向它。
