@@ -1,6 +1,14 @@
 # cross-benzoin ΔG champion
 
-**Current champion: rounds 1-10 scaffold-disjoint blend** (adopted 2026-09-04).
+**Benchmark champion (2026-09-14): r1-10 B97-3c Δ-model blend, holdout MAE
+0.528** (vs the deployed model's 2.215 below) — see §"r1-10-b973c" further
+down. **Deployed/production default is still r1-10 (g-xTB baseline, MAE
+2.215)**, described first in this file: `predict_dg.py` only knows how to
+compute a g-xTB baseline for a brand-new pair, not a B97-3c one, so the
+b973c model isn't drop-in yet. Wire that up before switching the deployed
+default.
+
+## r1-10 (g-xTB baseline) -- deployed default, adopted 2026-09-04
 
 ## Load
 
@@ -109,3 +117,52 @@ sbatch cross_benzoin/slurm/submit_predict_dg.sh <pairs.csv> <workdir> <out.csv>
 Aldehydes must be in `data/library` (donor_*/acceptor_* descriptors are pulled from
 the 220k library by canonical SMILES); `bde_gxtb_kcal` is pulled from any prior
 round's `bde_gxtb/` for known products, NaN (median-filled) otherwise.
+
+## r1-10-b973c -- new holdout-best model, 2026-09-14, not yet deployed
+
+Tier B (`data/cross_benzoin/rec1_b973c_tierB/`) self-consistently relabeled
+the same 35,528-pair r1-10 training set with r2SCAN-3c target + **B97-3c
+baseline** (instead of g-xTB), completing 2026-09-14 (35,136/35,528 usable,
+98.9% coverage, GREEN QC — B97-3c residual std 0.916 vs g-xTB's 3.785, ratio
+0.242, matching the pilot's 0.26 at full scale, see
+[[rec1_b973c_baseline_lever_validated]]). Retraining the champion pipeline
+on this table (schema v2 = 257 features, drop `{donor,acceptor,product}_n_CHO`)
+is a **breakthrough, not an incremental gain**:
+
+| | MAE (n=448, same frozen holdout) | vs g-xTB-baseline champion (2.215) |
+|---|---|---|
+| **blend, 4-seed GNN (w_gnn=0.85)** | **0.528** | **-1.687 (-76%)** |
+| single-XGB Δ-model | 0.632 | -1.583 |
+| MLP+XGB ensemble | 0.603 | -1.613 |
+| GNN, 4-seed average | 0.531 | -1.684 |
+| GNN, best single seed | 0.556 | -1.659 |
+
+Seed-averaging the GNN leg still helps here too (0.576 seed-1-only ->
+0.531 at 4 seeds), same lever as [[gnn-seed-ensemble-lever]] on the old
+champion, just far more headroom to work with now.
+
+**Why the B97-3c baseline works this much better:** the Δ-model only has to
+learn `r2SCAN-3c − B97-3c`, and that residual is already tight
+(std 0.916 kcal, vs g-xTB's baseline residual std 3.785) *before any ML at
+all* — B97-3c is simply a much closer starting point to the r2SCAN-3c label
+than semiempirical g-xTB is, so the learned correction is smaller and easier.
+
+**Why this is not (yet) the deployed champion:** a B97-3c single point is a
+real DFT calculation (cheap relative to a full geometry optimization, but
+not free like g-xTB) that has to be computed for the product of every new
+donor/acceptor pair before this model's baseline column is available.
+`predict_dg.py`'s from-scratch and assemble+predict paths both only compute
+`dG_gxtb_kcal`. Until that's wired up (add a B97-3c SP step alongside the
+existing g-xTB one), r1-10-b973c is a benchmark/offline result, not a
+drop-in replacement for `predict_cross_champion.py` / `predict_dg.py`.
+
+Components: `data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_b973c_v1/`
+(ensemble + single-XGB + 257-feature schema), `gnn_attentive_10rounds_b973c_seed{1..4}/`,
+training table `cross_train_table_10rounds_scaffold_split_labeled_slim257_b973c.parquet`,
+sweep result `cross_round10/gnn_seed_ensemble_r10_b973c_result.json`. Full recipe:
+`data/cross_benzoin/rec1_b973c_tierB/DRAIN_RUNBOOK.md`.
+
+**Next step to actually deploy this:** add a B97-3c SP compute step to
+`predict_dg.py`'s new-pair path (mirrors the existing g-xTB step), re-run the
+09-07 smoke-test precision check against it, then swap this file's "deployed
+default" pointer.
