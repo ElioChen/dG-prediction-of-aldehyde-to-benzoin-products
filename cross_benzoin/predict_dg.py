@@ -154,6 +154,19 @@ def main() -> int:
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--model-dir", default=str(CHAMP))
     ap.add_argument("--gnn-dir", default=str(GNN))
+    ap.add_argument("--schema", default=str(SCHEMA), type=Path,
+                    help="feature_list.json to prune to -- must match --model-dir's own "
+                         "schema (260 for the deployed g-xTB champion, 257 for r1-10-b973c: "
+                         "data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_b973c_v1/"
+                         "models/feature_list.json). A mismatch here is silent-wrong, not an "
+                         "error -- the wrong-sized/ordered feature set just predicts badly.")
+    ap.add_argument("--baseline-col", default="dG_gxtb_kcal",
+                    help="e.g. dG_b973c_kcal for --model-dir/--gnn-dir pointed at "
+                         "r1-10-b973c (CHAMPION.md). The products-csv must already carry "
+                         "this column (cb_featurize.py --with-b973c for a from-scratch run). "
+                         "The dG_pi_*_90/baseline_risk/dg_high_sigma columns below are "
+                         "calibrated for the deployed g-xTB model only and are skipped for "
+                         "any other --baseline-col (not silently wrong-labeled as if valid).")
     args = ap.parse_args()
 
     r99 = REPO / "data/cross_benzoin/cross_round99"
@@ -172,13 +185,17 @@ def main() -> int:
 
         slim = tmp / "slim.parquet"
         subprocess.run([FEAT_PY, str(REPO / "cross_benzoin/prune_table_to_champion_features.py"),
-                        "--table", str(tbl), "--feature-list", str(SCHEMA), "--out", str(slim)],
+                        "--table", str(tbl), "--feature-list", str(args.schema), "--out", str(slim)],
                        check=True)
 
         from predict_cross_champion import CrossBenzoinBlendPredictor  # noqa: E402
         df = pd.read_parquet(slim)
+        if args.baseline_col not in df.columns:
+            raise SystemExit(f"--baseline-col {args.baseline_col!r} not in the assembled table "
+                             f"-- products-csv is missing it (for dG_b973c_kcal: run "
+                             f"cb_featurize.py with --with-b973c)")
         pred = CrossBenzoinBlendPredictor.load(args.model_dir, gnn_dir=args.gnn_dir)
-        dg = pred.predict(df)
+        dg = pred.predict(df, baseline_col=args.baseline_col)
         # cheap uncertainty proxy: spread of the 3 base learners (MLP, XGB-a, XGB-b).
         # NOT the full pair-grouped bootstrap epistemic estimate (score_round_active_
         # learning.py --n-boot) -- fast and directional only.
@@ -188,7 +205,9 @@ def main() -> int:
                              ens.xgb_a.predict(X), ens.xgb_b.predict(X)])
         sigma = members.std(axis=0)
 
-        out = df[["id", "donor_id", "acceptor_id", "smiles", "dG_gxtb_kcal"]].copy()
+        base_cols = ["dG_gxtb_kcal"] + (["dG_b973c_kcal"] if "dG_b973c_kcal" in df.columns
+                                        and args.baseline_col != "dG_gxtb_kcal" else [])
+        out = df[["id", "donor_id", "acceptor_id", "smiles"] + base_cols].copy()
         out["dG_pred_kcal"] = dg
         out["ens_member_sigma"] = sigma
         # Goal-3 reformulation columns (see FAVORABLE_THRESHOLD_KCAL above): a
@@ -204,7 +223,16 @@ def main() -> int:
         # split-conformal 90% prediction interval + g-xTB-baseline-failure flag
         # (predict_dg_calibration.json; see build_predict_dg_calibration.py). Both
         # optional -- skipped with a note if the calibration artifact is absent.
-        calib = _load_calibration()
+        # Calibrated against the deployed g-xTB model's holdout residuals specifically
+        # (build_predict_dg_calibration.py); skip outright for any other --baseline-col
+        # (e.g. dG_b973c_kcal) rather than silently attaching a wrong-scale interval --
+        # the b973c model's residuals are a different, much tighter distribution
+        # (holdout MAE 0.528 vs 2.215, CHAMPION.md), no calibration built for it yet.
+        calib = _load_calibration() if args.baseline_col == "dG_gxtb_kcal" else None
+        if calib is None and args.baseline_col != "dG_gxtb_kcal":
+            print(f"[predict_dg] --baseline-col={args.baseline_col} -- dG_pi_*_90/"
+                  f"baseline_risk/dg_high_sigma are calibrated for dG_gxtb_kcal only, "
+                  f"skipped (no calibration built yet for this baseline)")
         if calib is not None:
             q90 = calib["conformal"]["90pct"]["q_global_kcal"]
             out["dG_pi_lo_90"] = out["dG_pred_kcal"] - q90

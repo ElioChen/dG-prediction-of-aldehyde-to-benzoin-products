@@ -146,9 +146,13 @@ class CrossBenzoinBlendPredictor:
                 pos += n
         return preds
 
-    def predict(self, df: pd.DataFrame) -> np.ndarray:
-        """Returns predicted dG_orca (kcal/mol), NOT the raw delta -- baseline already added."""
-        base = df[BASELINE_COL].to_numpy()
+    def predict(self, df: pd.DataFrame, baseline_col: str = BASELINE_COL) -> np.ndarray:
+        """Returns predicted dG_orca (kcal/mol), NOT the raw delta -- baseline already added.
+        baseline_col defaults to the module BASELINE_COL (dG_gxtb_kcal, the deployed
+        champion); pass "dG_b973c_kcal" for a r1-10-b973c model_dir/gnn_dir (CHAMPION.md
+        -- that model was trained with CB_BASELINE_COL=dG_b973c_kcal, so predicting with
+        the wrong baseline column silently gives a wrong answer, not an error)."""
+        base = df[baseline_col].to_numpy()
         ens_delta = self.ensemble.predict(df)
         gnn_delta = self._gnn_predict(df)
         blend_delta = (1 - self.blend_w_gnn) * ens_delta + self.blend_w_gnn * gnn_delta
@@ -166,11 +170,13 @@ def main() -> int:
     ap.add_argument("--model-dir", default="data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_v1")
     ap.add_argument("--gnn-dir", default="data/cross_benzoin/cross_round10/gnn_attentive_10rounds_v1")
     ap.add_argument("--n", type=int, default=10)
+    ap.add_argument("--baseline-col", default=BASELINE_COL,
+                    help="e.g. dG_b973c_kcal for a r1-10-b973c model_dir/gnn_dir (CHAMPION.md)")
     args = ap.parse_args()
 
     df = pd.read_parquet(args.table).head(args.n)
     predictor = CrossBenzoinBlendPredictor.load(args.model_dir, gnn_dir=args.gnn_dir)
-    pred = predictor.predict(df)
+    pred = predictor.predict(df, baseline_col=args.baseline_col)
     for i, (p, actual) in enumerate(zip(pred, df.get("dG_orca_kcal", [None] * len(df)))):
         print(f"row {i}: pred={p:.3f}" + (f"  actual={actual:.3f}  err={abs(p-actual):.3f}" if actual is not None else ""))
     return 0

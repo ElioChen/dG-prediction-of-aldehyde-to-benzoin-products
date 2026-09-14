@@ -36,7 +36,11 @@ META = ["id", "donor_id", "acceptor_id", "pair_key", "reaction_type", "round",
         # name is what train_scaffold_disjoint.py / verify_and_bootstrap_*.py read.
         # The stale "scaffold_split"-only list silently dropped the split column ->
         # train_scaffold_disjoint KeyError (r19_retrain 26362229, 2026-09-04).
-        "new_scaffold_split", "scaffold_split"]
+        "new_scaffold_split", "scaffold_split",
+        # dG_b973c_kcal (2026-09-14): the r1-10-b973c champion's baseline column
+        # (CB_BASELINE_COL). Filtered out below by `if c in df.columns` when absent,
+        # same as every other META entry -- an ordinary (non-b973c) table is unaffected.
+        "dG_b973c_kcal"]
 
 
 def main() -> int:

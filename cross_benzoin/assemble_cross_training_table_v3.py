@@ -135,9 +135,14 @@ def main() -> int:
     cov = df[prod_mordred_cols[0]].notna().sum() if prod_mordred_cols else 0
     print(f"product mordred join: {cov}/{len(df)} rows ({len(prod_mordred_cols)} cols)")
 
-    donor2d = _rdkit_block(df["donor_smiles"], "donor")
-    acc2d = _rdkit_block(df["acceptor_smiles"], "acceptor")
-    prod2d = _rdkit_block(df["smiles"], "product")
+    # include_ncho=True: keeps assembling for the still-deployed 260-feature schema
+    # possible (it wasn't computed 2026-09-08 to 2026-09-14, see _rdkit_block's
+    # docstring) -- harmless extra columns for any assembly that doesn't need them,
+    # since RDKIT_FEATS (what new 257-schema training actually selects from) is
+    # unchanged and still excludes n_CHO.
+    donor2d = _rdkit_block(df["donor_smiles"], "donor", include_ncho=True)
+    acc2d = _rdkit_block(df["acceptor_smiles"], "acceptor", include_ncho=True)
+    prod2d = _rdkit_block(df["smiles"], "product", include_ncho=True)
     df = pd.concat([df.reset_index(drop=True), donor2d, acc2d, prod2d], axis=1)
 
     df["interaction_gap_HOMOd_LUMOa"] = df["donor_xtb_HOMO"] - df["acceptor_xtb_LUMO"]
@@ -152,6 +157,13 @@ def main() -> int:
     keep_meta = ["id", "donor_id", "acceptor_id", "pair_key", "reaction_type", "round",
                  "donor_smiles", "acceptor_smiles", "smiles",
                  "dG_xtb_kcal", "dG_gxtb_kcal", "dG_orca_kcal"]
+    # dG_b973c_kcal (2026-09-14, r1-10-b973c champion baseline): optional, only present
+    # when the source products table came through cb_featurize.py --with-b973c (predict_dg
+    # from-scratch path) or a Tier B relabel merge. Conditional so assembling an older/
+    # ordinary round (no B97-3c column) is unaffected -- keep_meta below is filtered to
+    # columns that actually exist in df, same as feat_cols already is.
+    if "dG_b973c_kcal" in df.columns:
+        keep_meta.append("dG_b973c_kcal")
     donor_mordred = [f"donor_{c}" for c in mordred_cols]
     acceptor_mordred = [f"acceptor_{c}" for c in mordred_cols]
     feat_cols = ([f"donor_{c}" for c in ALDEHYDE_FEATS] +

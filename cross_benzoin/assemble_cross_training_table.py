@@ -98,14 +98,25 @@ MISMATCH_PAIRS = ["xtb_gap", "xtb_dipole", "sterimol_L", "sterimol_B1",
                    "sterimol_B5", "SASA_total", "MW", "TPSA"]
 
 
-def _rdkit_block(smiles: pd.Series, prefix: str) -> pd.DataFrame:
+def _rdkit_block(smiles: pd.Series, prefix: str, *, include_ncho: bool = False) -> pd.DataFrame:
+    """include_ncho=True also carries n_CHO through (calc_rdkit still computes it,
+    only RDKIT_FEATS' *selection* trims it -- see the comment above RDKIT_FEATS).
+    Needed for assembling a table meant for the still-deployed 260-feature schema
+    (cross_round8/scaffold_disjoint_8rounds_v1/models/feature_list.json), which
+    predates the 2026-09-08 drop and still lists donor/acceptor/product_n_CHO --
+    without this, assembling a fresh table for a genuinely new pair silently fails
+    prune_table_to_champion_features.py ("table is missing 3 of 260 listed
+    features"), found 2026-09-14 testing predict_dg.py end-to-end. The new
+    257-feature schema (v2, post-Tier-B) doesn't select n_CHO either way, so
+    leaving this off by default doesn't change that path."""
     cache: dict[str, dict] = {}
     rows = []
     for s in smiles:
         if s not in cache:
             cache[s] = calc_rdkit(s)
         rows.append(cache[s])
-    df = pd.DataFrame(rows)[RDKIT_FEATS]
+    cols = RDKIT_FEATS + (["n_CHO"] if include_ncho else [])
+    df = pd.DataFrame(rows)[cols]
     df.columns = [f"{prefix}_{c}" for c in df.columns]
     return df.reset_index(drop=True)
 

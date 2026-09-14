@@ -64,6 +64,13 @@ XTB_GXTB = os.environ.get(
 GXTB_SOLV = os.environ.get("GXTB_SOLV", "cosmo dmso").split()  # ALPB/GBSA fatal; COSMO ~ CPCM
 _GXTB_E = re.compile(r"::\s*total energy\s+(-?\d+\.\d+)\s+Eh")
 
+# B97-3c baseline (2026-09-14, CHAMPION.md "r1-10-b973c" deployment step). Opt-in via
+# --with-b973c -- NOT computed by default, so every existing cb_featurize.py caller
+# (library builds, homo/cross featurization) is unaffected. Same ORCA method/basis/
+# solvent/charge convention as rec1_b973c_tierB_worker.py's _species(), so a new
+# pair's dG_b973c_kcal is computed exactly the way the training labels were.
+ORCA_BIN = os.environ.get("ORCA_BIN", "/home/schen3/orca/orca")
+
 
 def _gxtb_sp(geom: Path, wd: Path, charge: int = 0, timeout: int = 900) -> float | None:
     """g-xTB COSMO(DMSO) single point on `geom` → total energy E_gxtb (Eh), None on failure."""
@@ -97,17 +104,46 @@ def _g_gxtb(ohess_stdout: str, ohess_dir: Path, smiles: str, wd: Path) -> float 
     E_gxtb = _gxtb_sp(geom, wd / "gxtb", charge=chg)
     return E_gxtb + (G - E_el) if E_gxtb is not None else None
 
+
+def _g_b973c(ohess_stdout: str, ohess_dir: Path, smiles: str) -> float | None:
+    """G_b973c (Eh) = E_b973c + (G_gfn2 - E_el_gfn2): ORCA B97-3c/CPCM(DMSO) single point
+    on the GFN2-ohess geometry, reusing the GFN2 RRHO thermal correction -- same recipe
+    as rec1_b973c_tierB_worker.py's _species() (that script trained the b973c champion;
+    this one must reproduce its baseline exactly for a new pair's prediction to be
+    consistent with it). nprocs is NOT exposed here (stays at calc_orca_sp's nprocs=1
+    default) -- ORCA's parallel path shells out to `mpirun`, which isn't on PATH in this
+    venv; a 2026-09-14 smoke test with nprocs=cores failed silently (`mpirun: command not
+    found` buried in input.out) until this was found and reverted to match the Tier B
+    worker, which never passed nprocs either. None if any piece is missing."""
+    G = Th.parse_xtb_G(ohess_stdout)
+    E_el = Th._parse_xtb_energy(ohess_stdout)
+    geom = ohess_dir / "xtbopt.xyz"
+    if G is None or E_el is None or not geom.exists():
+        return None
+    try:
+        m = Chem.MolFromSmiles(smiles)
+        chg = Chem.GetFormalCharge(m) if m is not None else 0
+    except Exception:
+        chg = 0
+    E_b973c = Th.calc_orca_sp(geom, "B97-3c", "", "DMSO", charge=chg,
+                              maxcore_mb=2500, orca_bin=ORCA_BIN, timeout=10800)
+    return E_b973c + (G - E_el) if E_b973c is not None else None
+
 # ── Schema (single source of truth) ─────────────────────────────────────────
 _ALD_DESC = [c for c in A._ALL_FIELDS
              if c not in ("index", "SMILES", "PubChem_CID",
                           "xtb_optimized", "error", "xyz_file")]
-ALD_FIELDS = ["id", "smiles", "xtb_optimized", "error", "xyz_file", "G_xtb", "G_gxtb"] + _ALD_DESC
+ALD_FIELDS = (["id", "smiles", "xtb_optimized", "error", "xyz_file", "G_xtb", "G_gxtb"]
+              + _ALD_DESC + ["G_b973c"])  # appended, not inserted -- keeps every existing
+              # reader's column *position* for id..G_gxtb+desc unchanged (only a named-column
+              # reader sees the new field; a position-based one is unaffected either way)
 
 _PROD_DESC = FP._XTB + FP._MORF + FP._MWF
 PROD_FIELDS = (["id", "donor_id", "acceptor_id", "donor_smiles", "acceptor_smiles",
                 "smiles", "reaction_type", "is_homo", "xtb_optimized", "error", "xyz_file"]
                + _PROD_DESC + ["G_donor", "G_acceptor", "G_xtb", "dG_xtb_kcal",
-                               "G_donor_gxtb", "G_acceptor_gxtb", "G_gxtb", "dG_gxtb_kcal"])
+                               "G_donor_gxtb", "G_acceptor_gxtb", "G_gxtb", "dG_gxtb_kcal",
+                               "G_donor_b973c", "G_acceptor_b973c", "G_b973c", "dG_b973c_kcal"])
 
 
 def pair_id(did: str, aid: str) -> str:
@@ -125,7 +161,8 @@ def _rank(name: str):
 
 # ── Aldehyde: funnel_v3 geometry (saved) + descriptors + G ───────────────────
 def featurize_aldehyde(ald_id, smi, *, xyz_dir, work_dir, xtb_bin, mwf_bin, do_multiwfn,
-                       solvent, n_confs, T, P, cores, jobs, timeout, conformer):
+                       solvent, n_confs, T, P, cores, jobs, timeout, conformer,
+                       with_b973c=False):
     row = {f: None for f in ALD_FIELDS}
     row.update({"id": str(ald_id), "smiles": smi, "xtb_optimized": False, "error": ""})
     wd = work_dir / f"ald_{_safe(ald_id)}"
@@ -162,14 +199,17 @@ def featurize_aldehyde(ald_id, smi, *, xyz_dir, work_dir, xtb_bin, mwf_bin, do_m
         row["G_xtb"] = G
         G_gxtb = _g_gxtb(sa, wd / "ohess", smi, wd)   # g-xTB SP on the same ohess geom
         row["G_gxtb"] = G_gxtb
-        return row, (G, G_gxtb)
+        G_b973c = _g_b973c(sa, wd / "ohess", smi) if with_b973c else None
+        row["G_b973c"] = G_b973c
+        return row, (G, G_gxtb, G_b973c)
     finally:
         shutil.rmtree(wd, ignore_errors=True)
 
 
 # ── Product: build, funnel_v3 geometry (saved) + descriptors + ΔG ────────────
 def featurize_pair(rec, *, g_cache, xyz_dir, work_dir, xtb_bin, mwf_bin, do_multiwfn,
-                   solvent, n_confs, T, P, cores, jobs, timeout, conformer):
+                   solvent, n_confs, T, P, cores, jobs, timeout, conformer,
+                   with_b973c=False):
     did = str(rec.get("donor_id") or rec.get("index") or "d")
     aid = str(rec.get("acceptor_id") or did)
     donor = (rec.get("donor_smiles") or "").strip()
@@ -224,10 +264,12 @@ def featurize_pair(rec, *, g_cache, xyz_dir, work_dir, xtb_bin, mwf_bin, do_mult
                              cores=cores, timeout=timeout)
         Gp = Th.parse_xtb_G(sp)
         Gp_g = _g_gxtb(sp, wd / "ohess", prod, wd)            # product g-xTB G
-        Gd, Gd_g = g_cache.get(Chem.CanonSmiles(donor)) or (None, None)
-        Ga, Ga_g = g_cache.get(Chem.CanonSmiles(acc)) or (None, None)
+        Gp_b = _g_b973c(sp, wd / "ohess", prod) if with_b973c else None
+        Gd, Gd_g, Gd_b = g_cache.get(Chem.CanonSmiles(donor)) or (None, None, None)
+        Ga, Ga_g, Ga_b = g_cache.get(Chem.CanonSmiles(acc)) or (None, None, None)
         row["G_donor"], row["G_acceptor"], row["G_xtb"] = Gd, Ga, Gp
         row["G_donor_gxtb"], row["G_acceptor_gxtb"], row["G_gxtb"] = Gd_g, Ga_g, Gp_g
+        row["G_donor_b973c"], row["G_acceptor_b973c"], row["G_b973c"] = Gd_b, Ga_b, Gp_b
 
         def _flag(extra: str) -> None:
             row["error"] = (row["error"] + ";" if row["error"] else "") + extra
@@ -246,6 +288,14 @@ def featurize_pair(rec, *, g_cache, xyz_dir, work_dir, xtb_bin, mwf_bin, do_mult
                 _flag("gxtb_sp_failed")
             if Gd_g is None or Ga_g is None:
                 _flag("gxtb_dG_failed_reactant")
+        if with_b973c:
+            if None not in (Gp_b, Gd_b, Ga_b):
+                row["dG_b973c_kcal"] = round((Gp_b - Gd_b - Ga_b) * HARTREE_TO_KCAL, 4)
+            else:
+                if Gp_b is None:
+                    _flag("b973c_sp_failed")
+                if Gd_b is None or Ga_b is None:
+                    _flag("b973c_dG_failed_reactant")
         return row
     finally:
         shutil.rmtree(wd, ignore_errors=True)
@@ -270,12 +320,16 @@ def load_pairs(args) -> list[dict]:
     return rows
 
 
-def load_aldehyde_cache(path: str | None) -> dict[str, tuple[float | None, float | None]]:
+def load_aldehyde_cache(path: str | None) -> dict[str, tuple[float | None, float | None, float | None]]:
     """Load previously computed aldehyde free energies keyed by canonical SMILES.
 
     Accepted columns are ``smiles``/``SMILES`` plus ``G_xtb`` (or ``G_ald_xtb``)
-    and optional ``G_gxtb``.  This prevents product jobs from repeating the already
-    completed aldehyde geometry/frequency calculations.
+    and optional ``G_gxtb``/``G_b973c``.  This prevents product jobs from repeating
+    the already completed aldehyde geometry/frequency calculations. Values are
+    always a 3-tuple (G_xtb, G_gxtb, G_b973c) regardless of which columns the file
+    actually has -- callers must not assume tuple length from whether --with-b973c
+    was used, since a cache built without it (G_b973c=None throughout) is still a
+    valid cache to reuse.
     """
     if not path:
         return {}
@@ -287,7 +341,7 @@ def load_aldehyde_cache(path: str | None) -> dict[str, tuple[float | None, float
             return None
 
     opener = gzip.open if str(path).lower().endswith(".gz") else open
-    cache: dict[str, tuple[float | None, float | None]] = {}
+    cache: dict[str, tuple[float | None, float | None, float | None]] = {}
     with opener(path, "rt", encoding="utf-8-sig", newline="") as handle:
         for row in csv.DictReader(handle):
             smiles = (row.get("smiles") or row.get("SMILES") or "").strip()
@@ -296,8 +350,9 @@ def load_aldehyde_cache(path: str | None) -> dict[str, tuple[float | None, float
                 continue
             g_xtb = number(row.get("G_xtb") or row.get("G_ald_xtb"))
             g_gxtb = number(row.get("G_gxtb"))
+            g_b973c = number(row.get("G_b973c"))
             if g_xtb is not None:
-                cache[Chem.MolToSmiles(mol, canonical=True)] = (g_xtb, g_gxtb)
+                cache[Chem.MolToSmiles(mol, canonical=True)] = (g_xtb, g_gxtb, g_b973c)
     return cache
 
 
@@ -321,6 +376,12 @@ def main() -> int:
     ap.add_argument("--require-cache-complete", action="store_true",
                     help="fail instead of computing any aldehyde missing from --aldehyde-cache")
     ap.add_argument("--xtb-bin", default=shutil.which("xtb") or "/home/schen3/xtb/bin/xtb")
+    ap.add_argument("--with-b973c", action="store_true",
+                    help="also compute ORCA B97-3c/CPCM(DMSO) SP on the ohess geometry "
+                         "(G_b973c, dG_b973c_kcal) -- needed to feed the r1-10-b973c "
+                         "champion (CHAMPION.md) for a genuinely new pair. Off by default: "
+                         "real extra ORCA cost, and every other cb_featurize.py caller "
+                         "(library builds, homo/cross featurization) doesn't need it.")
     ap.add_argument("--multiwfn", action="store_true")
     ap.add_argument("--multiwfn-bin", default="/home/schen3/mutiwfn/Multiwfn_noGUI")
     ap.add_argument("--conformer", choices=["funnel_v3", "rank"], default="funnel_v3")
@@ -371,7 +432,7 @@ def main() -> int:
     akw = dict(xyz_dir=xyz_ald, work_dir=work_dir, xtb_bin=xtb_bin, mwf_bin=args.multiwfn_bin,
                do_multiwfn=do_multiwfn, solvent=solvent, n_confs=args.n_confs, T=args.T, P=args.P,
                cores=args.xtb_cores, jobs=args.parallel_jobs, timeout=args.ohess_timeout,
-               conformer=args.conformer)
+               conformer=args.conformer, with_b973c=args.with_b973c)
     items = [(canon, value) for canon, value in uniq.items() if canon not in g_cache]
     log.info("unique aldehydes: %d (%d cached, %d missing)",
              len(uniq), len(uniq) - len(items), len(items))
@@ -389,7 +450,7 @@ def main() -> int:
                 for n, fut in enumerate(as_completed(futs), 1):
                     canon = futs[fut]
                     try:
-                        prow, gpair = fut.result()      # gpair = (G_gfn2, G_gxtb)
+                        prow, gpair = fut.result()      # gpair = (G_gfn2, G_gxtb, G_b973c)
                     except Exception as exc:
                         prow, gpair = {"smiles": canon, "error": f"exception:{exc}"}, None
                     aw.writerow(prow)
@@ -406,7 +467,7 @@ def main() -> int:
             for n, fut in enumerate(as_completed(futs), 1):
                 try:
                     res = fut.result()                  # ald_free_energy → (G, xyz)
-                    g_cache[futs[fut]] = (res[0] if isinstance(res, tuple) else res, None)
+                    g_cache[futs[fut]] = (res[0] if isinstance(res, tuple) else res, None, None)
                 except Exception:
                     g_cache[futs[fut]] = None
 
@@ -420,7 +481,8 @@ def main() -> int:
     pkw = dict(g_cache=g_cache, xyz_dir=xyz_prod, work_dir=work_dir, xtb_bin=xtb_bin,
                mwf_bin=args.multiwfn_bin, do_multiwfn=do_multiwfn, solvent=solvent,
                n_confs=args.n_confs, T=args.T, P=args.P, cores=args.xtb_cores,
-               jobs=args.parallel_jobs, timeout=args.ohess_timeout, conformer=args.conformer)
+               jobs=args.parallel_jobs, timeout=args.ohess_timeout, conformer=args.conformer,
+               with_b973c=args.with_b973c)
     n_ok = n_dg = n_err = 0
     with open(out / "products.csv", "w", newline="", encoding="utf-8") as pfh:
         pw = csv.DictWriter(pfh, fieldnames=PROD_FIELDS, extrasaction="ignore")
