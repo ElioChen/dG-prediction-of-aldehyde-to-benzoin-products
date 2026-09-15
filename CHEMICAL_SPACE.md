@@ -226,7 +226,17 @@ question into a compute-cost question.
    paired with both role orderings in the table -- fixed by resolving each
    row's own donor_smiles/acceptor_smiles directly instead of round-tripping
    through the address lookup.
-4. Add labels + split + baselines.
+4. ✅ **Done 2026-09-15.** `FlyingDataset.pair()` now returns first-class
+   `label` / `label_col` / `split` / `baseline_gxtb_kcal` / `baseline_b973c_kcal`
+   fields (cache-hit tier, `None` when `computed_full=False`), resolved via
+   `LABEL_COL_CANDIDATES`/`SPLIT_COL_CANDIDATES`/`BASELINE_COLS` so the module
+   works unmodified against either table generation this project has: the
+   g-xTB-era table (`dG_orca_kcal`, no `dG_b973c_kcal`) and the current
+   champion, the b973c Tier B table (`dG_r2scan_kcal` as its true label, plus
+   both baselines). Verification (`verify_chemical_space_pair.py`, extended
+   with a `step4` tier + `--table`): 20/20 pairs on both tables, 80/80 step4
+   fields exact-matched each run -- confirms the column-name resolution picks
+   the right name per table, not just internal self-consistency.
 5. Migrate the 35,528 labels; retire `candidates_v3` (move, don't delete).
 6. Only then: point the redone AL / screening at it.
 

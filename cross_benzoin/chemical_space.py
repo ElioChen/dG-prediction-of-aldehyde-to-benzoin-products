@@ -42,12 +42,19 @@ train on.
 
 Usage
     from chemical_space import FlyingDataset
-    space = FlyingDataset()
+    space = FlyingDataset(known_pairs=champion_table)  # optional, see step 4 below
     p = space.pair(0, 3)
     p["lazy_features"]      # dict of the always-available columns
     p["product_smiles"]     # str | None
     p["reaction_type"]      # e.g. "aliph-carbo"
     p["computed_full"]      # False unless (0,3) is in the known-pairs table
+    p["label"]               # cache-hit tier, step 4: true DFT dG, None if not computed_full
+    p["label_col"]           # which known_pairs column label came from (dG_r2scan_kcal /
+                              # dG_orca_kcal / ...) -- table generations use different names
+    p["split"]                # cache-hit tier: scaffold-disjoint split assignment, or None
+    p["baseline_gxtb_kcal"]   # cache-hit tier: dG_gxtb_kcal, or None
+    p["baseline_b973c_kcal"]  # cache-hit tier: dG_b973c_kcal, or None (not every known_pairs
+                               # table carries this -- only Tier B / b973c-relabeled ones)
 """
 from __future__ import annotations
 
@@ -91,6 +98,27 @@ RDKIT_FEATS = ["MW", "LogP", "TPSA", "HBD", "HBA", "RotBonds", "ArRings",
 MISMATCH_PAIRS = ["xtb_gap", "xtb_dipole", "sterimol_L", "sterimol_B1",
                    "sterimol_B5", "SASA_total", "MW", "TPSA"]
 _SHORT_CHO = {"aliphatic": "aliph", "aromatic_carbo": "carbo", "aromatic_hetero": "hetero"}
+
+# Build-order step 4 (CHEMICAL_SPACE.md sec8): label + split + baseline column
+# names differ across the champion tables this module has been verified
+# against (see LAB_JOURNAL 2026-09-11 step-3 notes) -- the g-xTB-era table uses
+# dG_orca_kcal/new_scaffold_split, the b973c Tier B table (2026-09-14 champion,
+# CHAMPION.md) additionally carries dG_r2scan_kcal (its own true label) and
+# dG_b973c_kcal. Tried in order, first match wins; a `known_pairs` table
+# missing all candidates for a field just leaves it None (honest, not a
+# silent KeyError) -- this module must work against either table generation
+# without the caller needing to know which one they passed.
+LABEL_COL_CANDIDATES = ["dG_r2scan_kcal", "dG_orca_kcal", "dG_orca_kcal_stored"]
+SPLIT_COL_CANDIDATES = ["new_scaffold_split", "scaffold_split", "_split"]
+BASELINE_COLS = {"baseline_gxtb_kcal": ["dG_gxtb_kcal"],
+                  "baseline_b973c_kcal": ["dG_b973c_kcal"]}
+
+
+def _first_present(row: dict, candidates: list[str]) -> tuple[str | None, object]:
+    for c in candidates:
+        if c in row and row[c] is not None and not (isinstance(row[c], float) and pd.isna(row[c])):
+            return c, row[c]
+    return None, None
 
 
 @lru_cache(maxsize=1)
@@ -215,8 +243,22 @@ class FlyingDataset:
         # the full DFT/xTB pipeline (see class docstring).
         pos = self._known_by_pair.get((donor_idx, acceptor_idx)) if self._known_by_pair else None
         result["computed_full"] = pos is not None
+        result["label"] = None
+        result["label_col"] = None
+        result["split"] = None
+        result["baseline_gxtb_kcal"] = None
+        result["baseline_b973c_kcal"] = None
         if pos is not None:
-            result["known_row"] = self._known.iloc[pos].to_dict()
+            row = self._known.iloc[pos].to_dict()
+            result["known_row"] = row
+            # step 4: label + split + baselines, first-class (not buried in
+            # known_row) -- see LABEL_COL_CANDIDATES/SPLIT_COL_CANDIDATES above
+            # for why this can't be one fixed column name across table
+            # generations.
+            result["label_col"], result["label"] = _first_present(row, LABEL_COL_CANDIDATES)
+            _, result["split"] = _first_present(row, SPLIT_COL_CANDIDATES)
+            for out_key, cands in BASELINE_COLS.items():
+                _, result[out_key] = _first_present(row, cands)
         return result
 
     def iter_pairs(self, donor_idx=None, acceptor_idx=None):

@@ -553,10 +553,13 @@ model the NHC catalyst, the kinetic barriers, or the enantioselectivity.
   real accuracy cost; reframes "redesign the descriptors" as a compute-cost
   question, not feature selection.
 
-**Still open, unchanged in substance:**
-2. **Flying dataset build** (§2.11) — 🔄 **step 4 next**: wire labels/split/
-   baselines into the read API. Prerequisite for redone cross AL and for
-   Goal-3 screening.
+**Still open:**
+2. **Flying dataset build** (§2.11) — 🔄 steps 1-4 done (as of 2026-09-15:
+   `pair()` now returns `label`/`split`/`baseline_gxtb_kcal`/`baseline_b973c_kcal`,
+   verified against both the g-xTB and b973c champion tables — see
+   CHEMICAL_SPACE.md §8). **Step 5 next**: migrate the 35,528 labels, retire
+   `candidates_v3` (move, don't delete). Prerequisite for redone cross AL and
+   for Goal-3 screening.
 3. **Rec-2 unification** 🟡 — once homo labels land (~09-17/18): unified table
    → retrain → does −0.11 survive at 257-feat + b973c baseline + GNN? (Note:
    the b973c breakthrough changes the baseline this experiment retrains

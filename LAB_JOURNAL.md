@@ -475,9 +475,30 @@ re-verified in-process (load 4-seed champion -> predict -> attach
 calibration columns -> motif flags) on 20 real holdout rows before treating
 this as done, not just "imports cleanly."
 
+**Same day, continued: flying dataset build order step 4.** With homo SP the
+only thing left waiting on compute (~2.3d), picked up the queued design task
+(PROJECT_PLAN §6 item 2). `FlyingDataset.pair()` now returns first-class
+`label` / `label_col` / `split` / `baseline_gxtb_kcal` / `baseline_b973c_kcal`
+for the cache-hit tier (honest `None` for any address not in `known_pairs`).
+The real design question was column-name resolution: the g-xTB-era champion
+table's label is `dG_orca_kcal` and it has no `dG_b973c_kcal` column at all,
+while the current champion (the b973c Tier B table) uses `dG_r2scan_kcal` as
+its true label and carries both baselines -- one fixed column name would
+silently break on whichever table wasn't tested. `LABEL_COL_CANDIDATES`/
+`SPLIT_COL_CANDIDATES`/`BASELINE_COLS` try a name list in order per field,
+so the module works unmodified against either table generation. Extended
+`verify_chemical_space_pair.py` with a `step4` tier (resolved independently
+in the test, not just re-calling the module's own logic -- an order bug
+would otherwise self-confirm) and a `--table` flag, then ran it against
+*both* tables (not just the default): 20/20 pairs, 80/80 step4 fields exact
+on each run, `label_col` correctly reported `dG_orca_kcal` on one table and
+`dG_r2scan_kcal` on the other. That cross-table run is what actually
+exercises the resolution logic -- testing only the default table would have
+missed a same-column-name-on-both-tables bug entirely.
+
 --- Snapshot (2026-09-15): homo SP the only compute in flight, ETA ~09-17/18,
-nothing else to do but wait + monitor. Cross-benzoin thread has no known
-open gaps right now -- both champion baselines (g-xTB, b973c) are deployed,
-calibrated, and doc-consistent with what the code actually runs. Next design
-step unchanged: flying dataset build order step 4 (labels/split/baselines
-into the read API), or wait for homo SP to inform Rec-2 unification. ---
+nothing else to do there but wait + monitor. Cross-benzoin deployment thread
+has no known open gaps -- both champion baselines (g-xTB, b973c) deployed,
+calibrated, doc-consistent with the code. Flying dataset build order now at
+step 4/6 done; step 5 (migrate the 35,528 labels, retire candidates_v3) is
+next, or wait for homo SP to inform Rec-2 unification. ---

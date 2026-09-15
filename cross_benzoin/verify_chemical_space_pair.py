@@ -1,18 +1,31 @@
 #!/usr/bin/env python
-"""Flying-dataset build order, step 3 verification (CHEMICAL_SPACE.md sec8,
-"Do not skip the verification in step 3"): check that `FlyingDataset.pair(i, j)`'s
-lazily-computed columns reproduce the corresponding columns of the current
-champion training table, for ~20 known pairs, at machine precision.
+"""Flying-dataset build order, step 3 + step 4 verification (CHEMICAL_SPACE.md
+sec8, "Do not skip the verification in step 3"): check that
+`FlyingDataset.pair(i, j)`'s lazily-computed columns reproduce the
+corresponding columns of a champion training table, for ~20 known pairs, at
+machine precision (step 3), and that its label/split/baseline_* fields
+(step 4, added 2026-09-15) match that same table's own columns exactly.
 
 Scope note (see chemical_space.py's module docstring): only the *lazy* tier
 (donor/acceptor QM + BDE, all three RDKit-2D blocks, interaction_* terms,
-product SMILES) is checked here -- that is what build-order step 3 covers.
-Product QM / product mordred / baselines are the cache-hit tier, which by
+product SMILES) is checked as a drift check -- that is what build-order step 3
+covers. Product QM / product mordred are the cache-hit tier, which by
 construction match (they ARE the champion table's row) and aren't a
-meaningful drift check.
+meaningful drift check. label/split/baseline_* (step 4) ARE checked here even
+though they're also cache-hit, because they go through the module's own
+LABEL_COL_CANDIDATES/SPLIT_COL_CANDIDATES name-resolution logic -- a real
+place for a bug (e.g. silently picking the wrong column) that a "match the
+source table" check catches.
+
+--table defaults to the deployed g-xTB champion table (260-feat,
+dG_orca_kcal); pass the b973c Tier B table (257-feat, dG_r2scan_kcal +
+dG_b973c_kcal, CHAMPION.md's current champion) to verify the column-name
+resolution logic picks the right names on the *other* table generation too --
+that's the actual point of step 4's multi-table support, so both must be run,
+not just the default.
 
 Usage
-    python cross_benzoin/verify_chemical_space_pair.py [--n 20] [--seed 0]
+    python cross_benzoin/verify_chemical_space_pair.py [--n 20] [--seed 0] [--table PATH]
 """
 from __future__ import annotations
 
@@ -25,7 +38,7 @@ import pandas as pd
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from chemical_space import FlyingDataset  # noqa: E402
+from chemical_space import FlyingDataset, LABEL_COL_CANDIDATES, SPLIT_COL_CANDIDATES, BASELINE_COLS  # noqa: E402
 
 CHAMPION_TABLE = REPO / "data/cross_benzoin/cross_round10/cross_train_table_10rounds_scaffold_split_labeled_slim260.parquet"
 
@@ -72,9 +85,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--table", default=str(CHAMPION_TABLE), type=Path,
+                    help="known_pairs table to verify against -- default is the "
+                         "g-xTB champion table; pass the b973c Tier B table to "
+                         "verify step 4's column-name resolution on that schema too")
     args = ap.parse_args()
 
-    champ = pd.read_parquet(CHAMPION_TABLE)
+    champ = pd.read_parquet(args.table)
     sample = champ.sample(n=args.n, random_state=args.seed).reset_index(drop=True)
     print(f"champion table: {len(champ)} rows x {len(champ.columns)} cols; verifying {len(sample)} sampled pairs")
 
@@ -135,13 +152,32 @@ def main() -> int:
         prod_ok = result["product_smiles"] is not None
         pair_ok = pair_ok and prod_ok
 
+        # step 4: label + split + baselines resolved independently here (not
+        # by re-calling the module's own _first_present) against the same
+        # candidate lists, so a resolution-order bug in chemical_space.py
+        # would actually be caught, not just self-consistency-checked.
+        step4_ok = True
+        for out_key, cands in [("label", LABEL_COL_CANDIDATES), ("split", SPLIT_COL_CANDIDATES),
+                                *BASELINE_COLS.items()]:
+            expected = next((row[c] for c in cands if c in row.index and pd.notna(row[c])), None)
+            got = result[out_key]
+            ok, detail = close(got, expected, "step4") if isinstance(expected, (int, float)) else (got == expected, "eq")
+            tier_totals["step4"] = tier_totals.get("step4", 0) + 1
+            tier_ok["step4"] = tier_ok.get("step4", 0) + int(ok)
+            if not ok:
+                step4_ok = False
+                if len(mismatches_seen) < 15:
+                    mismatches_seen.append(f"[step4] {row['pair_key']}.{out_key}: mine={got!r} expected={expected!r} ({detail})")
+        pair_ok = pair_ok and step4_ok
+
         n_pairs_ok += int(pair_ok)
         status = "OK" if pair_ok else "MISMATCH"
         print(f"  {status} pair_key={row['pair_key']} addr={my_addr} "
-              f"fields_checked={len(checked_groups)} product_smiles={'ok' if prod_ok else 'MISSING'}")
+              f"fields_checked={len(checked_groups)} product_smiles={'ok' if prod_ok else 'MISSING'} "
+              f"step4={'ok' if step4_ok else 'MISMATCH'} (label_col={result['label_col']})")
 
-    print(f"\n{n_pairs_ok}/{len(sample)} pairs OK (rdkit2d + interaction tiers exact-matched; qm/smiles informational).")
-    for tier in ("rdkit2d", "interaction", "qm", "smiles"):
+    print(f"\n{n_pairs_ok}/{len(sample)} pairs OK (rdkit2d + interaction + step4 tiers exact-matched; qm/smiles informational).")
+    for tier in ("rdkit2d", "interaction", "step4", "qm", "smiles"):
         if tier in tier_totals:
             print(f"  tier={tier:11s} {tier_ok.get(tier,0)}/{tier_totals[tier]} matched")
     if mismatches_seen:
@@ -150,7 +186,8 @@ def main() -> int:
             print(f"  {m}")
 
     hard_fail = tier_ok.get("rdkit2d", 0) != tier_totals.get("rdkit2d", 0) or \
-        tier_ok.get("interaction", 0) != tier_totals.get("interaction", 0)
+        tier_ok.get("interaction", 0) != tier_totals.get("interaction", 0) or \
+        tier_ok.get("step4", 0) != tier_totals.get("step4", 0)
     return 1 if hard_fail or n_pairs_ok < len(sample) else 0
 
 

@@ -314,7 +314,23 @@ predict_dg.py 自己打印的摘要里都写清楚，避免调用者把 b973c �
 冠军 → 预测 → 接 calibration 列 → 官能团标记）在 20 行真实 holdout 数据上原地重新
 跑过一遍，不只是"能 import 就行"。
 
+**同一天，接着做：flying dataset 构建顺序第 4 步。** homo SP 是唯一还在等计算的战役
+（~2.3 天），于是接手了排队的设计任务（PROJECT_PLAN §6 第 2 项）。`FlyingDataset.pair()`
+现在直接返回 cache-hit tier 的 `label` / `label_col` / `split` /
+`baseline_gxtb_kcal` / `baseline_b973c_kcal`（不在 `known_pairs` 里的地址老实返回
+`None`）。真正的设计问题是列名解析：g-xTB 时代冠军表的标签叫 `dG_orca_kcal`，根本没有
+`dG_b973c_kcal` 列；现在的冠军——b973c Tier B 表——真实标签是 `dG_r2scan_kcal`，两个基线
+都有。固定一个列名会在没测过的那张表上悄悄失效。`LABEL_COL_CANDIDATES`/
+`SPLIT_COL_CANDIDATES`/`BASELINE_COLS` 给每个字段按顺序试一串候选名，模块不改代码就能
+对两代表都用。给 `verify_chemical_space_pair.py` 加了 `step4` 层（在测试里独立解析，
+不是重新调用模块自己的逻辑——不然解析顺序的 bug 会自我印证）和 `--table` 参数，然后
+对**两张表都跑了**（不只是默认那张）：每张表 20/20 对通过，80/80 个 step4 字段精确
+匹配，`label_col` 在一张表上正确报 `dG_orca_kcal`、在另一张上正确报 `dG_r2scan_kcal`。
+正是这个跨表验证才真正测到了解析逻辑——只测默认表的话，"两张表用同一个列名"这类 bug
+根本测不出来。
+
 --- 快照（2026-09-15）：homo SP 是唯一在跑的计算，ETA ~09-17/18，除了等待和监控没有
-别的事。cross-benzoin 这条线目前没有已知缺口——两个冠军基线（g-xTB、b973c）都已部署、
-已校准，文档与代码实际运行的东西一致。下一个设计步骤不变：flying dataset 构建顺序
-第 4 步（把标签/切分/基线接入读取 API），或者等 homo SP 出来为 Rec-2 统一提供输入。 ---
+别的事。cross-benzoin 部署这条线目前没有已知缺口——两个冠军基线（g-xTB、b973c）都已
+部署、已校准，文档与代码实际运行的东西一致。flying dataset 构建顺序现在到第 4/6 步
+完成；第 5 步（迁移 35,528 条标签，retire candidates_v3）是下一步，或者等 homo SP
+出来为 Rec-2 统一提供输入。 ---

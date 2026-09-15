@@ -1,7 +1,8 @@
 # 化学空间 & Flying Dataset —— 规范
 
-> 状态：**规范 2026-09-10 写完；构建顺序第 1-3 步 2026-09-11 完成**（`aldehyde_index.parquet`
-> 已冻结 + `chemical_space.py` 的 `pair(i,j)` 特征路径已写并校验，见 §8）。2026-09-10
+> 状态：**规范 2026-09-10 写完；构建顺序第 1-4 步 2026-09-15 完成**（`aldehyde_index.parquet`
+> 已冻结 + `chemical_space.py` 的 `pair(i,j)` 特征路径已写并校验 + label/split/基线已接入
+> 读取 API，见 §8）。2026-09-10
 > 按用户要求写（"cross 的建库之前根本不对，真正的
 > 化学空间应该是 220k 的平方 … 需要知道 flying dataset，方便以后读取以及模拟、预测"）。
 > 见 `PROJECT_PLAN_ZH.md` §2.11。English: `CHEMICAL_SPACE.md`（保持同步）。
@@ -183,7 +184,15 @@ round10 表，5 个种子）：
    不是 bug。路上还抓到并修了校验脚本自己的一个真 bug：靠搜索匹配 `pair_key` 来
    反推 (donor,acceptor) 地址，在某个 `pair_key` 同时对应两种角色顺序时会静默取
    错行；改成直接用每一行自己的 donor/acceptor SMILES 解析地址。
-4. 加标签 + split + 基线。
+4. ✅ **2026-09-15 完成。** `FlyingDataset.pair()` 现在直接返回
+   `label` / `label_col` / `split` / `baseline_gxtb_kcal` / `baseline_b973c_kcal`
+   （cache-hit tier，`computed_full=False` 时为 `None`），通过
+   `LABEL_COL_CANDIDATES`/`SPLIT_COL_CANDIDATES`/`BASELINE_COLS` 解析，让这个模块
+   不改代码就能对两代表都能用：g-xTB 时代的表（`dG_orca_kcal`，没有
+   `dG_b973c_kcal`）和现在的冠军表——b973c Tier B 表（真实标签是
+   `dG_r2scan_kcal`，外加两个基线都有）。校验（`verify_chemical_space_pair.py`
+   加了 `step4` 层 + `--table` 参数）：两张表各跑 20/20 对通过，每次 80/80 个
+   step4 字段精确匹配——确认列名解析对每张表都挑对了名字，不只是自洽。
 5. 迁移 35,528 个标签；退役 `candidates_v3`（移走，不删）。
 6. 之后才：把重做的 AL / 筛选指向它。
 
