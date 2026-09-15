@@ -308,7 +308,7 @@ Goal 3 工具已交付。**项目正在按用户 2026-09-10 的输入重新奠�
   （见 2.9）。这是本项目迄今拉动过的最大单项杠杆。
 - **缺。** 这个杠杆上无活跃项。（下面的历史估计方向对、幅度错——真实收益更大。）
 
-### 2.11 化学空间定义与 "flying dataset" —— 🔄 构建中（用户，2026-09-10）
+### 2.11 化学空间定义与 "flying dataset" —— ✅ 第 1-5 步完成，只剩第 6 步（用户，2026-09-10）
 - **原理。** 一个筛选模型只有它筛的空间有意义才有意义。用户两个修正：
   1. **homo 空间** = 220,859 个 v6 醛的自配对。有些设计上算不出来（§1.2）—— 那是记录
      在案的结果，不是缺口。
@@ -330,16 +330,33 @@ Goal 3 工具已交付。**项目正在按用户 2026-09-10 的输入重新奠�
   - **交付物**：一份规范文档 + 一个薄读取 API（`pair(i, j) -> {smiles, features,
     baseline, split}`），让未来任何步骤（模拟、标注、预测、AL 采集）统一读这个空间，
     不用一张巨表。split 分配（骨架不相交）由两个醛的 scaffold 现算。
-- **状态。** `CHEMICAL_SPACE_ZH.md`（规范，§8 构建顺序）2026-09-10 写完。构建顺序
-  第 1-3 步 2026-09-11 完成：索引冻结；`aldehydes_all.csv` 核实已 `ald_idx` key；
-  `chemical_space.py` 的 `pair(i,j)` 写完并对 20 个已知对校验通过（确定性的
-  RDKit-2D/interaction/product_smiles 逐位精确匹配，QM 在已知的重算噪声带内）。
-  **实现中修正了 spec 的一个乐观假设**：260 特征里只有 donor/acceptor 局部 QM +
-  三个 RDKit-2D 块 + interaction 项真是惰性的；`product_*` QM 和 `product_mordred_*`
-  其实都要走 DFT/xTB（产物自己的优化几何），跟 baseline/label 一样不是惰性的——细节
-  见 `CHEMICAL_SPACE_ZH.md` §5/§8。
-- **缺。** 第 4-6 步：把标签/split/基线接进读取 API；迁移现有 35,528 个标签；
-  `candidates_v3` 退役。（详见 `CHEMICAL_SPACE_ZH.md`。）
+- **状态。** ✅ 第 1-5 步完成，只剩第 6 步（重做 AL/筛选）。`CHEMICAL_SPACE_ZH.md`
+  （规范，§8 构建顺序）2026-09-10 写完。第 1-3 步 2026-09-11 完成：索引冻结；
+  `aldehydes_all.csv` 核实已 `ald_idx` key；`chemical_space.py` 的 `pair(i,j)`
+  写完并对 20 个已知对校验通过（确定性的 RDKit-2D/interaction/product_smiles
+  逐位精确匹配，QM 在已知的重算噪声带内）。**实现中修正了 spec 的一个乐观假设**：
+  260 特征里只有 donor/acceptor 局部 QM + 三个 RDKit-2D 块 + interaction 项真是
+  惰性的；`product_*` QM 和 `product_mordred_*` 其实都要走 DFT/xTB（产物自己的
+  优化几何），跟 baseline/label 一样不是惰性的——细节见 `CHEMICAL_SPACE_ZH.md` §5/§8。
+  第 4 步 2026-09-15 完成：`pair()` 现在直接返回
+  `label`/`label_col`/`split`/`baseline_gxtb_kcal`/`baseline_b973c_kcal`，对
+  g-xTB 和 b973c 两代冠军表都验证过列名解析正确。第 5 步 2026-09-15 完成
+  （用户："宽做"）：35,136 条已用标签迁移进一张 `ald_idx` 直接寻址的标准表
+  （`data/chemical_space/labeled_pairs.parquet`，`build_labeled_pairs.py`，
+  InChIKey 关联 100% 解析、0 个地址冲突，`FlyingDataset` 加了一条精确、无需
+  SMILES 往返的快速查找路径）；`candidates_v3` 已退役——目录里唯一还活着的、
+  有实质内容的资产（v6 醛的 scaffold 归类文件）挪到了 `data/library/`（它本来
+  就该在那，放在 candidates_v3 底下正是用户 2026-09-15 指出的那个容易搞混的地方）；
+  其余全部（README、manifest、QA xlsx、representativeness_check/，加上两个早就
+  不是有效 gzip 的 .csv.gz——2026-07 purge 遗留的、这次搬迁之前就已经丢失的东西，
+  没有被这次操作影响）归档到 `data/cross_benzoin/_archive/candidates_v3/`（见其
+  `RETIRED.md`）；13 个引用过 candidates_v3 路径的脚本都更新了路径，一次性 AL
+  轮次采样脚本加了退役说明。确认了当前实际部署的重训链路
+  （`train_scaffold_disjoint.py`）从来不在运行时读 candidates_v3 路径，只从
+  `train_cross_delta.py` 导入两个常量——搬迁前后都做了 import 测试 + 完整重跑
+  第 3/4/5 步校验来确认没有破坏任何东西。
+- **缺。** 只剩第 6 步：把重做的 cross AL / Goal-3 筛选接到现在已完整的 flying
+  dataset 上——这个依赖 §2.7 的采集策略重新设计，不是 flying dataset 本身还欠什么。
 
 ---
 
@@ -414,13 +431,14 @@ Goal 3 工具已交付。**项目正在按用户 2026-09-10 的输入重新奠�
   比完整 260-feat schema 代价 +1.00 kcal MAE（2.544→3.548）——真实、有统计力——所以
   flying dataset 不可能做到完全 lazy 而不付精度代价；把"重新设计描述符"从特征选择问题
   改框成计算成本问题。
+- ~~Flying dataset 第 4-5 步~~ → 2026-09-15 完成：`pair()` 返回
+  `label`/`split`/两个基线（对两代冠军表都验证过）；35,136 条已用标签迁移进标准
+  `ald_idx` 寻址表；`candidates_v3` 退役（用户："宽做"）——见 CHEMICAL_SPACE.md §8。
 
 **仍然待办：**
-2. **Flying dataset 构建**（§2.11）—— 🔄 第 1-4 步已完成（截至 2026-09-15：
-   `pair()` 现在直接返回 `label`/`split`/`baseline_gxtb_kcal`/`baseline_b973c_kcal`，
-   已对 g-xTB 和 b973c 两张冠军表都验证过——见 CHEMICAL_SPACE.md §8）。
-   **下一步：第 5 步**，迁移 35,528 条标签，retire `candidates_v3`（移走，不删）。
-   重做 cross AL 和 Goal-3 筛选的前提。
+2. **Flying dataset，只剩第 6 步**（§2.11）—— 把重做的 cross AL / Goal-3 筛选接到
+   现在已完整的数据集上。依赖第 5 项的采集策略重新设计，不是 flying dataset 本身
+   还欠什么。
 3. **Rec-2 统一** 🟡 —— homo 标签落地后（~09-17/18）：统一表 → 重训 → −0.11 在
    257-feat + b973c 基线 + GNN 下存活吗？（注意：b973c 突破改变了这个实验重训所对照的
    基线——在假设 −0.11 仍适用前，先在新的、低得多的 MAE 地板上重新推导它是否还成立。）

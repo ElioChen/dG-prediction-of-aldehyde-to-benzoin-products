@@ -7,7 +7,7 @@ re-derived, never an enumerate() over a filtered view -- CHEMICAL_SPACE.md sec3)
 
 Reuses rather than recomputes: the Bemis-Murcko scaffold + scaffold_split label already
 computed for this exact library in
-`data/cross_benzoin/candidates_v3/aldehydes_with_scaffold_split.parquet` (built by
+`data/library/aldehydes_with_scaffold_split.parquet` (built by
 cross-benzoin's round-7 scaffold-disjoint rebuild, itself reused by
 `pipeline/bde/build_scaffold_splits.py` for the BDE project's aldehyde half). Verified
 below that its `id` column is positionally == ald_idx (exact raw-SMILES match, checked
@@ -43,7 +43,7 @@ RDLogger.DisableLog("rdApp.*")
 
 REPO = Path(__file__).resolve().parent.parent
 BASE_CSV = REPO / "data/library/aldehydes_clean_v6.csv"
-SCAFFOLD_PARQUET = REPO / "data/cross_benzoin/candidates_v3/aldehydes_with_scaffold_split.parquet"
+SCAFFOLD_PARQUET = REPO / "data/library/aldehydes_with_scaffold_split.parquet"
 OUT = REPO / "data/chemical_space/aldehyde_index.parquet"
 
 

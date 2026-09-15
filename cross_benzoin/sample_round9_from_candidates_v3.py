@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 """
+RETIRED 2026-09-15: candidates_v3 was an arbitrary constructed subset
+of the cross space (see data/cross_benzoin/_archive/candidates_v3/RETIRED.md),
+replaced by cross_benzoin/chemical_space.py FlyingDataset addressing the real
+220,859^2 space directly. Rounds 1-10 (what this script produced) are done;
+cross AL is PARKED (PROJECT_PLAN.md sec2.7) pending a redo over the flying
+dataset. Kept for history / reproducibility, not part of any active pipeline --
+most of its input files did not survive the 2026-07 purge (see RETIRED.md).
+
 Round 9 candidate SELECTION — extends sample_round8_from_candidates_v3.py's
 category-balanced pattern with two changes, both explicitly recommended in
 the 2026-07-20 scale-up plan (cross_benzoin/docs/REPORT_session_recovery_and_
@@ -38,8 +46,8 @@ from pathlib import Path
 import pandas as pd
 
 REPO = Path(__file__).resolve().parent.parent
-LOOKUP = REPO / "data/cross_benzoin/candidates_v3/candidates_v3_pairs_with_scaffold_split.parquet"
-ALDEHYDES = REPO / "data/cross_benzoin/candidates_v3/aldehydes_with_scaffold_split.parquet"
+LOOKUP = REPO / "data/cross_benzoin/_archive/candidates_v3/candidates_v3_pairs_with_scaffold_split.parquet"
+ALDEHYDES = REPO / "data/library/aldehydes_with_scaffold_split.parquet"
 
 OUTPUT_FIELDS = [
     "donor_id", "acceptor_id", "donor_smiles", "acceptor_smiles",

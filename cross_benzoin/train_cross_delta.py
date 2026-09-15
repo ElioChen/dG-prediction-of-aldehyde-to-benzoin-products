@@ -52,10 +52,18 @@ BASELINE_COL = os.environ.get("CB_BASELINE_COL", "dG_gxtb_kcal")
 TARGET_COL = os.environ.get("CB_TARGET_COL", "dG_orca_kcal")
 # Molecule-disjoint train/val/test split (SHA256(InChIKey)-based, 80/10/10,
 # both aldehydes of a pair always in the same split) from the real 2M/4M
-# candidate release codex built on GitHub -- pulled via git-lfs. Using it
-# gives a genuine frozen held-out test set, satisfying NEXT_STEPS.md Phase 4's
-# promotion-gate requirement, instead of only repeated pair-grouped CV.
-SPLIT_MAP = REPO / "data/cross_benzoin/candidates_v3/inchikey_split_map.parquet"
+# candidate release codex built on GitHub -- pulled via git-lfs. LEGACY as of
+# 2026-09-15: this whole candidates_v3-based split was superseded by the
+# scaffold-disjoint split (train_scaffold_disjoint.py, uses the training
+# table's own new_scaffold_split column) once molecule-level splits were
+# found to leak scaffolds -- see rebuild_scaffold_disjoint_split.py and
+# data/cross_benzoin/_archive/candidates_v3/RETIRED.md. Not part of the
+# current champion retrain chain (DRAIN_RUNBOOK.md); this module's own
+# frozen_holdout_eval() (the only reader of SPLIT_MAP) is kept for
+# historical comparison only. The file itself did not survive the 2026-07
+# purge and was never restored -- pair_split_labels()/frozen_holdout_eval()
+# are unrunnable today regardless of this path.
+SPLIT_MAP = REPO / "data/cross_benzoin/_archive/candidates_v3/inchikey_split_map.parquet"
 
 
 def _feature_blocks(cols: list[str]) -> dict[str, list[str]]:

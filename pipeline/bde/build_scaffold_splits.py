@@ -5,7 +5,7 @@ coordinated with the neighboring cross-benzoin conversation's own scaffold-disjo
 to avoid duplicating work -- per the user's explicit instruction to coordinate.
 
 Aldehyde side: DIRECTLY REUSES cross-benzoin's own scaffold assignment
-(data/cross_benzoin/candidates_v3/aldehydes_with_scaffold_split.parquet) rather than
+(data/library/aldehydes_with_scaffold_split.parquet) rather than
 recomputing it -- confirmed 100% canonical-SMILES match coverage (220,524/220,524) against
 BDE's own aldehyde library, since both projects draw from the identical 220,859-aldehyde
 homo_v6 library. Zero duplicated work for this half.
@@ -79,8 +79,8 @@ def main() -> int:
     ald_path = args.out_dir / "aldehydes_scaffold_split_from_dG.parquet"
     if not ald_path.exists():
         print(f"WARNING: {ald_path} not found -- run the reuse-mapping step first "
-              "(match BDE aldehydes_all.csv against cross_benzoin's "
-              "candidates_v3/aldehydes_with_scaffold_split.parquet by canonical SMILES)")
+              "(match BDE aldehydes_all.csv against "
+              "data/library/aldehydes_with_scaffold_split.parquet by canonical SMILES)")
         return 1
     ald = pd.read_parquet(ald_path)
     print(f"aldehydes: reusing cross-benzoin's scaffold split ({len(ald)} rows) -- "

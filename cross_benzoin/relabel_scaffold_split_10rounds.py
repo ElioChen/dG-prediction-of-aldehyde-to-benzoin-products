@@ -10,7 +10,7 @@ scaffold_split; otherwise "mixed" (excluded from both train and test).
 import pandas as pd
 from rdkit import Chem
 
-ald = pd.read_parquet("data/cross_benzoin/candidates_v3/aldehydes_with_scaffold_split.parquet")
+ald = pd.read_parquet("data/library/aldehydes_with_scaffold_split.parquet")
 pairs = pd.read_parquet("data/cross_benzoin/cross_round10/cross_train_table_10rounds_mordred.parquet")
 print("pairs shape:", pairs.shape)
 

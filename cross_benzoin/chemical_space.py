@@ -42,7 +42,13 @@ train on.
 
 Usage
     from chemical_space import FlyingDataset
-    space = FlyingDataset(known_pairs=champion_table)  # optional, see step 4 below
+    import pandas as pd
+    # recommended (step 5): the canonical, ald_idx-addressed label table --
+    # build/refresh with cross_benzoin/build_labeled_pairs.py
+    known = pd.read_parquet("data/chemical_space/labeled_pairs.parquet")
+    space = FlyingDataset(known_pairs=known)  # optional; a raw champion
+                                               # training table also still
+                                               # works, see __init__ docstring
     p = space.pair(0, 3)
     p["lazy_features"]      # dict of the always-available columns
     p["product_smiles"]     # str | None
@@ -108,10 +114,13 @@ _SHORT_CHO = {"aliphatic": "aliph", "aromatic_carbo": "carbo", "aromatic_hetero"
 # missing all candidates for a field just leaves it None (honest, not a
 # silent KeyError) -- this module must work against either table generation
 # without the caller needing to know which one they passed.
-LABEL_COL_CANDIDATES = ["dG_r2scan_kcal", "dG_orca_kcal", "dG_orca_kcal_stored"]
-SPLIT_COL_CANDIDATES = ["new_scaffold_split", "scaffold_split", "_split"]
-BASELINE_COLS = {"baseline_gxtb_kcal": ["dG_gxtb_kcal"],
-                  "baseline_b973c_kcal": ["dG_b973c_kcal"]}
+# "label"/"split" first: labeled_pairs.parquet (build_labeled_pairs.py, step 5)
+# already carries these as its own column names, pre-resolved at build time --
+# no need to re-guess when the canonical source is used.
+LABEL_COL_CANDIDATES = ["label", "dG_r2scan_kcal", "dG_orca_kcal", "dG_orca_kcal_stored"]
+SPLIT_COL_CANDIDATES = ["split", "new_scaffold_split", "scaffold_split", "_split"]
+BASELINE_COLS = {"baseline_gxtb_kcal": ["baseline_gxtb_kcal", "dG_gxtb_kcal"],
+                  "baseline_b973c_kcal": ["baseline_b973c_kcal", "dG_b973c_kcal"]}
 
 
 def _first_present(row: dict, candidates: list[str]) -> tuple[str | None, object]:
@@ -165,10 +174,19 @@ class FlyingDataset:
     require the DFT/xTB featurize pipeline (only present via `known_pairs`)."""
 
     def __init__(self, known_pairs: pd.DataFrame | None = None):
-        """`known_pairs`: optional DataFrame indexed/keyed the same way as the
-        round-N champion training table (must carry donor_smiles/acceptor_smiles
-        so pairs can be located by ald_idx via canonical-SMILES lookup). If not
-        given, `computed_full` is always False -- honest default, not a bug."""
+        """`known_pairs`: optional DataFrame of pairs already run through the
+        full DFT/xTB pipeline. Two addressing modes: if it carries
+        `donor_ald_idx`/`acceptor_ald_idx` columns (step 5's canonical
+        `data/chemical_space/labeled_pairs.parquet`, build_labeled_pairs.py --
+        the recommended source), those are used directly, exact by
+        construction. Otherwise it must carry `donor_smiles`/`acceptor_smiles`
+        (e.g. a round-N champion training table) and pairs are located by
+        ald_idx via canonical-SMILES lookup -- slower and, per the step-3
+        finding, subject to the ~1.24% non-canonical-SMILES drift some older
+        tables carry (see LAB_JOURNAL 2026-09-11), which is exactly why the
+        ald_idx-column path is preferred when available. If `known_pairs`
+        isn't given, `computed_full` is always False -- honest default, not
+        a bug."""
         self._idx = _aldehyde_index()
         self._qm = _aldehyde_qm_cache()
         self._known = known_pairs
@@ -177,6 +195,12 @@ class FlyingDataset:
             self._build_known_lookup()
 
     def _build_known_lookup(self) -> None:
+        if "donor_ald_idx" in self._known.columns and "acceptor_ald_idx" in self._known.columns:
+            lut = {(int(d), int(a)): pos for pos, (d, a) in
+                   enumerate(zip(self._known["donor_ald_idx"], self._known["acceptor_ald_idx"]))}
+            self._known_by_pair = lut
+            return
+
         idx = self._idx
         smi_to_ald_idx = {row.smiles_canonical: i for i, row in idx.iterrows() if row.smiles_canonical}
 

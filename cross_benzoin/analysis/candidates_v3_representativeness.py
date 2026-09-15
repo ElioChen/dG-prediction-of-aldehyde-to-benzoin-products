@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 """
+RETIRED 2026-09-15: candidates_v3 was an arbitrary constructed subset
+of the cross space (see data/cross_benzoin/_archive/candidates_v3/RETIRED.md),
+replaced by cross_benzoin/chemical_space.py FlyingDataset addressing the real
+220,859^2 space directly. Rounds 1-10 (what this script produced) are done;
+cross AL is PARKED (PROJECT_PLAN.md sec2.7) pending a redo over the flying
+dataset. Kept for history / reproducibility, not part of any active pipeline --
+most of its input files did not survive the 2026-07 purge (see RETIRED.md).
+
 Is candidates_v3's 2M-pair sample representative of the FULL combinatorial
 space (C(220859,2) ~= 24.4B pairs) it was drawn from? Never checked before.
 
@@ -35,8 +43,8 @@ RDLogger.DisableLog("rdApp.*")
 
 REPO = Path(__file__).resolve().parent.parent.parent
 ALD_LIB = REPO / "data/library/aldehydes_clean_v6.csv"
-CANDIDATES_ALD = REPO / "data/cross_benzoin/candidates_v3/cross_benzoin_aldehydes_v3.csv.gz"
-CANDIDATES_PAIRS = REPO / "data/cross_benzoin/candidates_v3/cross_benzoin_dG_candidates_v3.csv.gz"
+CANDIDATES_ALD = REPO / "data/cross_benzoin/_archive/candidates_v3/cross_benzoin_aldehydes_v3.csv.gz"
+CANDIDATES_PAIRS = REPO / "data/cross_benzoin/_archive/candidates_v3/cross_benzoin_dG_candidates_v3.csv.gz"
 
 
 def scaffold(smiles: str) -> str | None:

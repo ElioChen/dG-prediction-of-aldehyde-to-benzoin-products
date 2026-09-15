@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 """
+RETIRED 2026-09-15: candidates_v3 was an arbitrary constructed subset
+of the cross space (see data/cross_benzoin/_archive/candidates_v3/RETIRED.md),
+replaced by cross_benzoin/chemical_space.py FlyingDataset addressing the real
+220,859^2 space directly. Rounds 1-10 (what this script produced) are done;
+cross AL is PARKED (PROJECT_PLAN.md sec2.7) pending a redo over the flying
+dataset. Kept for history / reproducibility, not part of any active pipeline --
+most of its input files did not survive the 2026-07 purge (see RETIRED.md).
+
 Generalized version of sample_round3_from_candidates_v3.py — samples
 directly from candidates_v3's own train-split pairs, excluding any pairs
 already used by ANY number of prior rounds/pools (pass their products.csv
@@ -41,8 +49,8 @@ from collections import Counter
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CANDIDATES = REPO / "data/cross_benzoin/candidates_v3/cross_benzoin_dG_candidates_v3.csv.gz"
-MANIFEST = REPO / "data/cross_benzoin/candidates_v3/manifest.json"
+CANDIDATES = REPO / "data/cross_benzoin/_archive/candidates_v3/cross_benzoin_dG_candidates_v3.csv.gz"
+MANIFEST = REPO / "data/cross_benzoin/_archive/candidates_v3/manifest.json"
 
 OUTPUT_FIELDS = [
     "donor_id", "acceptor_id", "donor_smiles", "acceptor_smiles",

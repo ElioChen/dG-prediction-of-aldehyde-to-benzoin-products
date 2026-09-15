@@ -11,7 +11,7 @@ Method: take the SAME 450-row cross-only scaffold-disjoint test set used by
 train_scaffold_disjoint.py (never touched, single-XGB reference MAE=2.448).
 Build a clean-train pool = cross rows with new_scaffold_split=='train'
 (19,687) UNION homo rows whose donor aldehyde's OWN scaffold_split (from
-candidates_v3's aldehydes_with_scaffold_split.parquet, homo pairs have
+data/library/aldehydes_with_scaffold_split.parquet (moved 2026-09-15 from candidates_v3/), homo pairs have
 donor==acceptor so a single molecule determines the whole pair) is 'train'
 (never 'test'/'validation', to keep the eval set genuinely untouched by any
 homo leak). Fit the champion's exact 260-feature single-XGB on the unified

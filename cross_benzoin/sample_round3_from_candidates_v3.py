@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 """
+RETIRED 2026-09-15: candidates_v3 was an arbitrary constructed subset
+of the cross space (see data/cross_benzoin/_archive/candidates_v3/RETIRED.md),
+replaced by cross_benzoin/chemical_space.py FlyingDataset addressing the real
+220,859^2 space directly. Rounds 1-10 (what this script produced) are done;
+cross AL is PARKED (PROJECT_PLAN.md sec2.7) pending a redo over the flying
+dataset. Kept for history / reproducibility, not part of any active pipeline --
+most of its input files did not survive the 2026-07 purge (see RETIRED.md).
+
 Round 3 candidate sampling — DIRECTLY from candidates_v3's own 4M-row pair
 list, not a fresh custom generator (see [[cross-benzoin-push-20260714]] /
 [[cross-round2-active-learning]]: round 1 and round 2 both lost ~30-33% of
@@ -37,8 +45,8 @@ from collections import Counter
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CANDIDATES = REPO / "data/cross_benzoin/candidates_v3/cross_benzoin_dG_candidates_v3.csv.gz"
-MANIFEST = REPO / "data/cross_benzoin/candidates_v3/manifest.json"
+CANDIDATES = REPO / "data/cross_benzoin/_archive/candidates_v3/cross_benzoin_dG_candidates_v3.csv.gz"
+MANIFEST = REPO / "data/cross_benzoin/_archive/candidates_v3/manifest.json"
 ROUND1_PRODUCTS = REPO / "data/cross_benzoin/cross_pilot_v1/cross_pilot_v1_products.csv"
 ROUND2_PRODUCTS = REPO / "data/cross_benzoin/cross_round2/cross_round2_products.csv"
 

@@ -1,8 +1,10 @@
 # Chemical Space & the Flying Dataset — specification
 
-> Status: **spec written 2026-09-10; build order steps 1-3 done 2026-09-11**
+> Status: **spec written 2026-09-10; build order steps 1-5 done 2026-09-15**
 > (`aldehyde_index.parquet` frozen, `chemical_space.py`'s `pair(i,j)` feature
-> path written + verified, see sec8). Written 2026-09-10 on the user's direction
+> path written + verified, label/split/baseline fields wired in, the 35,136
+> labeled pairs migrated to a canonical ald_idx-addressed table, `candidates_v3`
+> retired, see sec8). Written 2026-09-10 on the user's direction
 > ("cross 的建库之前根本不对，真正的化学空间应该是 220k 的平方 … 需要知道 flying
 > dataset，方便以后读取以及模拟，预测"). See `PROJECT_PLAN.md` §2.11.
 >
@@ -237,7 +239,44 @@ question into a compute-cost question.
    with a `step4` tier + `--table`): 20/20 pairs on both tables, 80/80 step4
    fields exact-matched each run -- confirms the column-name resolution picks
    the right name per table, not just internal self-consistency.
-5. Migrate the 35,528 labels; retire `candidates_v3` (move, don't delete).
+5. ✅ **Done 2026-09-15** (user: "宽做" -- full retirement, not just a path
+   note). Two parts:
+   - **Migrated the labels**: `cross_benzoin/build_labeled_pairs.py` freezes
+     `data/chemical_space/labeled_pairs.parquet` (35,136 pairs,
+     `donor_ald_idx`/`acceptor_ald_idx`-addressed, InChIKey-joined against
+     `aldehyde_index.parquet`, 100% resolved, 0 address collisions), sourced
+     from the current b973c Tier B champion table (superset of the older
+     g-xTB table). `FlyingDataset._build_known_lookup` now has a fast path:
+     a `known_pairs` table carrying `donor_ald_idx`/`acceptor_ald_idx`
+     addresses directly (exact by construction) instead of round-tripping
+     through canonical-SMILES matching (still the fallback for tables that
+     only carry SMILES, e.g. the older champion tables). Verified: 100/100
+     random rows from the new table exact-match on label/split/both
+     baselines via the new lookup path; the old SMILES-based path re-run
+     clean against both champion tables (15/15 pairs, 60/60 step4 fields).
+   - **Retired `candidates_v3`**: the one still-live, substantial asset in
+     that directory (`aldehydes_with_scaffold_split.parquet`, the v6-aldehyde
+     Bemis-Murcko scaffold assignment -- NOT part of the deprecated pair pool,
+     just filed alongside it, which was the exact confusion a user flagged)
+     moved to `data/library/aldehydes_with_scaffold_split.parquet`; its
+     active readers (`build_aldehyde_index.py`,
+     `pipeline/bde/build_scaffold_splits.py`) and writer
+     (`rebuild_aldehydes_with_scaffold_split.py`) repointed there. Everything
+     else (README, manifest, QA xlsx, representativeness_check/, and two
+     `.csv.gz` files already not-valid-gzip -- a pre-existing, unrelated
+     2026-07-purge loss, not touched by this move) archived to
+     `data/cross_benzoin/_archive/candidates_v3/` (see its `RETIRED.md`).
+     13 scripts that referenced candidates_v3 paths (AL-round sampling
+     scripts, the legacy `train_cross_delta.py` frozen-holdout split map,
+     representativeness analysis, the two `rebuild_scaffold_disjoint_split*.py`
+     builders) had their paths updated to the archive location and, for the
+     one-shot AL-round scripts, a retirement notice prepended. None of this
+     touched the currently deployed retrain chain (`train_scaffold_disjoint.py`
+     uses the training table's own `new_scaffold_split` column, never reads
+     candidates_v3) -- confirmed by import-testing it and
+     `train_cross_delta.py` (which still exports the env-overridable
+     `TARGET_COL`/`BASELINE_COL` constants other scripts import) after the
+     move, and by re-running the step-3/4 verification end to end.
 6. Only then: point the redone AL / screening at it.
 
 **Do not skip the verification in step 3** — a silent feature-assembly drift

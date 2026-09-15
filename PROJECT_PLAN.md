@@ -446,9 +446,10 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
     (simulation, labeling, prediction, AL acquisition) reads the space uniformly
     without a giant file. Split assignment (scaffold-disjoint) is computed from
     the two aldehydes' scaffolds on the fly.
-- **Status.** 🔄 `CHEMICAL_SPACE.md` (spec, §8 build order) written 2026-09-10.
-  Build order steps 1-3 done 2026-09-11: `data/chemical_space/aldehyde_index.parquet`
-  frozen (220,859 rows); `homo_v6/aldehydes_all.csv` confirmed already
+- **Status.** ✅ steps 1-5 done, only step 6 (redone AL/screening) left.
+  `CHEMICAL_SPACE.md` (spec, §8 build order) written 2026-09-10. Steps 1-3
+  done 2026-09-11: `data/chemical_space/aldehyde_index.parquet` frozen
+  (220,859 rows); `homo_v6/aldehydes_all.csv` confirmed already
   `ald_idx`-keyed; `cross_benzoin/chemical_space.py`'s `FlyingDataset.pair(i,j)`
   written and verified against 20 known pairs from the round-10 champion table
   (`verify_chemical_space_pair.py`) — the deterministic tiers (RDKit-2D,
@@ -460,8 +461,26 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   pipeline, same as the baselines and the label. `pair(i,j)` returns a
   `lazy_features` dict (always available) + `computed_full`/`known_row` (only
   for pairs already run through that pipeline) rather than one flat vector.
-- **Missing.** Steps 4-6: labels/split/baselines wired into the read API;
-  migrating the 35,528 existing labels; retiring `candidates_v3`.
+  Step 4 done 2026-09-15: `pair()` now returns first-class
+  `label`/`label_col`/`split`/`baseline_gxtb_kcal`/`baseline_b973c_kcal`,
+  column-name resolution verified against both the g-xTB and b973c champion
+  table generations. Step 5 done 2026-09-15 (user: "宽做"): the 35,136
+  usable-labeled pairs migrated to a canonical `ald_idx`-addressed table
+  (`data/chemical_space/labeled_pairs.parquet`, `build_labeled_pairs.py`,
+  100% InChIKey-resolved, 0 address collisions, `FlyingDataset` given a fast
+  exact lookup path for it); `candidates_v3` retired — its one still-live
+  asset (the v6-aldehyde scaffold parquet) relocated to `data/library/`
+  where it actually belongs, everything else (13 dependent scripts'
+  paths updated) archived to `data/cross_benzoin/_archive/candidates_v3/`
+  (`RETIRED.md` has the full rationale + what was already lost in the 2026-07
+  purge before this move touched anything). Confirmed the active retrain
+  chain (`train_scaffold_disjoint.py`) never read candidates_v3 paths at
+  runtime, only imported two constants from `train_cross_delta.py` — so this
+  move could not break champion retraining, verified by import-testing both
+  plus a full re-run of the step-3/4/5 verification suite after the move.
+- **Missing.** Step 6 only: point the redone cross AL / Goal-3 screening at
+  the now-complete flying dataset (needs §2.7's acquisition-strategy
+  redesign first — separate open item).
 
 ---
 
@@ -552,14 +571,17 @@ model the NHC catalyst, the kinetic barriers, or the enantioselectivity.
   well-powered — so the flying dataset cannot be made fully lazy without a
   real accuracy cost; reframes "redesign the descriptors" as a compute-cost
   question, not feature selection.
+- ~~Flying dataset steps 4-5~~ → done 2026-09-15: `pair()` returns
+  `label`/`split`/both baselines (verified against both champion table
+  generations); the 35,136 usable-labeled pairs migrated to a canonical
+  `ald_idx`-addressed table (`data/chemical_space/labeled_pairs.parquet`);
+  `candidates_v3` retired (user: "宽做") — see CHEMICAL_SPACE.md §8.
 
 **Still open:**
-2. **Flying dataset build** (§2.11) — 🔄 steps 1-4 done (as of 2026-09-15:
-   `pair()` now returns `label`/`split`/`baseline_gxtb_kcal`/`baseline_b973c_kcal`,
-   verified against both the g-xTB and b973c champion tables — see
-   CHEMICAL_SPACE.md §8). **Step 5 next**: migrate the 35,528 labels, retire
-   `candidates_v3` (move, don't delete). Prerequisite for redone cross AL and
-   for Goal-3 screening.
+2. **Flying dataset, step 6 only** (§2.11) — point the redone cross AL /
+   Goal-3 screening at the now-complete dataset. Gated on the
+   acquisition-strategy redesign (item 5 below), not on any remaining
+   flying-dataset work.
 3. **Rec-2 unification** 🟡 — once homo labels land (~09-17/18): unified table
    → retrain → does −0.11 survive at 257-feat + b973c baseline + GNN? (Note:
    the b973c breakthrough changes the baseline this experiment retrains

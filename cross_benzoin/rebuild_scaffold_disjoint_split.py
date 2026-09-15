@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-REPO_DATA = "/gpfs/scratch1/shared/schen3/benzoin-dg/data/cross_benzoin/candidates_v3"
+REPO_DATA = "/gpfs/scratch1/shared/schen3/benzoin-dg-restored/data/library"
 IN_PATH = f"{REPO_DATA}/aldehydes_with_scaffold.parquet"
 OUT_PATH = f"{REPO_DATA}/aldehydes_with_scaffold_split.parquet"
 

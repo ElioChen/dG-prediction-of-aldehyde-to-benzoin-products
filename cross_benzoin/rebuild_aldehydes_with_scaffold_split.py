@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Rebuild the purge-lost molecule-level scaffold-split reference
 
-    data/cross_benzoin/candidates_v3/aldehydes_with_scaffold_split.parquet
+    data/library/aldehydes_with_scaffold_split.parquet
 
 that relabel_scaffold_split_{8,9}rounds.py read (columns SMILES + scaffold_split;
 they Chem.CanonSmiles the SMILES to build a lookup). candidates_v3/ now holds only
@@ -20,7 +20,7 @@ import pandas as pd
 REPO = Path(__file__).resolve().parents[1]
 SPLIT = REPO / "data/cross_benzoin/homo_v6/aldehydes_scaffold_split_from_dG.csv"
 CLEAN = REPO / "data/library/aldehydes_clean_v6.csv"
-OUT = REPO / "data/cross_benzoin/candidates_v3/aldehydes_with_scaffold_split.parquet"
+OUT = REPO / "data/library/aldehydes_with_scaffold_split.parquet"
 
 
 def main() -> int:

@@ -329,8 +329,60 @@ predict_dg.py 自己打印的摘要里都写清楚，避免调用者把 b973c �
 正是这个跨表验证才真正测到了解析逻辑——只测默认表的话，"两张表用同一个列名"这类 bug
 根本测不出来。
 
---- 快照（2026-09-15）：homo SP 是唯一在跑的计算，ETA ~09-17/18，除了等待和监控没有
-别的事。cross-benzoin 部署这条线目前没有已知缺口——两个冠军基线（g-xTB、b973c）都已
-部署、已校准，文档与代码实际运行的东西一致。flying dataset 构建顺序现在到第 4/6 步
-完成；第 5 步（迁移 35,528 条标签，retire candidates_v3）是下一步，或者等 homo SP
-出来为 Rec-2 统一提供输入。 ---
+**同一天，接着做：第 5 步，用户选了"宽做"。** 先问了用户还有哪些事需要他决断；给第
+5 步列了窄做/宽做两个选项（只接读取 API vs. 真的把 candidates_v3 的文件和它的 13 个
+依赖脚本都退役）。用户选了宽做——但先反问了一个更尖锐的问题，把整个任务重新定了框：
+"candidates_v3 跟你有什么关系？你用的不是v6版本的醛数据库吗"。要答好这个问题，必须
+真去查那个目录里到底装着什么，而不是照字面信"retire candidates_v3"这句话——一查，
+发现用户的直觉是对的：`candidates_v3/aldehydes_with_scaffold_split.parquet`
+（10MB，`build_aldehyde_index.py` 和 `pipeline/bde/build_scaffold_splits.py` 都还在
+实际读它）是一个 v6 醛级别的资产，从来不属于要退役的那个配对池——只是碰巧放在了
+"candidates_v3"这个路径下，这正是那个问题戳中的混淆点。如果盲目"整个目录搬走"，会
+同时弄坏一个活跃的 BDE 流水线读取和 flying dataset 自己的索引构建脚本。
+
+**动手前先做了完整的依赖审计**：grep 了全部 26 个引用"candidates_v3"的文件，分成三
+类——(1) scaffold parquet 的活跃读者（2 个文件，真有风险），(2) 本项目自己批评的
+那个"~124 万对任意子集"（CHEMICAL_SPACE.md §1），被 13 个采样/训练/分析脚本引用，
+(3) 纯文字历史注释（无代码风险）。查第 2 类时发现了意外情况：它引用的那两个配对池
+文件（`candidates_v3_pairs_with_scaffold_split.parquet`、`inchikey_split_map.parquet`）
+在磁盘上根本不存在，现存的两个 `.csv.gz` 文件（`cross_benzoin_dG_candidates_v3.csv.gz`、
+`cross_benzoin_aldehydes_v3.csv.gz`）只有 133-134 字节，不是有效的 gzip——这批数据早
+在 2026-07 的 purge 里就丢了，从没恢复过（跟 cross AL 被 PARKED 的现状吻合）。所以
+第 2 类脚本在这次搬迁之前就已经跑不通了；退役它们是清理和路径卫生，不是弄坏一个活的
+依赖。确认了实际部署的重训脚本（`train_scaffold_disjoint.py`，DRAIN_RUNBOOK.md）
+在 import 时只从 `train_cross_delta.py` 拿两个环境变量可覆盖的常量——运行时不读任何
+candidates_v3 文件，它自己的切分逻辑用的是训练表自己的 `new_scaffold_split` 列（这
+正是 `train_scaffold_disjoint.py` 存在的原因——它取代了那个会泄漏的
+candidates_v3-切分训练）。
+
+**执行**：`aldehydes_with_scaffold_split.parquet` 搬到 `data/library/`（跟
+`aldehydes_clean_v6.csv` 放一起，它本来就该在那）；它的 2 个活跃读者 + 1 个写者的
+路径都改了，通过解析路径常量 + 重跑 `verify_chemical_space_pair.py` 验证过（两次
+跑分别还是 10/10、15/15）。目录里剩下的东西（README、manifest、QA xlsx、
+representativeness_check/、两个已经死掉的 .csv.gz 残骸）都归档到了
+`data/cross_benzoin/_archive/candidates_v3/`，附一份 `RETIRED.md` 说明搬了什么、
+本来就丢了什么、为什么。13 个依赖脚本的路径都更新到了归档位置（这样即使大多数早就
+跑不通了，也还能保持可复现/可 grep）；5 个一次性 AL 轮次采样脚本 + representativeness
+分析脚本加了退役说明，指向 flying dataset 作为替代。`train_cross_delta.py` 的
+`SPLIT_MAP` 加了行内注释说明它是遗留的（被骨架不相交切分取代，不在当前冠军链路里），
+而不是悄悄改个路径不给解释。
+
+**顺带把第 5 步的另一半也做了**（"迁移标签"，不只是"retire candidates_v3"——构建
+顺序原文把两件事写在同一行）：写了 `build_labeled_pairs.py`，冻结出
+`data/chemical_space/labeled_pairs.parquet`——35,136 条已用标签的对（来自 b973c
+Tier B 表，现在最全的那张），通过 **InChIKey**（不是 `chemical_space.py` 自己那套
+对任意表用的 SMILES 归一化查找——这个脚本控制自己的源列，可以直接用精确 key，绕开
+那整类歧义）关联到 `aldehyde_index.parquet`：35,136/35,136 全部解析成功，0 个地址
+冲突。给 `FlyingDataset._build_known_lookup` 加了一条快速路径：如果 `known_pairs`
+表直接带 `donor_ald_idx`/`acceptor_ald_idx` 列（这张新标准表就带），就完全跳过 SMILES
+往返。端到端验证过：新表里随机 100 行，走新路径在 label/split/两个基线上全部精确
+匹配；旧的 SMILES 路径事后对两张冠军表重跑也干净（没有退化）。
+`LABEL_COL_CANDIDATES`/`SPLIT_COL_CANDIDATES`/`BASELINE_COLS` 也扩展了，让标准表
+自己的列名（`label`、`split`……）排在最前面优先命中。
+
+--- 快照（2026-09-15，日终）：homo SP 是唯一在跑的计算，ETA ~09-17/18，除了等待和
+监控没有别的事。cross-benzoin 部署这条线目前没有已知缺口。flying dataset 构建顺序
+现在 5/6：第 1-5 步完成，第 6 步（把重做的 cross AL / Goal-3 筛选接上去）依赖的是
+采集策略的重新设计，那是要用户拍板的设计选择，不是 flying dataset 本身还欠工程量。
+这次会话里抛给用户、还在等他决断的：催化剂空间/NHC 仓库整合范围、Rec-2 的 −0.11
+发现在 b973c 地板变了之后还值不值得重测、以及重做 AL 的采集策略本身。 ---

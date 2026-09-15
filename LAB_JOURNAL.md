@@ -496,9 +496,88 @@ on each run, `label_col` correctly reported `dG_orca_kcal` on one table and
 exercises the resolution logic -- testing only the default table would have
 missed a same-column-name-on-both-tables bug entirely.
 
---- Snapshot (2026-09-15): homo SP the only compute in flight, ETA ~09-17/18,
-nothing else to do there but wait + monitor. Cross-benzoin deployment thread
-has no known open gaps -- both champion baselines (g-xTB, b973c) deployed,
-calibrated, doc-consistent with the code. Flying dataset build order now at
-step 4/6 done; step 5 (migrate the 35,528 labels, retire candidates_v3) is
-next, or wait for homo SP to inform Rec-2 unification. ---
+**Same day, continued: step 5, user chose "宽做" (the broad option).** Asked
+the user what still needed a decision; offered a narrow vs. broad scope for
+step 5 (just wire the read API vs. actually retire candidates_v3's files and
+its 13 dependent scripts). User picked broad -- but first asked a sharper
+question that reframed the whole task: "candidates_v3 跟你有什么关系？你用的
+不是v6版本的醛数据库吗" (what does candidates_v3 have to do with you, aren't
+you using the v6 aldehyde library?). Answering it properly required actually
+checking what's IN that directory rather than trusting the "retire
+candidates_v3" phrasing at face value -- and the check found the user's
+instinct was right to probe: `candidates_v3/aldehydes_with_scaffold_split.parquet`
+(10MB, still actively read by `build_aldehyde_index.py` AND
+`pipeline/bde/build_scaffold_splits.py`) is a v6-aldehyde-level asset that
+was never part of the deprecated pair pool -- it just happened to be filed
+under a "candidates_v3" path, which is exactly the confusion the question
+surfaced. A blind "move the whole directory" would have broken both an
+active BDE-pipeline read and the flying dataset's own index-builder.
+
+**Full dependency audit before touching anything**: grepped all 26 files
+referencing "candidates_v3" and sorted them into three buckets -- (1) active
+readers of the scaffold parquet (2 files, real risk), (2) the actual
+"~1.24M-pair arbitrary subset" this project's critique (CHEMICAL_SPACE.md
+sec1) is about, referenced by 13 sampling/training/analysis scripts, and
+(3) prose-only historical comments (no code risk). Checking bucket 2 found
+something unexpected: the pair-pool files it names
+(`candidates_v3_pairs_with_scaffold_split.parquet`, `inchikey_split_map.parquet`)
+don't exist on disk at all, and the two `.csv.gz` files that are present
+(`cross_benzoin_dG_candidates_v3.csv.gz`, `cross_benzoin_aldehydes_v3.csv.gz`)
+are 133-134 bytes and not valid gzip -- this data was already lost in the
+2026-07 purge and never restored (consistent with cross AL being PARKED).
+So bucket-2 scripts were already unrunnable before this move touched
+anything; retiring them was cleanup and path-hygiene, not breaking a live
+dependency. Confirmed `train_scaffold_disjoint.py` (the actually-deployed
+retrain script, DRAIN_RUNBOOK.md) only imports two env-overridable constants
+from `train_cross_delta.py` at module level -- no candidates_v3 file is read
+at import time or by that script's own logic, which uses the training
+table's own `new_scaffold_split` column instead (that's precisely *why*
+`train_scaffold_disjoint.py` exists -- it replaced the leaky
+candidates_v3-split-based training).
+
+**Executed**: `aldehydes_with_scaffold_split.parquet` moved to
+`data/library/` (next to `aldehydes_clean_v6.csv`, where it actually
+belongs); its 2 active readers + 1 writer repointed there, verified by
+resolving the path constants and re-running `verify_chemical_space_pair.py`
+(still 10/10, 15/15 across two runs). Everything else in the directory
+(README, manifest, QA xlsx, representativeness_check/, the two dead
+`.csv.gz` stubs) archived to `data/cross_benzoin/_archive/candidates_v3/`
+with a `RETIRED.md` explaining what moved, what was already lost, and why.
+13 dependent scripts' paths updated to the archive location (so they stay
+reproducible/greppable even though most were already non-functional); the 5
+one-shot AL-round sampling scripts + the representativeness analysis got a
+prepended retirement notice pointing at the flying dataset as the
+replacement. `train_cross_delta.py`'s `SPLIT_MAP` got an inline comment
+explaining it's legacy (superseded by scaffold-disjoint splitting, not part
+of the current champion chain) rather than silently repointing a path with
+no explanation.
+
+**Also did the other half of step 5** ("migrate the labels", not just
+"retire candidates_v3" -- both named in the same build-order line): wrote
+`build_labeled_pairs.py`, which freezes
+`data/chemical_space/labeled_pairs.parquet` -- the 35,136 usable-labeled
+pairs (b973c Tier B table, the current superset), joined to
+`aldehyde_index.parquet` by **InChIKey** (not the SMILES-canonicalization
+route `chemical_space.py`'s own lookup uses for an arbitrary table -- this
+script controls its own source columns, so it can use the exact key and
+skip that whole class of ambiguity): 35,136/35,136 resolved, 0 duplicate
+addresses. Gave `FlyingDataset._build_known_lookup` a fast path: a
+`known_pairs` table carrying `donor_ald_idx`/`acceptor_ald_idx` columns
+directly (this new canonical table does) skips the SMILES round-trip
+entirely. Verified end to end: 100/100 random rows from the new table
+exact-match on label/split/both baselines via the new path; the old
+SMILES-based path re-run clean against both champion tables afterward (no
+regression). `LABEL_COL_CANDIDATES`/`SPLIT_COL_CANDIDATES`/`BASELINE_COLS`
+extended so the canonical table's own column names (`label`, `split`, ...)
+resolve first, ahead of the older per-table-generation names.
+
+--- Snapshot (2026-09-15, end of day): homo SP the only compute in flight,
+ETA ~09-17/18, nothing else to do there but wait + monitor. Cross-benzoin
+deployment thread has no known open gaps. Flying dataset build order now
+5/6: steps 1-5 done, step 6 (point redone cross AL / Goal-3 screening at it)
+is gated on the acquisition-strategy redesign, a design choice for the user,
+not more flying-dataset engineering. Open decisions
+surfaced to the user this session and still awaiting their call: Catalyst
+Space / NHC-repo integration scope, whether Rec-2's -0.11 finding is still
+worth re-testing now that the b973c floor changed, and the redone-AL
+acquisition strategy itself. ---
