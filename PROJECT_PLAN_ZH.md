@@ -248,12 +248,20 @@ Goal 3 工具已交付。**项目正在按用户 2026-09-10 的输入重新奠�
 ### 2.9 部署 —— `predict_dg.py` —— ✅
 - **原理。** 单一端到端入口：featurize → assemble → 裁剪到 schema → blend 推理 →
   给任意新醛对发点估计 + 区间 + 决策列。
-- **状态。** 端到端可用（2026-09-07）。输出列：`dG_pred_kcal`、`ens_member_sigma`、
-  `dg_favorable`/`dg_below_train_median`/`dg_rank_pct`、`dG_pi_lo_90`/`dG_pi_hi_90`、
-  `baseline_risk`/`baseline_risk_motifs`、`dg_high_sigma`。慢几何情况的 SLURM 路径已接。
-- **缺。** 对真正新对的一次新鲜精度检查（历史的"5 个已知对 MAE 1.65"早于一个已修的
-  回归）。陷阱：任何改共享 `homo_v6/*_all.csv` schema 的工作，改完必跑 `predict_dg.py`
-  20-pair smoke test（2026-09-06 一个共享文件 bug 静默让它对所有新对失败）。
+- **状态。** r1-10-b973c 现为默认部署（2026-09-14，MAE 0.528 vs g-xTB 的 2.215——见
+  CHAMPION.md）；`cb_featurize.py --with-b973c` 给全新对算新基线。2026-09-14 做了真实
+  对精度检查（新鲜几何，非表回放）：2 个干净对上 b973c MAE 0.34 vs g-xTB 2.50；两模型
+  在第 3 个（两性离子化结构）上共同失败，被 `dg_high_sigma` 正确抓住，非静默失败。两个
+  基线现在都有 calibration 产物（`predict_dg.py` 里的 `CALIB_JSON_BY_BASELINE`，
+  2026-09-15）：`dG_pi_lo_90`/`dG_pi_hi_90` 半宽 ±5.24 kcal（g-xTB）/ ±1.21 kcal
+  （b973c）、`baseline_risk`/`baseline_risk_motifs`、`dg_high_sigma`。2026-09-15 修复：
+  `CrossBenzoinBlendPredictor` 现支持对 GNN 支路做多 seed 平均（`gnn_dir` 传列表 + 显式
+  `blend_w_gnn`）——修了一个真实的文档/代码缺口：文档写的 b973c 冠军 MAE（0.528，4-seed
+  平均）跟 2026-09-14 部署代码实际跑的（单 seed4，MAE 0.544）对不上；现已验证能精确
+  复现 0.528。
+- **缺。** 无活跃项。旧陷阱仍在：任何改共享 `homo_v6/*_all.csv` schema 的工作，改完必跑
+  `predict_dg.py` 20-pair smoke test（2026-09-06 一个共享文件 bug 曾静默让它对所有新对
+  失败）。
 
 ### 2.10 子工作流
 
@@ -290,16 +298,15 @@ Goal 3 工具已交付。**项目正在按用户 2026-09-10 的输入重新奠�
   GNN homo-pretrain→finetune 路径（当前冠军 GNN 是纯 cross，purge 后从没重建过 homo
   预训练路径）。
 
-#### 2.10.d 便宜基线杠杆 —— cross Tier B 重标注（Rec-1 / D 工作集） —— 🔄
+#### 2.10.d 便宜基线杠杆 —— cross Tier B 重标注（Rec-1 / D 工作集） —— ✅ 完成，已部署
 - **原理。** §1.5：把 Δ-learning 基线 g-xTB → B97-3c。pilot（残差 std 4.32 → 1.11）说
   Δ-模型地板可能降 ~4×。
-- **状态。** 全部 35,528 个 cross 对的自洽重标注在跑（2026-09-10 ~72%）。drain 后：
-  `merge_rec1_b973c_tierB.py` → QC 判决 → `patch_train_table_tierB_b973c.py`（schema v2）→
-  `CB_BASELINE_COL=dG_b973c_kcal` 重训 → GNN 4-seed → blend 重扫。Runbook：
-  `data/cross_benzoin/rec1_b973c_tierB/DRAIN_RUNBOOK.md`。
-- **缺。** drain + 重训 + 判决（holdout MAE 降到 ~1.0–1.5 = 项目级突破，还是杠杆在规模上
-  被冲淡？）。部分数据预览显示 holdout ens MAE 2.53 → 0.69（对照隔离）—— 强信号，还不是
-  headline。
+- **状态。** 2026-09-14 完成 —— 远超下面猜的 ~1.0–1.5 突破门槛。全部 35,528 个 cross 对
+  的自洽重标注 drain 在 98.9% 覆盖率，QC 绿灯。重训冠军：**holdout MAE 0.528**，原
+  2.215（**-76%**），r1-10-b973c 现为 CHAMPION.md 的默认部署。已接入
+  `predict_dg.py`/`cb_featurize.py --with-b973c`，2026-09-15 起也有了 calibration 覆盖
+  （见 2.9）。这是本项目迄今拉动过的最大单项杠杆。
+- **缺。** 这个杠杆上无活跃项。（下面的历史估计方向对、幅度错——真实收益更大。）
 
 ### 2.11 化学空间定义与 "flying dataset" —— 🔄 构建中（用户，2026-09-10）
 - **原理。** 一个筛选模型只有它筛的空间有意义才有意义。用户两个修正：
@@ -388,23 +395,36 @@ Goal 3 工具已交付。**项目正在按用户 2026-09-10 的输入重新奠�
 
 ---
 
-## 6. 立即行动（2026-09-10）
+## 6. 立即行动（2026-09-15 更新）
 
-**在飞的计算（都已降并发，和 NHC 分享集群）：**
-1. **cross Tier B** 🔄 —— B97-3c 重标注，~72%。drain 时（monitor `bpdz6bks8`）：
-   `DRAIN_RUNBOOK.md` step 1-6 → 冠军 + GNN(4-seed) 重训，`CB_BASELINE_COL=dG_b973c_kcal`，
-   schema v2。判决：holdout MAE 降到 ~1.0–1.5 吗？*（这个重训是 r1-10 数据上的"更好标签"
-   实验 —— 影响参照模型，不是重做的 AL。）*
-2. **homo 从零标签** 🔄 —— 三个污染 bug + 第 4 个（每原子热校正界）后干净战役。
-   archived 轨（`submit_homo_sp.sh`，179,431）+ regen 轨（`submit_homo_regen.sh`，4,621）。
-   drain 后：`merge_homo_sp.py` → QC → `--full-library` assembler → 单 XGB + 单 GNN。
+**在飞的计算：**
+1. **homo 从零标签** 🔄 —— 现在唯一还在跑的战役。archived 轨 ~70%（6268/8972
+   shard），regen 轨 ~85%（654/771 shard），截至 2026-09-15 09:41；合并吞吐 ≈50
+   shard/h（archived 是瓶颈），ETA **~2.3 天（≈09-17/18）**。两次基于 ETA 的降并发/
+   补吞吐调整（09-10、09-11）后现有 4 条并行作业阵列（genoa、rome 补给、fat_rome
+   ×2）——原因见 LAB_JOURNAL。drain 后：`merge_homo_sp.py` → QC →
+   `--full-library` assembler → 单 XGB + 单 GNN（`homo_standalone/`）。
 
-**设计 / 结构工作（无计算，慢慢做 —— 用户：理解每一步）：**
-3. **Flying dataset 构建**（§2.11）—— 🔄 第 1-3 步 2026-09-11 完成（索引冻结、
-   `aldehydes_all.csv` 已 key、`pair(i,j)` 写完并校验通过）。下一步：第 4 步，
-   把标签/split/基线接进读取 API。重做 cross AL 和 Goal-3 筛选的前提。
-4. **Rec-2 统一** 🟡 —— homo 标签落地后：统一表 → 重训 → −0.11 在 260-feat + GNN 下存活吗？
-5. **催化剂空间不在范围** —— 本项目只管底物。任何联合是用户 / NHC 项目的事。
-6. **重做 cross AL** —— (3) 和更好的标签之后：在 flying dataset 上定采集策略，跑新战役。
+**相对 2026-09-10 版本已完成（存档）：**
+- ~~cross Tier B~~ → ✅ 2026-09-14 完成，见 2.10.d。holdout MAE 0.528（原 2.215），
+  r1-10-b973c 现为 CHAMPION.md 默认部署。2026-09-15：calibration 产物 + 一个真实的
+  4-seed GNN 平均 bug 修复，关掉了剩余的部署缺口（见 2.9）。
+- ~~Flying dataset 第 1-3 步~~ → 2026-09-11 完成（索引冻结、`aldehydes_all.csv` 已
+  key、`pair(i,j)` 写完并校验通过）。外加一次消融（2026-09-11）：仅用 lazy 特征子集
+  比完整 260-feat schema 代价 +1.00 kcal MAE（2.544→3.548）——真实、有统计力——所以
+  flying dataset 不可能做到完全 lazy 而不付精度代价；把"重新设计描述符"从特征选择问题
+  改框成计算成本问题。
+
+**仍然待办，实质不变：**
+2. **Flying dataset 构建**（§2.11）—— 🔄 **下一步：第 4 步**，把标签/split/基线接进
+   读取 API。重做 cross AL 和 Goal-3 筛选的前提。
+3. **Rec-2 统一** 🟡 —— homo 标签落地后（~09-17/18）：统一表 → 重训 → −0.11 在
+   257-feat + b973c 基线 + GNN 下存活吗？（注意：b973c 突破改变了这个实验重训所对照的
+   基线——在假设 −0.11 仍适用前，先在新的、低得多的 MAE 地板上重新推导它是否还成立。）
+4. **催化剂空间界定** —— 需要和用户对一次：本项目要不要延伸到底物×催化剂（§3.3），
+   还是只做底物预筛、交给 `nhc-benzoin-pipeline`？NHC 仓库（§3.2）里有什么该集成？
+5. **重做 cross AL** —— (2) 和更好的标签之后：在 flying dataset 上定采集策略，跑新
+   战役。现在评估会便宜很多，因为 b973c 模型的残差已经足够紧，AL 信号不会再像 g-xTB
+   那样被标签噪声淹没。
 
 保持 `LAB_JOURNAL_ZH.md` + `LAB_JOURNAL.md` 跟进；每晚收尾。

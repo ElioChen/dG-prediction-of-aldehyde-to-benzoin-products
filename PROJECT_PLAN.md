@@ -340,15 +340,24 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
 - **Principle.** A single end-to-end entry point: featurize → assemble →
   prune to the schema → blend inference → emit point estimate + interval +
   decision columns, for any new aldehyde pair.
-- **Status.** Working end-to-end (2026-09-07). Output columns: `dG_pred_kcal`,
-  `ens_member_sigma`, `dg_favorable`/`dg_below_train_median`/`dg_rank_pct`,
-  `dG_pi_lo_90`/`dG_pi_hi_90`, `baseline_risk`/`baseline_risk_motifs`,
-  `dg_high_sigma`. SLURM path for the slow-geometry case wired.
-- **Missing.** A fresh precision check on genuinely novel pairs (the historical
-  "MAE 1.65 on 5 known pairs" predates a regression that was since fixed).
-  Trap: any change to the shared `homo_v6/*_all.csv` schema must be followed by
-  the `predict_dg.py` 20-pair smoke test (a 2026-09-06 shared-file bug silently
-  broke it for all new pairs).
+- **Status.** r1-10-b973c is now the deployed default (2026-09-14, MAE 0.528
+  vs g-xTB's 2.215 — see CHAMPION.md); `cb_featurize.py --with-b973c` computes
+  the new baseline for genuinely new pairs. Real-pair precision check done
+  2026-09-14 (fresh geometry, not a table replay): b973c MAE 0.34 vs g-xTB
+  2.50 on 2 clean pairs; both models share-fail on a 3rd (zwitterion-prone
+  structure), caught by `dg_high_sigma`, not silent. Both baselines now have
+  a calibration artifact (`CALIB_JSON_BY_BASELINE` in `predict_dg.py`,
+  2026-09-15): `dG_pi_lo_90`/`dG_pi_hi_90` half-width ±5.24 kcal (g-xTB) /
+  ±1.21 kcal (b973c), `baseline_risk`/`baseline_risk_motifs`, `dg_high_sigma`.
+  2026-09-15 fix: `CrossBenzoinBlendPredictor` now supports averaging the GNN
+  leg over multiple seed dirs (list `gnn_dir` + explicit `blend_w_gnn`) — this
+  closed a real doc/code gap where the documented b973c champion MAE (0.528,
+  4-seed average) was NOT what the 2026-09-14 deployment code actually ran
+  (single seed4, MAE 0.544); now verified to reproduce 0.528 exactly.
+- **Missing.** Nothing active. Old trap still live: any change to the shared
+  `homo_v6/*_all.csv` schema must be followed by the `predict_dg.py` 20-pair
+  smoke test (a 2026-09-06 shared-file bug silently broke it for all new
+  pairs once already).
 
 ### 2.10 Sub-workflows
 
@@ -395,18 +404,18 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   homo-pretrain→finetune path (the current champion GNN is pure-cross, never
   rebuilt post-purge).
 
-#### 2.10.d Cheap-baseline lever — cross Tier B relabel (Rec-1 / work-set D) — 🔄
+#### 2.10.d Cheap-baseline lever — cross Tier B relabel (Rec-1 / work-set D) — ✅ done, deployed
 - **Principle.** §1.5: swap the Δ-learning baseline g-xTB → B97-3c. The pilot
   (residual std 4.32 → 1.11) says the Δ-model floor could drop ~4×.
-- **Status.** Full self-consistent relabel of all 35,528 cross pairs running
-  (~72% 2026-09-10). On drain: `merge_rec1_b973c_tierB.py` → QC verdict →
-  `patch_train_table_tierB_b973c.py` (schema v2) → retrain
-  `CB_BASELINE_COL=dG_b973c_kcal` → GNN 4-seed → blend re-sweep. Runbook:
-  `data/cross_benzoin/rec1_b973c_tierB/DRAIN_RUNBOOK.md`.
-- **Missing.** The drain + retrain + the verdict (does holdout MAE fall to
-  ~1.0–1.5 = project-level breakthrough, or does the lever wash out at scale?).
-  A partial-data preview showed holdout ens MAE 2.53 → 0.69 (control-isolated) —
-  strong signal, not the headline yet.
+- **Status.** DONE 2026-09-14 — far past the ~1.0–1.5 breakthrough bar guessed
+  below. Full self-consistent relabel of all 35,528 cross pairs drained at
+  98.9% coverage, GREEN QC. Retrained champion: **holdout MAE 0.528**, was
+  2.215 (**−76%**), r1-10-b973c is now CHAMPION.md's deployed default. Wired
+  into `predict_dg.py`/`cb_featurize.py --with-b973c` and calibration-covered
+  as of 2026-09-15 (see 2.9). This is the single biggest lever pulled on this
+  project to date.
+- **Missing.** Nothing active on this lever. (Historical estimate below was
+  right in direction, off in magnitude — real gain was larger.)
 
 ### 2.11 Chemical-space definition & the "flying dataset" — ❌ needs building (user, 2026-09-10)
 - **Principle.** A screening model is only as meaningful as the space it screens.
@@ -519,31 +528,49 @@ model the NHC catalyst, the kinetic barriers, or the enantioselectivity.
 
 ---
 
-## 6. Immediate next actions (2026-09-10)
+## 6. Immediate next actions (updated 2026-09-15)
 
-**Compute in flight (both throttled to share the cluster with the NHC project):**
-1. **cross Tier B** 🔄 — B97-3c relabel, ~72%. On drain (monitor `bvuteg5xb`):
-   `DRAIN_RUNBOOK.md` steps 1-6 → champion + GNN(4-seed) retrain with
-   `CB_BASELINE_COL=dG_b973c_kcal`, schema v2. Verdict: does holdout MAE fall to
-   ~1.0–1.5? *(This retrain is a better-labels experiment on the r1-10 data — it
-   informs the reference model, not the redone AL.)*
-2. **homo from-scratch labels** 🔄 — clean campaign after 3 contamination bugs +
-   a 4th (per-atom thermal bound). Archived track (`submit_homo_sp.sh`, 179,431)
-   + regen track (`submit_homo_regen.sh`, 4,621). On drain: `merge_homo_sp.py` →
-   QC → `--full-library` assembler → single XGB + single GNN.
+**Compute in flight:**
+1. **homo from-scratch labels** 🔄 — the only campaign still running. Archived
+   track ~70% (6268/8972 shards), regen track ~85% (654/771 shards) as of
+   2026-09-15 09:41; combined throughput ≈50 shard/h archived (bottleneck),
+   ETA **~2.3 days (~09-17/18)**. Four job-array tracks in parallel (genoa,
+   rome top-up, fat_rome ×2) after two ETA-driven throttle rebalances
+   (09-10, 09-11) — see LAB_JOURNAL for why. On drain: `merge_homo_sp.py` →
+   QC → `--full-library` assembler → single XGB + single GNN
+   (`homo_standalone/`).
 
-**Design / structure work (no compute, do carefully — user: understand every step):**
-3. **Flying dataset build** (§2.11) — 🔄 steps 1-3 done 2026-09-11 (index frozen,
-   `aldehydes_all.csv` confirmed `ald_idx`-keyed, `pair(i,j)` written + verified).
-   Next: step 4, wire labels/split/baselines into the read API. Prerequisite
-   for redone cross AL and for Goal-3 screening.
-4. **Rec-2 unification** 🟡 — once homo labels land: unified table → retrain →
-   does −0.11 survive at 260-feat + GNN?
-5. **Catalyst Space scoping** — a conversation with the user: does this project
+**Done since the 2026-09-10 version of this list (kept for the record):**
+- ~~cross Tier B~~ → ✅ DONE 2026-09-14, see 2.10.d. Holdout MAE 0.528 (was
+  2.215), r1-10-b973c now CHAMPION.md's deployed default. 2026-09-15:
+  calibration artifact + a real 4-seed-GNN-averaging bug fix closed the
+  remaining deployment gaps (see 2.9).
+- ~~Flying dataset steps 1-3~~ → done 2026-09-11 (index frozen,
+  `aldehydes_all.csv` confirmed `ald_idx`-keyed, `pair(i,j)` written +
+  verified). Plus an ablation (2026-09-11): the lazy-only feature subset
+  costs +1.00 kcal MAE vs the full 260-feat schema (2.544→3.548) — real,
+  well-powered — so the flying dataset cannot be made fully lazy without a
+  real accuracy cost; reframes "redesign the descriptors" as a compute-cost
+  question, not feature selection.
+
+**Still open, unchanged in substance:**
+2. **Flying dataset build** (§2.11) — 🔄 **step 4 next**: wire labels/split/
+   baselines into the read API. Prerequisite for redone cross AL and for
+   Goal-3 screening.
+3. **Rec-2 unification** 🟡 — once homo labels land (~09-17/18): unified table
+   → retrain → does −0.11 survive at 257-feat + b973c baseline + GNN? (Note:
+   the b973c breakthrough changes the baseline this experiment retrains
+   against — re-derive the −0.11 number's relevance before assuming it still
+   applies at the new, much lower MAE floor.)
+4. **Catalyst Space scoping** — a conversation with the user: does this project
    extend into substrate × catalyst (§3.3), or stay the substrate pre-filter and
    hand off to `nhc-benzoin-pipeline`? What, if anything, gets integrated from
    the NHC repos (§3.2).
-6. **Redone cross AL** — after (3) and better labels: decide acquisition strategy
-   over the flying dataset, run a fresh campaign.
+5. **Redone cross AL** — after (2) and better labels: decide acquisition strategy
+   over the flying dataset, run a fresh campaign. Now much cheaper to evaluate
+   since the b973c model's residuals are tight enough for AL signal to not be
+   swamped by label noise the way g-xTB's was.
 
-Keep `LAB_JOURNAL.md` current; close it each evening.
+Keep `LAB_JOURNAL.md` current; close it each evening. (Gap: 2026-09-12/13 had
+no session; 2026-09-14's session wasn't journaled at the time — reconstructed
+2026-09-15 from commit messages, see LAB_JOURNAL.)

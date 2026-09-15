@@ -72,30 +72,62 @@ training table `cross_train_table_10rounds_scaffold_split_labeled_slim257_b973c.
 sweep result `cross_round10/gnn_seed_ensemble_r10_b973c_result.json`. Full
 training recipe: `data/cross_benzoin/rec1_b973c_tierB/DRAIN_RUNBOOK.md`.
 
-**Known gap:** no `predict_dg_calibration.json` for this model yet --
-`dG_pi_lo_90`/`dG_pi_hi_90`/`baseline_risk`/`dg_high_sigma` are skipped by
-`predict_dg.py` for any `--baseline-col` other than `dG_gxtb_kcal` (gated
-explicitly, not silently mislabeled). Build one with
-`build_predict_dg_calibration.py` pointed at the b973c model + holdout
-before leaning on those columns for b973c predictions.
+**Gap closed 2026-09-15:** `cross_benzoin/predict_dg_calibration_b973c.json`
+built (`build_predict_dg_calibration.py`, now generalized with `--table
+--model-dir --gnn-dir --blend-w-gnn --baseline-col --label-col` rather than
+hardcoded to the g-xTB champion), calibrated against the **true 4-seed
+champion** (see "corrected 2026-09-15" note above). `predict_dg.py`
+auto-attaches it for `--baseline-col dG_b973c_kcal` via
+`CALIB_JSON_BY_BASELINE` (any other/unregistered `--baseline-col` still
+skips the columns explicitly, not silently). Numbers, n=929 pooled
+test+validation: split-conformal 90% interval half-width **±1.21 kcal**
+(vs g-xTB's ±5.24 kcal — 4.3x tighter, tracks the MAE gap), coverage
+0.908 test / 0.894 validation. `baseline_risk` (same 7 SMARTS motifs) is
+weaker evidence here than for g-xTB: flagged rows do have higher blend MAE
+(0.80 vs 0.50) but **flat** `|baseline error|` (4.94 vs 4.98) — B97-3c
+itself isn't failing on these structures, so treat the flag as "expect
+worse accuracy," not "the cheap baseline is wrong, use DFT" (that framing
+is still correct for the g-xTB model). `dg_high_sigma` threshold (p99 of
+the 3-learner spread): 0.802 kcal, a different scale from g-xTB's own
+threshold — each is read from its own JSON, not shared.
 
 ## Load
+
+**⚠ corrected 2026-09-15**: the 0.528 headline MAE is the **4-seed GNN
+average** (`blend_gnn_seed_ensemble_r10_b973c.py` sweep, `w_gnn=0.85`), not
+any single seed dir. The `predict_cross_champion.py`/`predict_dg.py` code
+written on 2026-09-14 only ever loaded `..._seed4` alone (`w_gnn=0.70` from
+that seed's own `metadata.json`, test MAE 0.544) — a real, previously
+undetected doc/code gap (0.544 deployed vs 0.528 documented), not a rounding
+difference. `CrossBenzoinBlendPredictor.load()` now accepts a **list** of
+`gnn_dir`s and averages their predictions (each seed's own norm stats used
+for de-normalization; `blend_w_gnn` must be passed explicitly for a list —
+guessing which sweep row applies would silently ship the wrong weight).
+Re-verified: 4-seed load reproduces MAE 0.5284 on the frozen holdout,
+matching the sweep's 0.5284 to 5 decimal places.
 
 ```python
 from predict_cross_champion import CrossBenzoinBlendPredictor
 pred = CrossBenzoinBlendPredictor.load(
     "data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_b973c_v1",
-    gnn_dir="data/cross_benzoin/cross_round10/gnn_attentive_10rounds_b973c_seed4",
-)   # blend_w_gnn = 0.85, read from the GNN metadata.json
+    gnn_dir=[f"data/cross_benzoin/cross_round10/gnn_attentive_10rounds_b973c_seed{s}" for s in (1, 2, 3, 4)],
+    blend_w_gnn=0.85,
+)
 dg = pred.predict(df, baseline_col="dG_b973c_kcal")  # NOT the default dG_gxtb_kcal
 ```
 
 `predict_dg.py` CLI: `--baseline-col dG_b973c_kcal --model-dir
 data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_b973c_v1
---gnn-dir data/cross_benzoin/cross_round10/gnn_attentive_10rounds_b973c_seed4
---schema data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_b973c_v1/models/feature_list.json`.
+--gnn-dir data/cross_benzoin/cross_round10/gnn_attentive_10rounds_b973c_seed1,...,seed4
+--blend-w-gnn 0.85
+--schema data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_b973c_v1/models/feature_list.json`
+(comma-separated `--gnn-dir` = multi-seed average, `--blend-w-gnn` required with it).
 `products-csv` must carry `dG_b973c_kcal` (from `cb_featurize.py --with-b973c`,
 or already present in a Tier B-relabeled table).
+
+Single-seed loading (`gnn_dir` as one path, no `blend_w_gnn`) still works
+unchanged for back-compat / quick smoke tests, but is **not** the champion
+config — MAE 0.544, not 0.528.
 
 ## Predicting ΔG for new aldehyde pairs
 
@@ -115,9 +147,12 @@ added 2026-09-07 that are NOT capped by the ~2.9 kcal label-noise floor (validat
 `dg_below_train_median`, `dg_rank_pct` (within-batch percentile, use for screening/
 ranking a candidate batch, not a single pair).
 
-**Deployment-hardening columns** (g-xTB model only, see "Known gap" above;
-need `predict_dg_calibration.json`, built by `build_predict_dg_calibration.py`;
-omitted if absent or if `--baseline-col` isn't `dG_gxtb_kcal`):
+**Deployment-hardening columns** (g-xTB and b973c both covered as of
+2026-09-15, see the b973c "Gap closed" note above; `CALIB_JSON_BY_BASELINE`
+in `predict_dg.py` maps `--baseline-col` -> calibration JSON, built by
+`build_predict_dg_calibration.py`; omitted for any other/unregistered
+`--baseline-col`). Numbers below are the g-xTB champion's; see the b973c
+section above for its own (tighter) numbers:
 - `dG_pi_lo_90` / `dG_pi_hi_90` — split-conformal 90% prediction interval, calibrated
   on the scaffold-disjoint test+validation residuals (n=929). Distribution-free
   marginal coverage ≥ 90% (empirically 0.94 test / 0.87 validation). Half-width

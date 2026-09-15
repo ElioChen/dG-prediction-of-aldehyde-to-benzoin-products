@@ -1,0 +1,130 @@
+{
+  "built_by": "cross_benzoin/build_predict_dg_calibration.py",
+  "champion": {
+    "model_dir": "data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_b973c_v1",
+    "gnn_dir": [
+      "data/cross_benzoin/cross_round10/gnn_attentive_10rounds_b973c_seed1",
+      "data/cross_benzoin/cross_round10/gnn_attentive_10rounds_b973c_seed2",
+      "data/cross_benzoin/cross_round10/gnn_attentive_10rounds_b973c_seed3",
+      "data/cross_benzoin/cross_round10/gnn_attentive_10rounds_b973c_seed4"
+    ],
+    "blend_w_gnn": 0.8500000000000001,
+    "baseline_col": "dG_b973c_kcal",
+    "label_col": "dG_r2scan_kcal"
+  },
+  "calibration_set": "scaffold-disjoint test + validation splits pooled",
+  "n_calib": 929,
+  "caveats": "test split was used to pick blend w_gnn and validation may drive GNN early-stopping; both are outside the XGB/MLP fit and outside training scaffolds. Marginal coverage only (not conditional). Point estimate still capped by the ~2.9 kcal single-conformer DFT label-noise floor.",
+  "conformal": {
+    "90pct": {
+      "alpha": 0.1,
+      "nominal_coverage": 0.9,
+      "q_global_kcal": 1.2149168904374803,
+      "q_normalized": 3.1058060649440797,
+      "per_split_coverage": {
+        "test": {
+          "global": 0.908,
+          "global_halfwidth_kcal": 1.215,
+          "normalized": 0.906,
+          "normalized_median_halfwidth_kcal": 1.306
+        },
+        "validation": {
+          "global": 0.894,
+          "global_halfwidth_kcal": 1.215,
+          "normalized": 0.896,
+          "normalized_median_halfwidth_kcal": 1.309
+        }
+      }
+    },
+    "80pct": {
+      "alpha": 0.2,
+      "nominal_coverage": 0.8,
+      "q_global_kcal": 0.8984785816768865,
+      "q_normalized": 2.1304505765983395,
+      "per_split_coverage": {
+        "test": {
+          "global": 0.806,
+          "global_halfwidth_kcal": 0.898,
+          "normalized": 0.819,
+          "normalized_median_halfwidth_kcal": 0.896
+        },
+        "validation": {
+          "global": 0.796,
+          "global_halfwidth_kcal": 0.898,
+          "normalized": 0.784,
+          "normalized_median_halfwidth_kcal": 0.898
+        }
+      }
+    }
+  },
+  "sigma_lambda": 0.21051726816016178,
+  "risk_smarts": {
+    "hypervalent_P": "[#15]=[#8]",
+    "sulfonyl": "[#16X4](=[#8])(=[#8])",
+    "sulfoxide": "[#16X3;$([#16X3]=[#8])]",
+    "nitro": "[$([NX3](=O)=O),$([NX3+](=O)[O-])]",
+    "N_oxide": "[$([#7X4+][#8X1-]),$([#7X3+][#8X1-]),$([nX3+][#8X1-])]",
+    "selenium": "[#34]",
+    "triflate_like": "[#6](F)(F)(F)[#16X4](=[#8])(=[#8])"
+  },
+  "sigma_guard": {
+    "p95": 0.584,
+    "p99": 0.802,
+    "max": 1.166,
+    "high_sigma_threshold_kcal": 0.802,
+    "note": "predict_dg.py sets dg_high_sigma = ens_member_sigma > high_sigma_threshold_kcal"
+  },
+  "risk_flag_validation_on_test": {
+    "flagged": {
+      "n": 66,
+      "blend_mae": 0.805,
+      "mean_abs_baseline_err": 4.938,
+      "p90_abs_resid": 1.596
+    },
+    "not_flagged": {
+      "n": 382,
+      "blend_mae": 0.481,
+      "mean_abs_baseline_err": 4.98,
+      "p90_abs_resid": 1.096
+    },
+    "per_motif": {
+      "hypervalent_P": {
+        "n": 10,
+        "blend_mae": 0.815,
+        "mean_abs_baseline_err": 5.187,
+        "p90_abs_resid": 1.481
+      },
+      "sulfonyl": {
+        "n": 32,
+        "blend_mae": 0.699,
+        "mean_abs_baseline_err": 5.013,
+        "p90_abs_resid": 1.408
+      },
+      "sulfoxide": {
+        "n": 6,
+        "blend_mae": 0.632,
+        "mean_abs_baseline_err": 4.434,
+        "p90_abs_resid": 1.138
+      },
+      "nitro": {
+        "n": 18,
+        "blend_mae": 1.113,
+        "mean_abs_baseline_err": 4.793,
+        "p90_abs_resid": 2.51
+      },
+      "N_oxide": {
+        "n": 20,
+        "blend_mae": 1.021,
+        "mean_abs_baseline_err": 4.804,
+        "p90_abs_resid": 2.454
+      },
+      "selenium": {
+        "n": 0
+      },
+      "triflate_like": {
+        "n": 0
+      }
+    },
+    "note": "flagged rows should show materially higher blend_mae and mean_abs_baseline_err than not_flagged for the flag to be evidence-backed; per_motif lets predict_dg.py / reviewers see which motifs actually carry the signal at this holdout size."
+  }
+}

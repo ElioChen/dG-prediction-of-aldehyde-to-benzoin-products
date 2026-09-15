@@ -65,8 +65,7 @@ DEFAULT_BLEND_W_GNN = None  # noqa: set by CrossBenzoinBlendPredictor.load() fro
 
 
 @dataclass
-class CrossBenzoinBlendPredictor:
-    ensemble: MLPXGBEnsemble
+class GNNMember:
     gnn: TripleGNN | TripleGNNAttn
     qm_mean: np.ndarray
     qm_std: np.ndarray
@@ -74,47 +73,70 @@ class CrossBenzoinBlendPredictor:
     ym: float
     ysd: float
     feats: list[str]
+
+
+@dataclass
+class CrossBenzoinBlendPredictor:
+    ensemble: MLPXGBEnsemble
+    gnn_members: list[GNNMember]
     blend_w_gnn: float
 
     @classmethod
     def load(cls, model_dir: str | Path, blend_w_gnn: float | None = None,
-              gnn_dir: str | Path | None = None) -> "CrossBenzoinBlendPredictor":
+              gnn_dir: str | Path | list[str | Path] | None = None) -> "CrossBenzoinBlendPredictor":
         model_dir = Path(model_dir)
         ensemble = joblib.load(model_dir / "models" / "ensemble_scaffold_disjoint.joblib")
 
         # gnn_dir defaults to the original 80/10/10-split convention for back-compat;
         # pass explicitly for any other split (e.g. train_gnn_scaffold_disjoint_721_v1).
-        gnn_dir = Path(gnn_dir) if gnn_dir is not None else model_dir.parent / "train_gnn_scaffold_disjoint_v1"
-        stats = joblib.load(gnn_dir / "models" / "gnn_norm_stats.joblib")
-        # "arch" key added 2026-07-20 (train_cross_gnn_arch_sweep.py) for the confirmed
-        # AttentiveFP-pooling winner; absent on older checkpoints, which were all "default".
-        arch_cls = ARCH_CLASSES[stats.get("arch", "default")]
-        gnn = arch_cls(stats["ad"], stats["bd"], stats["nqm"],
-                        h=stats["hidden"], layers=stats["layers"]).to(dev)
-        # checkpoint filename differs by which training script produced it: the original
-        # scaffold-disjoint script wrote "cross_gnn_state.pt", the arch-sweep script (used
-        # for the attentive winner) writes "gnn_state.pt" -- check both.
-        state_path = gnn_dir / "models" / "cross_gnn_state.pt"
-        if not state_path.exists():
-            state_path = gnn_dir / "models" / "gnn_state.pt"
-        gnn.load_state_dict(torch.load(state_path, map_location=dev, weights_only=False))
-        gnn.eval()
+        # A list of dirs (multi-seed GNN average -- see the gnn-seed-ensemble-lever
+        # memory / blend_gnn_seed_ensemble_r10*.py sweeps) requires blend_w_gnn
+        # explicit: each seed's own metadata.json only records the weight tuned for
+        # ITSELF alone, not the k-seed-average sweep, so guessing would silently
+        # ship the wrong blend.
+        gnn_dirs = [gnn_dir] if not isinstance(gnn_dir, list) else gnn_dir
+        if gnn_dirs == [None]:
+            gnn_dirs = [model_dir.parent / "train_gnn_scaffold_disjoint_v1"]
+        if len(gnn_dirs) > 1 and blend_w_gnn is None:
+            raise ValueError("blend_w_gnn is required when gnn_dir is a list (multi-seed "
+                              "average) -- read it from the matching n_seeds row of "
+                              "gnn_seed_ensemble_r10*.json, each seed's own metadata.json "
+                              "only tunes the single-seed weight")
+
+        members = []
+        for gd in gnn_dirs:
+            gd = Path(gd)
+            stats = joblib.load(gd / "models" / "gnn_norm_stats.joblib")
+            # "arch" key added 2026-07-20 (train_cross_gnn_arch_sweep.py) for the confirmed
+            # AttentiveFP-pooling winner; absent on older checkpoints, which were all "default".
+            arch_cls = ARCH_CLASSES[stats.get("arch", "default")]
+            gnn = arch_cls(stats["ad"], stats["bd"], stats["nqm"],
+                            h=stats["hidden"], layers=stats["layers"]).to(dev)
+            # checkpoint filename differs by which training script produced it: the original
+            # scaffold-disjoint script wrote "cross_gnn_state.pt", the arch-sweep script (used
+            # for the attentive winner) writes "gnn_state.pt" -- check both.
+            state_path = gd / "models" / "cross_gnn_state.pt"
+            if not state_path.exists():
+                state_path = gd / "models" / "gnn_state.pt"
+            gnn.load_state_dict(torch.load(state_path, map_location=dev, weights_only=False))
+            gnn.eval()
+            members.append(GNNMember(gnn=gnn, qm_mean=stats["qm_mean"], qm_std=stats["qm_std"],
+                                     med=stats["med"], ym=stats["ym"], ysd=stats["ysd"],
+                                     feats=stats["feats"]))
 
         if blend_w_gnn is None:
-            meta = json.loads((gnn_dir / "models" / "metadata.json").read_text())
+            meta = json.loads((Path(gnn_dirs[0]) / "models" / "metadata.json").read_text())
             blend_w_gnn = meta["best_blend_w_gnn"]
             print(f"[CrossBenzoinBlendPredictor] using validated blend_w_gnn={blend_w_gnn} "
-                  f"from {gnn_dir}/models/metadata.json (best_blend_mae={meta['best_blend_mae']:.3f})")
+                  f"from {gnn_dirs[0]}/models/metadata.json (best_blend_mae={meta['best_blend_mae']:.3f})")
 
-        return cls(ensemble=ensemble, gnn=gnn, qm_mean=stats["qm_mean"], qm_std=stats["qm_std"],
-                   med=stats["med"], ym=stats["ym"], ysd=stats["ysd"], feats=stats["feats"],
-                   blend_w_gnn=blend_w_gnn)
+        return cls(ensemble=ensemble, gnn_members=members, blend_w_gnn=blend_w_gnn)
 
-    def _gnn_predict(self, df: pd.DataFrame) -> np.ndarray:
-        Xdf = df[self.feats].apply(pd.to_numeric, errors="coerce")
-        Xz = Xdf.fillna(self.med).fillna(0.0)
-        qm_std = np.where(self.qm_std == 0, 1.0, self.qm_std)
-        qmz = ((Xz.to_numpy() - self.qm_mean) / qm_std).astype(np.float32)
+    def _member_predict(self, m: GNNMember, df: pd.DataFrame) -> np.ndarray:
+        Xdf = df[m.feats].apply(pd.to_numeric, errors="coerce")
+        Xz = Xdf.fillna(m.med).fillna(0.0)
+        qm_std = np.where(m.qm_std == 0, 1.0, m.qm_std)
+        qmz = ((Xz.to_numpy() - m.qm_mean) / qm_std).astype(np.float32)
 
         pairs = []
         keep_idx = []
@@ -140,11 +162,19 @@ class CrossBenzoinBlendPredictor:
         with torch.no_grad():
             for b in loader:
                 b = b.to(dev)
-                o = self.gnn(b).cpu().numpy()
+                o = m.gnn(b).cpu().numpy()
                 n = o.shape[0]
-                preds[[keep_idx[i] for i in range(pos, pos + n)]] = o * self.ysd + self.ym
+                preds[[keep_idx[i] for i in range(pos, pos + n)]] = o * m.ysd + m.ym
                 pos += n
         return preds
+
+    def _gnn_predict(self, df: pd.DataFrame) -> np.ndarray:
+        """Mean over gnn_members (1 member = the original single-seed path;
+        >1 = the seed-averaging lever, see load()). NaN (failed graph build)
+        propagates per-row if ANY member fails it, matching the old
+        single-model fallback-to-ensemble behavior in predict()."""
+        per_member = np.vstack([self._member_predict(m, df) for m in self.gnn_members])
+        return per_member.mean(axis=0)
 
     def predict(self, df: pd.DataFrame, baseline_col: str = BASELINE_COL) -> np.ndarray:
         """Returns predicted dG_orca (kcal/mol), NOT the raw delta -- baseline already added.

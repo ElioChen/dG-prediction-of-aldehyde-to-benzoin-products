@@ -327,3 +327,157 @@ same discipline as everything else that must not repeat the purge loss).
 PROJECT_PLAN + CHEMICAL_SPACE (+ZH) updated to match. Next design step: 3 --
 `chemical_space.py`'s `pair(i,j)` feature path, with the mandatory ~20-pair
 verification against the current champion table. ---
+
+**Same evening, continued (not journaled at the time):** step 3 done --
+`FlyingDataset.pair(i,j)`, verified bit-exact on the two deterministic lazy
+tiers (RDKit-2D, `interaction_*`, `product_smiles`) against 20 random pairs
+from the round-10 table; donor/acceptor QM matched 72% within 0.2% (the rest
+is the already-characterized aldehyde-recompute-fidelity effect, not a bug).
+One real bug caught: an early verification draft resolved a row's
+(donor, acceptor) address via `pair_key` lookup, which silently picked the
+wrong row when a `pair_key` paired with both role orderings -- fixed by
+resolving from the row's own donor_smiles/acceptor_smiles directly. Then an
+ablation answering the user's "why 260 features, on which objects" question:
+dropping the 91 product-side QM/mordred columns (product geometry isn't
+lazy, CHEMICAL_SPACE.md sec5) costs **+1.00 kcal MAE** (2.544 -> 3.548,
++39.5%, 5-seed pooled sd ~0.02 -- real, well-powered) on the round-10
+champion table. Still well above the g-xTB baseline (5.037), so a legitimate
+cheap first-pass filter, but not a substitute for the full pipeline -- the
+flying dataset cannot be made fully lazy without a real accuracy cost.
+Reframes "redesign the descriptors" from feature selection to a compute-cost
+question.
+
+### 2026-09-12 / 09-13 — no session
+
+No commits either day.
+
+### 2026-09-14 — Tier B drains: b973c champion breakthrough, deployed (reconstructed 2026-09-15)
+
+*Not journaled same-day; reconstructed from commit messages (`50d37b7`,
+`3a894bc`, `273d74f`, `e798755`) and CHAMPION.md content while resuming
+2026-09-15 -- flagged as reconstructed rather than presented as a live
+account.*
+
+**Homo aldehyde chemotype clustering diagnostic**, requested to inform the
+flying-dataset split design: MiniBatchKMeans (k=150) on ECFP4 over the full
+220,859-aldehyde library, joined against the in-flight homo SP labels (43.0%
+coverage at the time), 3 split regimes x 4 methods. Finding: the R²~0.03
+cluster/scaffold group-mean signal seen under random CV is a **leakage
+artifact** -- collapses to ~0 under both cluster-disjoint and
+scaffold-disjoint GroupKFold, while raw fingerprint structure keeps a small
+real signal (R²~0.04-0.05) across all three. Confirms the flying-dataset
+split must be structurally grouped, and that 2D chemotype alone explains
+little of the homo target (consistent with the homo-active-relabel-null-
+result redirect). Mid-session infra fix: a PCA-based structure bracket hung
+because this venv's numpy runs BLAS matmuls unvectorized on this node's CPU
+generation (76000x2048 benchmarked at 14s vs <1s expected) -- replaced with
+pure-numpy ECFP4 bit-folding (2048->128, data-independent, no leakage risk),
+finished in minutes. Delivered as a genuinely-executed notebook
+(`notebooks/cross_benzoin/homo_aldehyde_cluster_dG_analysis.ipynb`), the
+first under the 2026-09-14 user preference for notebook-format analysis.
+
+**Tier B (Rec-1 cheap-baseline lever) drained** at 98.9% coverage (35,136/
+35,528), GREEN QC (B97-3c residual std 0.916 vs g-xTB's 3.785, ratio 0.242 --
+matches the pilot's 0.26 at full scale). `DRAIN_RUNBOOK.md` steps 1-6:
+retrained the champion pipeline on the B97-3c-baseline Δ-target (schema v2,
+257 features). Result, same frozen n=448 holdout: single-XGB 0.632, MLP+XGB
+ensemble 0.603, GNN 4-seed average 0.531, **blend (w_gnn=0.85) 0.528** --
+vs the g-xTB champion's 2.215, a **-76%** drop. Far past the "~1.0-1.5 =
+breakthrough" bar PROJECT_PLAN had guessed at on 2026-09-10 -- the real gain
+was much larger. Mechanism: the Δ-model only has to learn `r2SCAN-3c -
+B97-3c`, already tight (std 0.916) before any ML, because B97-3c starts much
+closer to the label than semiempirical g-xTB does.
+
+**Wired into `predict_dg.py`** the same session (`cb_featurize.py
+--with-b973c` computes the new baseline for genuinely new pairs). Testing
+this end-to-end surfaced two bugs predating this session, blocking BOTH the
+g-xTB and b973c from-scratch paths: (1) `submit_predict_dg.sh` read a
+`features.csv` `cb_featurize.py` has never written (writes `products.csv`);
+(2) the 2026-09-08 n_CHO feature-audit drop had silently broken assembling a
+table for ANY new pair against the still-260-feature deployed schema since
+that patch landed (`calc_rdkit` still computes n_CHO; only the assembler's
+column *selection* had dropped it) -- fixed via `include_ncho=True`.
+
+**Real-pair precision check** (fresh GFN2-xTB + ORCA from scratch, not a
+training-table replay, through the actual `submit_predict_dg.sh` ->
+`predict_dg.py` pipeline): on 2 clean test-split pairs, b973c MAE 0.34 vs
+g-xTB MAE 2.50 -- both landing right on their respective holdout MAE, an
+independent confirmation the b973c gain isn't a training-table artifact. A
+3rd pair (zwitterion-prone amino-acid-like donor) failed **both** models
+similarly -- a shared upstream feature/geometry issue, not b973c-specific;
+the g-xTB path's `dg_high_sigma` flag caught it correctly. **CHAMPION.md
+flipped**: r1-10-b973c is now the champion + deployed default, r1-10 (g-xTB)
+demoted to documented fallback. Known gap flagged at session end: no
+calibration artifact built for b973c yet.
+
+### 2026-09-15 — resume after the gap, b973c calibration + a real seed-averaging deployment bug
+
+**Resumed cold** (no HANDOFF or journal entry past 09-11 tail). Reconstructed
+09-12/13 (no session) and 09-14 (dense, unjournaled) from `git log` + commit
+bodies before doing anything else -- see the two entries just above. Homo SP
+campaign confirmed still healthy: archived 6268/8972 shards (69.9%), regen
+654/771 (84.8%), combined throughput ~50 shard/h (archived is the
+bottleneck) -> **ETA ~2.3 days (~09-17/18)**, close to the 09-11 projection.
+
+**Picked up CHAMPION.md's flagged gap**: built
+`cross_benzoin/predict_dg_calibration_b973c.json` by generalizing
+`build_predict_dg_calibration.py` (was hardcoded to the g-xTB champion's
+table/model paths; now takes `--table --model-dir --gnn-dir --blend-w-gnn
+--baseline-col --label-col`, verified byte-for-byte equivalent on the
+original g-xTB config modulo 1e-13 float noise before trusting the refactor
+on anything new).
+
+**Real bug found while doing it, not cosmetic**: computing the b973c
+holdout MAE via the documented "Load" recipe
+(`CrossBenzoinBlendPredictor.load(..., gnn_dir=seed4)`) gave **0.544**, not
+the champion's documented **0.528**. Root cause: 0.528 is the 4-seed-GNN-
+averaged number (`gnn_seed_ensemble_r10_b973c_result.json`'s sweep,
+`w_gnn=0.85`), but the 2026-09-14 session's `predict_dg.py` wiring only ever
+loaded a single seed dir (seed4 alone, `w_gnn=0.70` from that seed's own
+`metadata.json`) -- CHAMPION.md's own "Load" code sample was internally
+inconsistent (claimed w_gnn=0.85 "from the GNN metadata.json" while pointing
+at a single dir whose metadata actually says 0.70). Same class of gap as the
+09-08 g-xTB seed-ensemble finding (2.215->2.137) -- except there the
+09-08 session correctly judged the gain not-yet-significant and did NOT
+adopt it (left as documented history, untouched here); here the 09-14
+session HAD already decided to adopt the 4-seed number as champion, just
+never wired the code to match.
+
+**Fixed properly, not patched around**: `CrossBenzoinBlendPredictor.load()`
+now accepts a *list* of `gnn_dir`s and averages each member's own
+de-normalized prediction (verified per-seed `ym`/`ysd` genuinely differ
+slightly, ~0.003-0.009, so this has to be per-member, not shared stats);
+`blend_w_gnn` is *required* explicitly when passing a list (each seed's own
+metadata.json only tunes itself alone -- guessing which sweep row applies
+would silently ship the wrong weight, same "explicit not silently wrong"
+discipline as the rest of this file). Re-verified: 4-seed load reproduces
+MAE 0.5284, matching the sweep to 5 decimals. `predict_dg.py`'s `--gnn-dir`
+now accepts a comma-separated list + `--blend-w-gnn`; `build_predict_dg_
+calibration.py` mirrors it. Rebuilt the calibration artifact against the
+*correct* 4-seed champion (first build, against the wrong single-seed
+config, was caught and redone before it could ship): split-conformal 90%
+interval half-width **±1.21 kcal** (vs g-xTB's ±5.24 -- 4.3x tighter,
+tracks the MAE gap), coverage 0.908 test / 0.894 validation.
+
+**One more real finding, not just plumbing**: the same 7 baseline-risk
+SMARTS motifs that clearly flag g-xTB baseline failures (flagged rows'
+|baseline error| 6.35 vs 4.81 not-flagged) do NOT carry the same meaning for
+b973c -- flagged rows there have higher blend MAE (0.80 vs 0.50) but FLAT
+|baseline error| (4.94 vs 4.98). B97-3c itself isn't failing on those
+structures; something else about them is harder for the Δ-model. Documented
+in both CHAMPION.md and predict_dg.py's own printed summary so a caller
+doesn't over-read `baseline_risk=True` as "route to DFT" for the b973c path
+the way it correctly means for g-xTB.
+
+`predict_dg.py`/`predict_cross_champion.py`/`build_predict_dg_calibration.py`
+/`CHAMPION.md`/`PROJECT_PLAN.md` all updated together; full pipeline
+re-verified in-process (load 4-seed champion -> predict -> attach
+calibration columns -> motif flags) on 20 real holdout rows before treating
+this as done, not just "imports cleanly."
+
+--- Snapshot (2026-09-15): homo SP the only compute in flight, ETA ~09-17/18,
+nothing else to do but wait + monitor. Cross-benzoin thread has no known
+open gaps right now -- both champion baselines (g-xTB, b973c) are deployed,
+calibrated, and doc-consistent with what the code actually runs. Next design
+step unchanged: flying dataset build order step 4 (labels/split/baselines
+into the read API), or wait for homo SP to inform Rec-2 unification. ---

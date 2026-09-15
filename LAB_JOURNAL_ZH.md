@@ -208,3 +208,113 @@ raw SMILES 精确匹配），不是抽样，才信这个合并。第 2 步结果
 flying dataset 构建顺序到第 2/6 步；PROJECT_PLAN + CHEMICAL_SPACE（+ZH）已同步更新。
 下一个设计步骤：第 3 步—— `chemical_space.py` 的 `pair(i,j)` 特征路径，必须对 ~20
 个已知对做校验。 ---
+
+**同一晚，接着做（当时没记）：** 第 3 步完成——`FlyingDataset.pair(i,j)`，两条确定性
+lazy tier（RDKit-2D、`interaction_*`、`product_smiles`）对 round-10 表 20 个随机对做到
+逐位精确匹配；donor/acceptor QM 72% 在 0.2% 内匹配（其余是已知的 aldehyde-recompute-
+fidelity 效应，不是 bug）。抓到一个真 bug：早期校验版本用 `pair_key` 查找来定位一行的
+(donor, acceptor) 地址，当一个 `pair_key` 对应两种角色顺序时会悄悄选错行——改成直接
+从该行自己的 donor_smiles/acceptor_smiles 解析。接着做了个消融回答用户"为什么是 260
+个特征"的问题：去掉 91 个产物侧 QM/mordred 列（产物几何不是 lazy 的，CHEMICAL_SPACE.md
+§5）代价 **+1.00 kcal MAE**（2.544→3.548，+39.5%，5-seed 合并 sd 仅 ~0.02——真实、有
+统计力）。仍远好于 g-xTB 基线（5.037），所以 lazy 子集是合理的廉价初筛，但不能替代
+完整流水线——flying dataset 不可能做到完全 lazy 而不付精度代价。
+
+### 2026-09-12 / 09-13 —— 无会话
+
+两天都没有提交。
+
+### 2026-09-14 —— Tier B drain：b973c 冠军突破并上线（2026-09-15 事后重建）
+
+*当天没记日志；2026-09-15 恢复会话时从提交记录（`50d37b7`、`3a894bc`、`273d74f`、
+`e798755`）和 CHAMPION.md 内容重建——标记为事后重建，不是实时记录。*
+
+**homo 醛化学型聚类诊断**（为 flying-dataset 切分设计做准备）：对全量 220,859 个醛的
+ECFP4 指纹做 MiniBatchKMeans（k=150），关联当时 43.0% 覆盖率的 homo SP 在飞标签，在
+3 种切分方式 × 4 种方法下评估。发现：random CV 下看到的 R²~0.03 聚类/scaffold 组均值
+信号是**泄漏假象**——在 cluster-disjoint 和 scaffold-disjoint GroupKFold 下都塌缩到
+~0，而原始指纹结构在三种切分下都保留一点真实信号（R²~0.04-0.05）。证实 flying-dataset
+切分必须按结构分组，且 2D 化学型本身解释不了 homo 目标的多少方差（与
+homo-active-relabel-null-result 的转向结论一致）。中途基础设施修复：一个基于 PCA 的
+结构分支卡住了（撞到 1 小时 SLURM 限制），原因是这个 venv 的 numpy 在这代 CPU 上
+BLAS 矩阵乘法跑的是未向量化路径（76000×2048 矩阵乘法实测 14 秒，预期 <1 秒）——改用
+纯 numpy 的 ECFP4 位折叠（2048→128，数据无关，无跨折泄漏风险），几分钟内跑完。以
+真正执行过的 notebook 交付（`notebooks/cross_benzoin/homo_aldehyde_cluster_dG_
+analysis.ipynb`），是 2026-09-14 用户"分析用 notebook 格式交付"偏好下的第一个。
+
+**Tier B（Rec-1 廉价基线杠杆）drain 完成**，覆盖率 98.9%（35,136/35,528），QC 绿灯
+（B97-3c 残差标准差 0.916 vs g-xTB 的 3.785，比值 0.242——与全量 35k 规模下 pilot 的
+0.26 吻合）。按 `DRAIN_RUNBOOK.md` 步骤 1-6：在 B97-3c 基线的 Δ 目标上重训冠军流水线
+（schema v2，257 特征）。结果（同一冻结 n=448 holdout）：单 XGB 0.632，MLP+XGB
+ensemble 0.603，GNN 4-seed 平均 0.531，**blend（w_gnn=0.85）0.528**——对比 g-xTB 冠军
+的 2.215，**降了 76%**。远超 2026-09-10 PROJECT_PLAN 猜测的"~1.0-1.5 = 突破"门槛——
+真实收益比猜测的大得多。机制：Δ 模型现在只需要学 `r2SCAN-3c − B97-3c`，这个残差在任何
+机器学习之前就已经很紧（std 0.916），因为 B97-3c 起点比半经验 g-xTB 离标签近得多。
+
+**同一 session 接入 `predict_dg.py`**（`cb_featurize.py --with-b973c` 给全新对算新基
+线）。端到端测试时发现两个早于本 session 就存在的 bug，同时挡住 g-xTB 和 b973c 的
+from-scratch 路径：(1) `submit_predict_dg.sh` 读一个 `cb_featurize.py` 从未写过的
+`features.csv`（实际写的是 `products.csv`）；(2) 2026-09-08 的 n_CHO 特征审计早已悄悄
+弄坏了对任何新对组装表格去匹配仍是 260 特征的已部署 schema（`calc_rdkit` 仍算 n_CHO，
+只是组装器的列*选择*丢了它）——用 `include_ncho=True` 修复。
+
+**真实对精度检查**（全新 GFN2-xTB + ORCA 从头算，不是训练表回放，走真实的
+`submit_predict_dg.sh` → `predict_dg.py` 流水线）：2 个干净的 test-split 对上，b973c
+MAE 0.34 vs g-xTB MAE 2.50——都恰好落在各自的 holdout MAE 上，独立证实 b973c 的收益
+不是训练表的人工产物。第 3 个对（一个容易两性离子化、类氨基酸的供体）**两个模型都
+失败**——是上游共享的特征/几何问题，不是 b973c 特有的；g-xTB 路径的 `dg_high_sigma`
+正确抓住了它。**CHAMPION.md 翻转**：r1-10-b973c 现为冠军+默认部署，r1-10（g-xTB）降
+为文档化 fallback。session 结束时标记的已知缺口：还没给 b973c 建 calibration 产物。
+
+### 2026-09-15 —— 断档后恢复：b973c calibration + 一个真实的 seed 平均部署 bug
+
+**冷启动恢复**（09-11 尾巴之后没有 HANDOFF 或日志条目）。先从 `git log` + 提交正文
+重建了 09-12/13（无会话）和 09-14（密集但未记日志）——见上两条。确认 homo SP 战役
+仍健康：archived 6268/8972 shard（69.9%），regen 654/771（84.8%），合并吞吐 ~50
+shard/h（archived 是瓶颈）→ **ETA ~2.3 天（≈09-17/18）**，接近 09-11 的预测。
+
+**接手 CHAMPION.md 标记的缺口**：通过泛化 `build_predict_dg_calibration.py`（原来
+硬编码 g-xTB 冠军的表/模型路径；现在接受 `--table --model-dir --gnn-dir
+--blend-w-gnn --baseline-col --label-col`，先验证对原 g-xTB 配置逐字节等价（除
+1e-13 级浮点噪音）才敢信这个重构）构建了
+`cross_benzoin/predict_dg_calibration_b973c.json`。
+
+**过程中发现一个真 bug，不是表面问题**：按 CHAMPION.md 文档的"Load"方式
+（`CrossBenzoinBlendPredictor.load(..., gnn_dir=seed4)`）算出的 b973c holdout MAE 是
+**0.544**，不是冠军文档写的 **0.528**。根因：0.528 是 4-seed GNN 平均后的数字
+（`gnn_seed_ensemble_r10_b973c_result.json` 的 sweep，`w_gnn=0.85`），但 2026-09-14
+session 接入 `predict_dg.py` 时只加载了单个 seed 目录（seed4 单独，`w_gnn=0.70`，来自
+该 seed 自己的 `metadata.json`）——CHAMPION.md 自己的"Load"示例代码内部就不自洽
+（声称 w_gnn=0.85"来自 GNN metadata.json"，却指向一个 metadata 实际写着 0.70 的单一
+目录）。跟 09-08 g-xTB seed-ensemble 那次发现（2.215→2.137）是同一类缺口——不同的是
+那次 09-08 session 正确判断收益还不显著、没有采纳（留作文档历史，这次没动）；这次
+09-14 session 已经决定把 4-seed 数字当冠军了，只是代码没跟上。
+
+**彻底修复，不是绕过去**：`CrossBenzoinBlendPredictor.load()` 现在接受 `gnn_dir` 的
+*列表*，用每个成员自己的反归一化统计量分别预测再平均（验证了各 seed 自己的
+`ym`/`ysd` 确实略有不同，~0.003-0.009，所以必须按成员分开算，不能共用一套统计量）；
+传列表时 `blend_w_gnn` 必须显式给出（每个 seed 自己的 metadata.json 只调过它自己单
+独的权重——瞎猜该用哪行 sweep 结果会悄悄上线错的权重，跟本文件一贯的"明确报错，不
+悄悄出错"原则一致）。重新验证：4-seed 加载复现 MAE 0.5284，与 sweep 结果对到小数点
+后 5 位。`predict_dg.py` 的 `--gnn-dir` 现支持逗号分隔列表 + `--blend-w-gnn`；
+`build_predict_dg_calibration.py` 同步支持。用*正确*的 4-seed 冠军重新构建了
+calibration 产物（第一次用错误的单 seed 配置构建的版本，在上线前就被发现并重做了）：
+split-conformal 90% 区间半宽 **±1.21 kcal**（vs g-xTB 的 ±5.24——收紧 4.3 倍，与 MAE
+差距吻合），覆盖率 test 0.908 / validation 0.894。
+
+**还有一个真发现，不只是搭线**：那 7 个能清楚标出 g-xTB 基线失败的 SMARTS 官能团
+（标记行的|基线误差| 6.35 vs 未标记的 4.81）对 b973c **不代表同一件事**——标记行的
+blend MAE 更高（0.80 vs 0.50），但 |基线误差|**持平**（4.94 vs 4.98）。B97-3c 本身在
+这些结构上并没有失败；是 Δ 模型觉得这些结构本身更难。已在 CHAMPION.md 和
+predict_dg.py 自己打印的摘要里都写清楚，避免调用者把 b973c 路径的
+`baseline_risk=True` 也误读成"改用 DFT"（这个读法对 g-xTB 仍然是对的）。
+
+`predict_dg.py`/`predict_cross_champion.py`/`build_predict_dg_calibration.py`/
+`CHAMPION.md`/`PROJECT_PLAN.md` 一起更新；在当作完成之前，把整条流水线（加载 4-seed
+冠军 → 预测 → 接 calibration 列 → 官能团标记）在 20 行真实 holdout 数据上原地重新
+跑过一遍，不只是"能 import 就行"。
+
+--- 快照（2026-09-15）：homo SP 是唯一在跑的计算，ETA ~09-17/18，除了等待和监控没有
+别的事。cross-benzoin 这条线目前没有已知缺口——两个冠军基线（g-xTB、b973c）都已部署、
+已校准，文档与代码实际运行的东西一致。下一个设计步骤不变：flying dataset 构建顺序
+第 4 步（把标签/切分/基线接入读取 API），或者等 homo SP 出来为 Rec-2 统一提供输入。 ---

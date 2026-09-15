@@ -22,18 +22,22 @@ ranking.py): dg_favorable (dG<0, the physically meaningful cut), dg_below_train_
 dg_rank_pct (within-batch percentile, 0=most favorable -- only meaningful when scoring a
 batch of candidates against each other).
 
-Plus, when cross_benzoin/predict_dg_calibration.json is present (build it with
-build_predict_dg_calibration.py): dG_pi_lo_90 / dG_pi_hi_90 -- a split-conformal 90%
-prediction interval calibrated on the scaffold-disjoint test+validation residuals
-(distribution-free marginal coverage >= 90%; empirically 0.94 test / 0.87 validation;
-half-width ~5.2 kcal -- wide because the point estimate sits on the label-noise floor
-and the residuals are heavy-tailed). The sigma-normalised variant was no tighter, so
-the interval is the plain global one. And baseline_risk (bool) / baseline_risk_motifs:
-the pair carries a g-xTB-baseline-failure substructure (hypervalent P, sulfonyl,
-sulfoxide, nitro, N-oxide, Se, triflate) -- on the holdout those rows have blend MAE
-2.86 vs 2.10 and |g-xTB baseline error| 6.35 vs 4.81, mirroring the homo hard-tail
-finding (corr(residual, baseline error) 0.888). Treat baseline_risk=True pairs as
-"route to DFT", not trustworthy cheap predictions.
+Plus, when a calibration artifact is registered for --baseline-col (CALIB_JSON_BY_BASELINE;
+build with build_predict_dg_calibration.py): dG_pi_lo_90 / dG_pi_hi_90 -- a split-conformal
+90% prediction interval calibrated on that model's own scaffold-disjoint test+validation
+residuals (distribution-free marginal coverage >= 90%). For the g-xTB champion: empirically
+0.94 test / 0.87 validation, half-width ~5.2 kcal (wide because the point estimate sits on
+the label-noise floor and residuals are heavy-tailed). For r1-10-b973c: 0.91/0.89, half-width
+~1.2 kcal (see CHAMPION.md). The sigma-normalised variant was no tighter for either, so the
+interval is the plain global one. And baseline_risk (bool) / baseline_risk_motifs: the pair
+carries a baseline-failure-associated substructure (hypervalent P, sulfonyl, sulfoxide,
+nitro, N-oxide, Se, triflate) -- for the g-xTB champion those holdout rows have blend MAE
+2.86 vs 2.10 and |baseline error| 6.35 vs 4.81, mirroring the homo hard-tail finding
+(corr(residual, baseline error) 0.888); "route to DFT" is a well-evidenced call there. For
+b973c the same motifs mark rows with higher blend MAE (0.80 vs 0.50) but FLAT |baseline
+error| (4.94 vs 4.98) -- B97-3c itself isn't failing on these structures, something else
+about them is harder for the Delta-model, so treat baseline_risk=True there as "expect worse
+accuracy," not specifically "the cheap baseline is unreliable, use DFT instead."
 
 Aldehydes MUST already be in data/library (checked by canonical SMILES); truly
 novel aldehydes need their own cb_featurize --emit-aldehydes pass first (not yet
@@ -115,16 +119,26 @@ def _stage_fake_round(products_csv: Path, tmp: Path) -> None:
 FAVORABLE_THRESHOLD_KCAL = 0.0
 TRAIN_MEDIAN_DG_KCAL = 4.917011302989063  # r1-10 train split median dG_orca_kcal, frozen
 
-CALIB_JSON = REPO / "cross_benzoin/predict_dg_calibration.json"
+# per-baseline-column calibration artifact (build_predict_dg_calibration.py
+# --baseline-col <col> --out <path>); a --baseline-col not in this map is
+# skipped explicitly rather than silently attaching a wrong-scale interval
+# (residual scales differ hugely between baselines, e.g. b973c's ~0.24x
+# g-xTB's -- see CHAMPION.md).
+CALIB_JSON_BY_BASELINE = {
+    "dG_gxtb_kcal": REPO / "cross_benzoin/predict_dg_calibration.json",
+    "dG_b973c_kcal": REPO / "cross_benzoin/predict_dg_calibration_b973c.json",
+}
 
 
-def _load_calibration():
-    """split-conformal quantiles + g-xTB-baseline-failure SMARTS, built by
-    build_predict_dg_calibration.py. Returns None if not present (the extra
-    columns are then simply omitted)."""
-    if not CALIB_JSON.exists():
+def _load_calibration(baseline_col: str):
+    """split-conformal quantiles + baseline-failure SMARTS, built by
+    build_predict_dg_calibration.py. Returns None if no calibration artifact
+    is registered/present for this --baseline-col (the extra columns are
+    then simply omitted)."""
+    calib_json = CALIB_JSON_BY_BASELINE.get(baseline_col)
+    if calib_json is None or not calib_json.exists():
         return None
-    cfg = json.loads(CALIB_JSON.read_text())
+    cfg = json.loads(calib_json.read_text())
     from rdkit import Chem  # nequip env has rdkit
     from rdkit import RDLogger
     RDLogger.DisableLog("rdApp.*")
@@ -153,7 +167,16 @@ def main() -> int:
                     help="cross_round*_dft_products.csv-schema file for the pairs to predict")
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--model-dir", default=str(CHAMP))
-    ap.add_argument("--gnn-dir", default=str(GNN))
+    ap.add_argument("--gnn-dir", default=str(GNN),
+                    help="comma-separated for a multi-seed GNN average (the "
+                         "gnn-seed-ensemble-lever memory / blend_gnn_seed_ensemble_r10*.py "
+                         "sweeps) -- pass --blend-w-gnn explicitly when using more than one "
+                         "dir, each seed's own metadata.json only tunes itself alone. r1-10-b973c "
+                         "champion recipe (CHAMPION.md, MAE 0.528): the 4 "
+                         "gnn_attentive_10rounds_b973c_seed{1..4} dirs + --blend-w-gnn 0.85")
+    ap.add_argument("--blend-w-gnn", type=float, default=None,
+                    help="required with a comma-separated --gnn-dir; optional override "
+                         "otherwise (default: read from the single gnn-dir's metadata.json)")
     ap.add_argument("--schema", default=str(SCHEMA), type=Path,
                     help="feature_list.json to prune to -- must match --model-dir's own "
                          "schema (260 for the deployed g-xTB champion, 257 for r1-10-b973c: "
@@ -194,7 +217,9 @@ def main() -> int:
             raise SystemExit(f"--baseline-col {args.baseline_col!r} not in the assembled table "
                              f"-- products-csv is missing it (for dG_b973c_kcal: run "
                              f"cb_featurize.py with --with-b973c)")
-        pred = CrossBenzoinBlendPredictor.load(args.model_dir, gnn_dir=args.gnn_dir)
+        gnn_dir_arg = args.gnn_dir.split(",") if "," in args.gnn_dir else args.gnn_dir
+        pred = CrossBenzoinBlendPredictor.load(args.model_dir, gnn_dir=gnn_dir_arg,
+                                                blend_w_gnn=args.blend_w_gnn)
         dg = pred.predict(df, baseline_col=args.baseline_col)
         # cheap uncertainty proxy: spread of the 3 base learners (MLP, XGB-a, XGB-b).
         # NOT the full pair-grouped bootstrap epistemic estimate (score_round_active_
@@ -220,19 +245,17 @@ def main() -> int:
         # single pair.
         out["dg_rank_pct"] = out["dG_pred_kcal"].rank(pct=True, method="average")
 
-        # split-conformal 90% prediction interval + g-xTB-baseline-failure flag
-        # (predict_dg_calibration.json; see build_predict_dg_calibration.py). Both
-        # optional -- skipped with a note if the calibration artifact is absent.
-        # Calibrated against the deployed g-xTB model's holdout residuals specifically
-        # (build_predict_dg_calibration.py); skip outright for any other --baseline-col
-        # (e.g. dG_b973c_kcal) rather than silently attaching a wrong-scale interval --
-        # the b973c model's residuals are a different, much tighter distribution
-        # (holdout MAE 0.528 vs 2.215, CHAMPION.md), no calibration built for it yet.
-        calib = _load_calibration() if args.baseline_col == "dG_gxtb_kcal" else None
-        if calib is None and args.baseline_col != "dG_gxtb_kcal":
+        # split-conformal 90% prediction interval + baseline-failure flag
+        # (CALIB_JSON_BY_BASELINE; see build_predict_dg_calibration.py). Both
+        # optional -- skipped with a note if no calibration artifact is registered
+        # for this --baseline-col, rather than silently attaching a wrong-scale
+        # interval (residual scales differ hugely between baselines, e.g. b973c's
+        # MAE 0.528 vs g-xTB's 2.215, CHAMPION.md).
+        calib = _load_calibration(args.baseline_col)
+        if calib is None:
             print(f"[predict_dg] --baseline-col={args.baseline_col} -- dG_pi_*_90/"
-                  f"baseline_risk/dg_high_sigma are calibrated for dG_gxtb_kcal only, "
-                  f"skipped (no calibration built yet for this baseline)")
+                  f"baseline_risk/dg_high_sigma skipped (no calibration artifact "
+                  f"registered/built for this baseline; see CALIB_JSON_BY_BASELINE)")
         if calib is not None:
             q90 = calib["conformal"]["90pct"]["q_global_kcal"]
             out["dG_pi_lo_90"] = out["dG_pred_kcal"] - q90
@@ -251,9 +274,6 @@ def main() -> int:
             hi_sig = calib.get("sigma_guard", {}).get("high_sigma_threshold_kcal")
             if hi_sig is not None:
                 out["dg_high_sigma"] = out["ens_member_sigma"] > hi_sig
-        else:
-            print("[predict_dg] predict_dg_calibration.json not found -- skipping "
-                  "dG_pi_*_90 / baseline_risk columns (run build_predict_dg_calibration.py)")
 
         out.to_csv(args.out, index=False)
         print(out.to_string(index=False))
@@ -265,11 +285,19 @@ def main() -> int:
               f"call and the dg_rank_pct ranking are not.")
         if "baseline_risk" in out.columns:
             n_risk = int(out["baseline_risk"].sum())
-            print(f"{n_risk}/{len(out)} pairs carry a g-xTB-baseline-failure substructure "
-                  f"(baseline_risk=True) -- route those to DFT, the cheap prediction is "
-                  f"unreliable there (holdout blend MAE 2.86 vs 2.10). dG_pi_lo_90/dG_pi_hi_90 "
-                  f"is a split-conformal 90% interval (>=90% marginal coverage; ~5.2 kcal "
-                  f"half-width -- wide by construction at the label-noise floor).")
+            rv = calib.get("risk_flag_validation_on_test", {})
+            flg, nflg = rv.get("flagged", {}), rv.get("not_flagged", {})
+            q90 = calib["conformal"]["90pct"]["q_global_kcal"]
+            print(f"{n_risk}/{len(out)} pairs carry a {args.baseline_col}-baseline-failure "
+                  f"substructure (baseline_risk=True) -- on this model's own holdout, "
+                  f"flagged rows have blend MAE {flg.get('blend_mae')} vs {nflg.get('blend_mae')} "
+                  f"not flagged, |baseline err| {flg.get('mean_abs_baseline_err')} vs "
+                  f"{nflg.get('mean_abs_baseline_err')} (see CHAMPION.md / "
+                  f"risk_flag_validation_on_test in the calibration JSON for whether this is a "
+                  f"genuine baseline-failure signal here -- flat |baseline err| means the motif "
+                  f"still marks a harder case, just not for the 'baseline is wrong' reason). "
+                  f"dG_pi_lo_90/dG_pi_hi_90 is a split-conformal 90% interval (>=90% marginal "
+                  f"coverage; +/-{q90:.2f} kcal half-width).")
       finally:
         shutil.rmtree(r99, ignore_errors=True)
         shutil.rmtree(d99, ignore_errors=True)

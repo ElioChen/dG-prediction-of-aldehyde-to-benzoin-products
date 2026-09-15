@@ -25,6 +25,7 @@ This script runs locally (nequip env, has torch_geometric for the GNN):
   /home/schen3/venv/nequip/bin/python cross_benzoin/build_predict_dg_calibration.py
 """
 from __future__ import annotations
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -40,10 +41,17 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "cross_benzoin"))
 from predict_cross_champion import CrossBenzoinBlendPredictor  # noqa: E402
 
+# Defaults: the deployed g-xTB champion (r1-10). Override all four for a
+# different champion, e.g. r1-10-b973c (CHAMPION.md) --
+#   --table data/cross_benzoin/cross_round10/cross_train_table_10rounds_scaffold_split_labeled_slim257_b973c.parquet
+#   --model-dir data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_b973c_v1
+#   --gnn-dir data/cross_benzoin/cross_round10/gnn_attentive_10rounds_b973c_seed4
+#   --baseline-col dG_b973c_kcal --out cross_benzoin/predict_dg_calibration_b973c.json
 TABLE = REPO / "data/cross_benzoin/cross_round10/cross_train_table_10rounds_scaffold_split_labeled_slim260.parquet"
 MODEL_DIR = REPO / "data/cross_benzoin/cross_round10/scaffold_disjoint_10rounds_v1"
 GNN_DIR = REPO / "data/cross_benzoin/cross_round10/gnn_attentive_10rounds_v1"
 OUT = REPO / "cross_benzoin/predict_dg_calibration.json"
+BASELINE_COL = "dG_gxtb_kcal"
 
 # g-xTB-baseline-failure motifs. Each entry: name -> SMARTS. Evidence trail in
 # the module docstring; per-motif holdout MAE is written into the JSON so the
@@ -91,26 +99,46 @@ def coverage(y_true, y_pred, lo, hi):
 
 
 def main() -> int:
-    df = pd.read_parquet(TABLE)
-    pred = CrossBenzoinBlendPredictor.load(str(MODEL_DIR), gnn_dir=str(GNN_DIR))
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--table", default=str(TABLE), type=Path)
+    ap.add_argument("--model-dir", default=str(MODEL_DIR), type=Path)
+    ap.add_argument("--gnn-dir", default=str(GNN_DIR),
+                    help="comma-separated for a multi-seed GNN average -- pass "
+                         "--blend-w-gnn explicitly when using more than one dir "
+                         "(see predict_dg.py --gnn-dir help)")
+    ap.add_argument("--blend-w-gnn", type=float, default=None)
+    ap.add_argument("--out", default=str(OUT), type=Path)
+    ap.add_argument("--baseline-col", default=BASELINE_COL,
+                    help="cheap-baseline column reported as the 'baseline failure' "
+                         "comparator, e.g. dG_b973c_kcal for r1-10-b973c")
+    ap.add_argument("--label-col", default="dG_orca_kcal",
+                    help="ground-truth DFT label column the model was trained "
+                         "against -- dG_orca_kcal for the g-xTB champion, "
+                         "dG_r2scan_kcal for r1-10-b973c (DRAIN_RUNBOOK.md)")
+    args = ap.parse_args()
+    table, model_dir, out_path = args.table, args.model_dir, args.out
+    gnn_dir = args.gnn_dir.split(",") if "," in args.gnn_dir else args.gnn_dir
+
+    df = pd.read_parquet(table)
+    pred = CrossBenzoinBlendPredictor.load(str(model_dir), gnn_dir=gnn_dir, blend_w_gnn=args.blend_w_gnn)
 
     parts = {}
     for split in ("test", "validation", "train"):
         sub = df[df["new_scaffold_split"] == split].reset_index(drop=True)
         if sub.empty:
             continue
-        yhat = np.asarray(pred.predict(sub), dtype=float)
-        y = sub["dG_orca_kcal"].to_numpy(dtype=float)
+        yhat = np.asarray(pred.predict(sub, baseline_col=args.baseline_col), dtype=float)
+        y = sub[args.label_col].to_numpy(dtype=float)
         # same cheap 3-learner spread predict_dg.py emits as ens_member_sigma
         ens = pred.ensemble
         X = sub[ens.feats].apply(pd.to_numeric, errors="coerce").fillna(ens.medians).fillna(0.0)
         members = np.vstack([ens.mlp.predict(ens.scaler.transform(X)),
                              ens.xgb_a.predict(X), ens.xgb_b.predict(X)])
         sigma = members.std(axis=0)
-        gxtb = sub["dG_gxtb_kcal"].to_numpy(dtype=float)
+        baseline = sub[args.baseline_col].to_numpy(dtype=float)
         motifs = [risk_motifs_for_smiles([sub.at[i, "donor_smiles"], sub.at[i, "acceptor_smiles"],
                                           sub.at[i, "smiles"]]) for i in range(len(sub))]
-        parts[split] = dict(y=y, yhat=yhat, sigma=sigma, gxtb=gxtb, motifs=motifs,
+        parts[split] = dict(y=y, yhat=yhat, sigma=sigma, gxtb=baseline, motifs=motifs,
                             resid=np.abs(y - yhat))
 
     # --- calibrate on test + validation pooled (n ~= 929). Neither is a
@@ -125,8 +153,11 @@ def main() -> int:
 
     out = {
         "built_by": "cross_benzoin/build_predict_dg_calibration.py",
-        "champion": {"model_dir": str(MODEL_DIR.relative_to(REPO)),
-                     "gnn_dir": str(GNN_DIR.relative_to(REPO)), "blend_w_gnn": 0.50},
+        "champion": {"model_dir": str(model_dir.relative_to(REPO)) if model_dir.is_relative_to(REPO) else str(model_dir),
+                     "gnn_dir": [str(Path(g).relative_to(REPO)) if Path(g).is_relative_to(REPO) else str(g)
+                                 for g in (gnn_dir if isinstance(gnn_dir, list) else [gnn_dir])],
+                     "blend_w_gnn": pred.blend_w_gnn,
+                     "baseline_col": args.baseline_col, "label_col": args.label_col},
         "calibration_set": "scaffold-disjoint test + validation splits pooled",
         "n_calib": int(len(calib)),
         "caveats": ("test split was used to pick blend w_gnn and validation may "
@@ -195,9 +226,9 @@ def main() -> int:
                  "which motifs actually carry the signal at this holdout size."),
     }
 
-    OUT.write_text(json.dumps(out, indent=2))
+    out_path.write_text(json.dumps(out, indent=2))
     print(json.dumps(out, indent=2))
-    print(f"\n-> {OUT}")
+    print(f"\n-> {out_path}")
     return 0
 
 
