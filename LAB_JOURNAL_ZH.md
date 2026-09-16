@@ -409,3 +409,115 @@ COMPLETED / 159 个 RUNNING / 27 个 PENDING，只有 3 个 CANCELLED+（可忽�
 单个 XGB + 单个 GNN，PROJECT_PLAN §6 第 1 项）——正确地卡在 archived 轨道真正
 到 100%，而不是接近就跑。分片跑完后会按 [[handoff-routine-and-autonomy]] 里
 既定的自主推进授权直接执行，不用再等一次提示。
+
+**同一天，继续：用户要求给 dG 的 GNN 那条腿尝试 chemprop 和反应图（CRG）**，
+同时顺手用已有的部分 homo 表跑了一版 Rec-2 早期读数。
+
+**Rec-2 早期读数（临时，homo SP 还没跑完）**：重跑 `assemble_homo_standalone_
+table.py --full-library`（136,874 行部分 merge_homo_sp.py 输出）之前先发现并
+修了一个真 bug：脚本从没 join 过醛侧 mordred（`donor_ald_mordred_*`/
+`acceptor_ald_mordred_*`，257 个冠军列里的 67 个），从写出来那天起 30k 和全库
+两条路径都在用一个残缺 schema 训练；脚本自己文档里"champion has none"的说法
+在 round8 时就已经是错的。修好后（join `aldehydes_mordred_slim102.csv`）。
+写了 `homo_cross_joint_tabular_v2.py`（Task C 方法论搬到 257-feat+b973c 尺度，
+加了 `naive_merge_weighted` 条件直接测 FINDING.md 担心的"6:1 会稀释信号"）。
+在 116,740 行临时表（homo:cross 5.18:1）上的结果：naive_merge（不降权）比
+cross_only 好 0.046（0.617→0.572），AMBER（n=448 下大概率不到 1 个 bootstrap
+SE）——而且"不降权"反而比"降权"版本更好，和稀释假说预期的方向相反。只是
+临时读数，等完整表落地才能定论。
+
+**chemprop**：发现项目共享的 chemprop 环境（`envs/gnn`、`envs/bde_gnn`，在
+`/gpfs/scratch1/shared/schen3/envs/` 下）全部在 purge 后损坏（bin/ 目录空的），
+但 `/home/schen3/venv/bde_gnn`（home 目录，~09-02 重建）能用（torch 2.13+cu130,
+chemprop 2.2.0；补装了缺的 pyarrow）。写了 `train_cross_gnn_chemprop.py`，用
+chemprop v2 原生的 `MulticomponentMessagePassing`/`MulticomponentMPNN`（产物/
+供体/受体各一个独立 `BondMessagePassing`，`shared=False` 对应 TripleGNN 三个
+独立编码器的设计）+ 257-feat schema 当 `x_d`。CPU smoke test 后跑了一次真实
+GPU（gpu_a100，21 分钟）：单 seed test MAE **0.600**（n=448）——打平 MLP+XGB
+ensemble（0.603），比单 XGB 好（0.632），不如 TripleGNN 单 seed（0.556）。没
+做 seed 集成（chemprop 是次要需求，CRG 才是重点跟进对象）。
+
+**写 chemprop 脚本时顺带发现一个真 bug，没在那修**：`train_cross_gnn.py`
+自己的 split 逻辑（`train_cross_delta.pair_split_labels()`）读的是 candidates_v3
+的 `SPLIT_MAP`，09-15 已经退役——文件不存在，函数现在无条件返回 `None`，下游
+代码把这个变成"每一行都扔进 train_extra"（val/test 变空）。现有的冠军 GNN
+checkpoint 都是退役之前训的，不受影响；只有"下一次重跑"才会踩到这个坑。当天
+晚些时候修了（见下）。
+
+**CRG（反应图）——真正的重头戏。** 关键洞察，让这件事不需要外部反应原子映射
+工具：benzoin 偶联（2 RCHO → R-CO-CH(OH)-R'）是原子经济反应，产物 SMILES 本
+身就已经完整包含供体+受体的全部原子（作为完整的取代基树）——这里的 CRG 不需要
+把三个 mol 对象拼一起，只需要（a）用一条 SMARTS（`[CX3](=O)[CX4][OX2H1]`）在
+产物图里定位 5 原子反应核心（ketC/ketO/carbC/hydO，没有单独的 hydH 节点，因为
+这个项目的图是隐式 H），两次独立抽样（500/2000 行）验证唯一匹配率 97.5-97.6%；
+（b）纯靠产物图自身连通性，用 BFS 把其余原子按落在新 ketC-carbC 键的哪一侧
+分类——完全不需要交叉参照 donor_smiles/acceptor_smiles。形式上的净原子映射
+（质量守恒自洽，不是对 NHC Umpolung 真实中间体的机理断言）写在 `crg_builder.py`
+文档里。`crg_builder.py` 纯 RDKit 实现，先在一个玩具分子上单测过（side/core
+标签和新键 edge flag 全部验证正确）才碰真实数据。
+
+`train_cross_gnn_crg.py`：单个 `Enc()`（和 TripleGNN 每个分支用的同一个
+GINEConv block，这样差异只来自"连通 vs 不连通"的表征本身，不是特征集变化）
+处理这一张condensed产物图 + 257-feat 的 x_d 通道。split 和 chemprop 脚本一样
+用 `new_scaffold_split`（同样是为了绕开刚发现的那个 landmine）。
+
+**第一次单次跑：0.559**（n=432，约 2.5% 的行因反应核心 SMARTS 没匹配/歧义被
+丢弃）——先做了公平性检查才敢兴奋：冠军 blend 在同样 432 行子集上的 MAE 是
+0.5295，全量 448 行是 0.5284，子集不是偷偷变简单了，对比是站得住的。接着在
+"seed 1/2/3"续跑上真的判断错了一次：这个集群的 `SEED=$s sbatch ...` 不会把
+环境变量传进作业（sbatch 的 site 默认 `--export` 不像 `SEED=$s sbatch` 字面
+看起来那样继承 shell 变量），三个"不同 seed"其实悄悄全跑了 seed 0——发现的
+线索是"报出来的 seed0 数值每次检查都不一样"（CUDA 在固定 seed 下也不是完全
+确定性的）。用户两次追问（"seed是否太少"/"还是数据太少"）都问对了：那 n=4 的
+四个数（0.559/0.564/0.604/0.593）看起来像个宽、让人担心的分布，但 n=4 根本
+分不清是噪声还是真的双峰失败模式。
+
+**统计功效够了的版本**：修好 sbatch 的 bug（`--export=ALL,SEED=$s`），真正
+跑了 30 个独立 seed。均值 0.572 ± 0.012（min 0.554, max 0.605）——之前那个
+"0.610 离群点"本身就是小样本的幻觉，不是真正的双峰尾巴。加了真正的预测级
+集成（逐行 y_pred 先跨 seed 平均，不是平均 MAE 数值——和冠军自己的 4-seed GNN
+数字算法一致），靠一次脚本改动存下 `test_predictions.csv`：4-seed 集成 0.543，
+之后就饱和了（8/16/30-seed：0.543/0.542/0.543）——和冠军自己 seed 集成"4 个
+左右饱和"的规律一样。
+
+**超参搜索**（用户接着要求"进行超参搜索"）：CRG 之前全程用的是 TripleGNN 的
+未调超参。20 组随机配置（hidden/layers/lr/dropout/weight_decay）× 2 seed =
+39/40 个作业（1 个因集群瞬时"compute budget"错误没提交上），只按**验证集**
+MAE 选型（test 全程没碰）。最优：hidden=128 layers=4 lr=3e-3 dropout=0
+wd=1e-4——和默认值很接近，主要是学习率高 3 倍、去掉了 dropout。用这个配置
+再跑 12 个 seed：12-seed 集成 test MAE **0.535**（n=432），基本打平冠军在
+同一子集上的 0.5295。
+
+**用户第三次追问**（"n=432 是否太少了 需要更多的数据"）——又问对了：把评估
+扩到 pooled test+validation（n=898，和 `build_predict_dg_calibration.py` 已经
+在用的惯例一样），这需要 CRG 也在 validation 集上跑推理（写了个小脚本复用
+训练脚本自己的 `build_crg`/`CRGGNN`/`make_loader`，用确定性的 train 行集合
+重新算出同一套 leakage-safe x_d 标准化统计量，不需要提前存过）。合并结果：
+冠军 0.5556，CRG（调优后，12-seed）0.5635。bootstrap（20000 次重采样）：
+CRG-冠军 差值均值 +0.0079，90% CI **[-0.0029, 0.0189]**（P(CRG 更差)=88.6%，
+比 n=432 时的 75% 更高）——数据变多后信号从"分不清"变成"冠军大概率还是略好
+一点"，但 90% 区间仍然勉强包含 0。把之前"基本打平"的说法修正为"接近，大概率
+略逊一筹，差距不大"。还发现一个没解释的现象：validation 子集对两个模型都比
+test 子集更难（冠军 0.58 vs 0.53，CRG 也是 0.59 vs 0.53），而且 CRG 相对冠军
+的差距在 validation 上略微拉大——记了一笔，没深究。
+
+**试了把 CRG 和 tabular ensemble 做 blend**（冠军自己的配方：`(1-w)*ens_delta
++ w*gnn_delta`，w 只在 validation 上选）。结果：w=0.76，test MAE 0.5352——
+统计上和 CRG 单独跑（0.5348）没差别，没有 blend 增益。事后想想合理：CRG 自己
+的 x_d 通道已经融合了同一套 257-feat schema，一个只训练在同样特征上的 tabular
+模型加不了 GNN 已经看到的信息——不像 TripleGNN，从 tabular 堆叠里明显受益
+（w_gnn=0.85，不是 1.0）。是个真实的负结果，不是 bug。
+
+**修了上面发现的 `train_cross_gnn.py` landmine**：当表里有 `new_scaffold_split`
+列时（现在的表都有）直接用它（`mixed` → `train_extra`，保留脚本原有的
+train/train_extra/validation/test 四桶语义），只有表里没这列时才退回旧的
+candidates_v3 路径。对着真实的 b973c 表验证过：复现出了完全一样的已知 split
+行数（22529/11678/481/448）。
+
+**目前的状态**：CRG 是个真实、验证过、能跑通的架构——接近但（现在统计功效
+比较够了之后看）大概率还是比调过的成熟 TripleGNN 差一点，不是明确的胜利。
+没有下结论"采用"或"关闭这条线"——如果继续推进，开放的线头：（1）CRG 自身
+的架构改进（`crg_builder.py` 文档里提到但没实现的"键级变化"edge flag；把
+CRG 和 TripleGNN 本身而不是 tabular ensemble 做 blend）；（2）同样的 CRG
+思路用在 BDE 上（用户和 dG 那个请求一起提的，"BDE等工作也可以尝试"——这次
+没开始，单分子 + 显式标记目标键是自然的类比，但需要单独搭建）。
