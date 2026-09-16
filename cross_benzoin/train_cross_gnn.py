@@ -257,9 +257,25 @@ def main() -> int:
     # a genuinely different model than the 16431-row-only fit that produced the
     # officially reported 2.633 number. Both are legitimate; 2.777 is "what the
     # artifact you'd actually ship predicts," 2.633 is "the metric as reported."
-    pair_split = pair_split_labels(df, verbose=True)
-    df = df.assign(_split=pair_split)
-    df["_split"] = df["_split"].where(df["_split"].notna(), "train_extra")
+    # pair_split_labels() reads candidates_v3's SPLIT_MAP, retired 2026-09-15
+    # (data/cross_benzoin/_archive/candidates_v3/inchikey_split_map.parquet does
+    # not exist -- never restored post-purge; see LAB_JOURNAL 2026-09-15). It
+    # returns None unconditionally now, which used to silently route every row
+    # into train_extra (empty val/test -- found 2026-09-16 while building
+    # train_cross_gnn_crg.py, a real landmine for this script's next re-run,
+    # since every existing champion GNN checkpoint predates the retirement and
+    # was trained before this broke). Prefer the table's own new_scaffold_split
+    # (what train_scaffold_disjoint.py, the actually-deployed tabular trainer,
+    # already uses instead) when present; only fall back to the legacy
+    # candidates_v3 path for an old table that lacks it.
+    if "new_scaffold_split" in df.columns:
+        df = df.assign(_split=df["new_scaffold_split"].replace({"mixed": "train_extra"}))
+        print("  split source: table's own new_scaffold_split (mixed -> train_extra)")
+        print("  pair_split counts:", df["_split"].value_counts().to_dict())
+    else:
+        pair_split = pair_split_labels(df, verbose=True)
+        df = df.assign(_split=pair_split)
+        df["_split"] = df["_split"].where(df["_split"].notna(), "train_extra")
 
     if args.extra_val_frac > 0:
         rng = np.random.default_rng(args.seed)

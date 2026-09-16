@@ -8,7 +8,13 @@ champion (blend MAE 2.215).
 
 Schema match: aldehyde QM feats (donor/acceptor) + product QM feats + rdkit
 2D blocks + interaction_* + the SAME 53 `product_mordred_*` columns the cross
-champion uses (feature_list.json). No aldehyde mordred (champion has none).
+champion uses (feature_list.json), plus donor/acceptor `ald_mordred_*` (fixed
+2026-09-16: this file's original docstring claimed "champion has none", which
+was already wrong at round8 -- the champion schema has carried 28
+donor_ald_mordred_ + up to 39 acceptor_ald_mordred_ columns since mordred was
+folded in at round3; this script just never joined them, silently training
+215/257 (or, pre-fix, ~207/260) champion features on both the 30k and
+full-library paths).
 
 Scope: the 30,000-row surviving-label homo subsample (homo_unify_v1). The
 full ~219k homo library lost its DFT labels (physically gone; recompute is
@@ -46,7 +52,8 @@ HOMO_DFT = REPO / "data/cross_benzoin/homo_unify/homo_unify_v1_dft.csv"
 HOMO_BDE = REPO / "data/cross_benzoin/homo_unify/homo_unify_v1_bde.csv"
 HOMO_SPLIT = REPO / "data/cross_benzoin/homo_unify/homo_unify_v1_scaffold_split_lookup.csv"
 HOMO_PRODUCT_MORDRED = REPO / "data/cross_benzoin/homo_v6/products_mordred_descriptors.csv"
-CHAMPION_FEATURE_LIST = REPO / "data/cross_benzoin/cross_round8/scaffold_disjoint_8rounds_v1/models/feature_list.json"
+ALD_MORDRED_CSV = REPO / "data/cross_benzoin/homo_v6/aldehydes_mordred_slim102.csv"
+CHAMPION_FEATURE_LIST = REPO / "data/cross_benzoin/feature_list_257_no_nCHO_v2.json"
 
 # --full-library mode (HANDOFF_20260910 Sec1.3, post homo-SP-relabel-drain): the
 # full ~184k product library + its own aldehyde/split/bde/mordred caches, with
@@ -85,7 +92,13 @@ def build_full_library(labels_path: Path, pm_keep: list[str]) -> pd.DataFrame:
     ald_bde["id"] = norm_id(ald_bde["id"])
     ald_bde.loc[ald_bde["bde_gxtb_kcal"].abs() > 200, "bde_gxtb_kcal"] = np.nan
     ald = ald.merge(ald_bde, on="id", how="left")
-    ald_lookup = ald.drop_duplicates("id").set_index("id")[ALDEHYDE_FEATS]
+    ald_mordred = pd.read_csv(ALD_MORDRED_CSV, low_memory=False)
+    ald_mordred["id"] = norm_id(ald_mordred["id"])
+    ald_mordred_cols = [c for c in ald_mordred.columns if c != "id"]
+    ald = ald.merge(ald_mordred, on="id", how="left")
+    print(f"aldehyde mordred join: {ald[ald_mordred_cols[0]].notna().sum()}/{len(ald)} aldehydes "
+          f"({len(ald_mordred_cols)} cols)")
+    ald_lookup = ald.drop_duplicates("id").set_index("id")[ALDEHYDE_FEATS + ald_mordred_cols]
     df = df.reset_index(drop=True)
     for prefix in ("donor", "acceptor"):
         block = ald_lookup.reindex(df["id"]).reset_index(drop=True)
@@ -147,6 +160,8 @@ def build_full_library(labels_path: Path, pm_keep: list[str]) -> pd.DataFrame:
                  "dG_xtb_kcal", "dG_gxtb_kcal", "dG_orca_kcal", "dG_b973c_kcal"]
     feat_cols = ([f"donor_{c}" for c in ALDEHYDE_FEATS] +
                  [f"acceptor_{c}" for c in ALDEHYDE_FEATS] +
+                 [f"donor_{c}" for c in ald_mordred_cols] +
+                 [f"acceptor_{c}" for c in ald_mordred_cols] +
                  [c for c in PRODUCT_FEATS if c in df.columns] +
                  list(donor2d.columns) + list(acc2d.columns) + list(prod2d.columns) +
                  [c for c in df.columns if c.startswith("interaction_")] +

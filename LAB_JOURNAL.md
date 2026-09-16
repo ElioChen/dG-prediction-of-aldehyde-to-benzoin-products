@@ -610,3 +610,154 @@ assembler -> single XGB + single GNN, PROJECT_PLAN §6 item 1) -- correctly
 gated on the archived track actually reaching 100%, not just close. Will
 fire it without waiting for another prompt once shards complete, per the
 standing autonomous-advance authority ([[handoff-routine-and-autonomy]]).
+
+**Same day, continued: user asked to try chemprop and a condensed reaction
+graph (CRG) for the dG GNN leg** (both new comparison points against the
+deployed TripleGNN, 0.556 single-seed / 0.531 4-seed / 0.528 blend champion
+numbers), plus pushed a Rec-2 early-look with the partial homo table already
+on disk.
+
+**Rec-2 early look (provisional, homo SP still draining)**: re-ran
+`assemble_homo_standalone_table.py --full-library` against the 136,874-row
+partial `merge_homo_sp.py` output -- found and fixed a real gap first: the
+script never joined aldehyde-side mordred (`donor_ald_mordred_*`/
+`acceptor_ald_mordred_*`, 67 of the 257 champion columns), silently training
+on a reduced schema on both the 30k and full-library paths since it was
+written; its own docstring's "champion has none" claim was already wrong at
+round8. Fixed (merge `aldehydes_mordred_slim102.csv`, add to both
+`ald_lookup` and `feat_cols`). Wrote `homo_cross_joint_tabular_v2.py` (Task
+C's methodology at 257-feat + b973c scale, `+naive_merge_weighted` condition
+to directly test FINDING.md's dilution-at-6:1-scale warning). Result on the
+116,740-row provisional table (homo:cross 5.18:1): naive_merge (unweighted)
+beats cross_only by 0.046 (0.617->0.572), AMBER
+(likely <1 bootstrap SE at n=448) -- and *unweighted* beat the
+down-weighted variant, the opposite of what the dilution warning predicted.
+Provisional only; full table needed before treating this as a real answer.
+
+**chemprop**: found the project's shared chemprop envs (`envs/gnn`,
+`envs/bde_gnn` under `/gpfs/scratch1/shared/schen3/envs/`) are ALL corrupted
+post-purge (empty `bin/`), but `/home/schen3/venv/bde_gnn` (home, rebuilt
+~09-02) works (torch 2.13+cu130, chemprop 2.2.0; installed missing pyarrow).
+Wrote `train_cross_gnn_chemprop.py` using chemprop v2's native
+`MulticomponentMessagePassing`/`MulticomponentMPNN` (3 separate
+`BondMessagePassing` blocks over product/donor/acceptor, `shared=False` to
+match TripleGNN's 3-separate-encoder design) + the 257-feat schema as `x_d`
+(chemprop convention: x_d/y read from the first component's dataset only,
+`collate_multicomponent` -- attached to the product component). CPU smoke
+test first, then one real GPU run (gpu_a100, 21 min): single-seed test
+MAE **0.600** (n=448) -- ties MLP+XGB ensemble (0.603), beats single-XGB
+(0.632), behind TripleGNN's single-seed (0.556). No seed-ensembling
+attempted (chemprop was the secondary ask; CRG got the follow-through).
+
+**Real bug found while building the chemprop script, not fixed there**:
+`train_cross_gnn.py`'s own split (`train_cross_delta.pair_split_labels()`)
+reads candidates_v3's `SPLIT_MAP`, retired 2026-09-15 -- the file does not
+exist, so the function returns `None` unconditionally now, which the
+consuming code turns into "every row -> train_extra" (empty val/test). Every
+existing champion GNN checkpoint predates the retirement so is unaffected;
+this would only bite the *next* re-run. Fixed later in the day (see below).
+
+**CRG (condensed reaction graph) -- the deeper build.** Key insight that
+avoids needing an external reaction atom-mapper: benzoin coupling (2 RCHO ->
+R-CO-CH(OH)-R') is atom-economical, so the product SMILES already physically
+contains every donor+acceptor atom as intact substituent trees -- a CRG here
+doesn't need to union three mol objects, just (a) locate the 5-atom reactive
+core (ketC/ketO/carbC/hydO, no separate hydH node since this project's
+graphs are implicit-H) via one SMARTS (`[CX3](=O)[CX4][OX2H1]`, validated
+97.5-97.6% unique-match across two independent samples of 500/2000 rows),
+and (b) BFS-split every other atom by which side of the new ketC-carbC bond
+it sits on -- both purely from the product graph's own connectivity, no
+donor_smiles/acceptor_smiles cross-referencing needed. Formal net atom
+mapping derived and documented in `crg_builder.py`'s docstring (donor
+CHO_C/O -> ketC/ketO unchanged; acceptor CHO_C/O -> carbC/hydO, C=O order
+2->1; donor's CHO_H migrates to become the new hydroxyl's implicit H) --
+mass-balance-consistent, not a mechanistic claim about the actual NHC
+Umpolung intermediates. `crg_builder.py` is pure RDKit, unit-tested against
+a toy molecule (side/core tags and the new-bond edge flag all verified
+exactly right) before touching the real table.
+
+`train_cross_gnn_crg.py`: single `Enc()` (same GINEConv block as
+TripleGNN's per-branch encoder, so this isolates the connected-vs-disconnected
+representation effect, not a feature-set change) over the one condensed
+product graph + the 257-feat x_d channel. Same `new_scaffold_split`-based
+split as the chemprop script (same reason: avoids the just-found
+pair_split_labels landmine). CPU smoke test, then real GPU runs.
+
+**First single run: 0.559 (n=432, ~2.5% of rows dropped for no/ambiguous
+core-SMARTS match)** -- ran a fairness check before getting excited (the
+champion blend's own MAE on that *same* 432-row subset is 0.5295, vs 0.5284
+on the full 448, so the subset isn't secretly easier -- the comparison is
+valid). Then genuinely over-interpreted a "seed 1/2/3" follow-up: `SEED=$s
+sbatch ...` does not propagate through this cluster's sbatch (site default
+`--export` doesn't inherit the shell var the way `SEED=$s sbatch` implies),
+so three "different seeds" silently all ran seed 0 again -- caught because
+the *reported* seed0 number kept changing between checks (CUDA isn't fully
+deterministic even at a fixed seed). User pushed back twice on the resulting
+n=4 read ("seed是否太少" / "还是数据太少") -- rightly: those 4 numbers
+(0.559/0.564/0.604/0.593) looked like a wide, worrying spread, but n=4 can't
+tell noise from a real bimodal failure mode.
+
+**Properly powered version**: fixed the sbatch bug (`--export=ALL,SEED=$s`),
+ran 30 genuinely independent seeds. Mean 0.572 +/- 0.012 (min 0.554, max
+0.605) -- the earlier "0.610 outlier" was itself a small-sample illusion,
+not a real bimodal tail. Added true prediction-level ensembling (average
+per-row y_pred across seeds, not average-the-MAE-values -- matching how the
+champion's own 4-seed GNN number is built) via a `test_predictions.csv` a
+script edit added: 4-seed ensemble 0.543, plateaus there (8/16/30-seed:
+0.543/0.542/0.543) -- same "plateaus around 4" pattern the champion's own
+seed-ensemble lever showed.
+
+**Hyperparameter sweep** (user-requested next: "进行超参搜索"): CRG had used
+TripleGNN's un-tuned defaults throughout. 20 random configs (hidden/layers/
+lr/dropout/weight_decay) x 2 seeds = 39/40 jobs (1 lost to a transient SLURM
+"compute budget" error), selected on **validation** MAE only (test never
+touched for selection). Best: hidden=128 layers=4 lr=3e-3 dropout=0
+wd=1e-4 -- close to the defaults, mainly a 3x higher LR and no dropout.
+Re-ran that config x 12 seeds: 12-seed ensemble test MAE **0.535** (n=432),
+essentially tying the champion's 0.5295 on the same subset.
+
+**User pushed back a third time** ("n=432 是否太少了 需要更多的数据") --
+right again: extended evaluation to the pooled test+validation set (n=898,
+same convention `build_predict_dg_calibration.py` already uses), which
+needed CRG inference on the validation split too (wrote a small script
+reusing the training script's own `build_crg`/`CRGGNN`/`make_loader`,
+reconstructing the *same* leakage-safe x_d standardization from the
+deterministic train-row set rather than needing to have saved it). Pooled
+result: champion 0.5556, CRG (tuned, 12-seed) 0.5635. Bootstrap (20000
+resamples): CRG-champion delta mean +0.0079, 90% CI **[-0.0029, 0.0189]**
+(P(CRG worse)=88.6%, up from 75% at n=432) -- more data sharpened the signal
+from "can't tell" toward "champion probably still a bit better," but the
+90% CI still just barely contains zero. Corrected framing from the earlier
+"basically tied" to "close, probably slightly behind, not a large gap."
+Also found (not yet explained): validation-split MAE is worse than
+test-split MAE for BOTH models (champion 0.58 vs 0.53, CRG 0.59 vs 0.53),
+and CRG's relative gap to champion widens slightly on validation --
+flagged, not chased further.
+
+**Tried blending CRG with the tabular ensemble** (champion's own recipe:
+`(1-w)*ens_delta + w*gnn_delta`, w selected on validation only). Result:
+w=0.76, test MAE 0.5352 -- statistically the same as CRG alone (0.5348), no
+blending gain. Makes sense in hindsight: CRG already fuses the *same*
+257-feat schema as its own x_d channel, so a tabular model trained on only
+those same features adds little a GNN that already sees them doesn't already
+have -- unlike TripleGNN, which apparently benefits more from the tabular
+stack (w_gnn=0.85, not 1.0). A real negative result, not a bug.
+
+**Fixed the `train_cross_gnn.py` landmine found above**: when the table
+carries `new_scaffold_split` (every current-era table does), use it directly
+(`mixed` -> `train_extra`, preserving the script's existing train/train_extra/
+validation/test bucket semantics) instead of the broken
+`pair_split_labels()`; falls back to the old candidates_v3 path only if a
+table lacks the column. Verified against the real b973c table: reproduces
+the exact known split sizes (22529/11678/481/448).
+
+**Where this leaves things**: CRG is a real, validated, working architecture
+-- close to but (with reasonably strong statistical power now) probably
+still a bit behind the mature, tuned TripleGNN, not a clear win. Not
+concluded as "adopt" or "close the lever" -- open threads if continued:
+(1) architecture refinements to CRG itself (the order-changed carbC-hydO
+edge flag noted but not built in `crg_builder.py`'s docstring; blending CRG
+with TripleGNN itself rather than the tabular ensemble); (2) same CRG
+treatment for BDE (raised by the user alongside the dG ask, "BDE等工作也可以
+尝试" -- not started this session, single-molecule + explicit
+target-bond-marking is the natural analogue but needs its own build).

@@ -288,6 +288,32 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
 - **Missing.** Post-Tier-B retrain as a **4-seed ensemble** (2026-09-08: averaging
   4 seeds drops blend holdout MAE 2.215 → 2.137, w_gnn → 0.75; ~0.5 bootstrap-SE
   so not yet significant, but folds into the retrain).
+- **2026-09-16 architecture comparisons (user-requested: chemprop, CRG)**, both
+  at the 257-feat + b973c scale, same frozen holdout:
+  - **chemprop** (`train_cross_gnn_chemprop.py`, native `MulticomponentMPNN`
+    over product/donor/acceptor): single-seed test MAE **0.600** — ties
+    MLP+XGB ensemble, behind TripleGNN's own single-seed (0.556). No
+    seed-ensembling attempted.
+  - **CRG** (condensed reaction graph, `crg_builder.py` + `train_cross_gnn_crg.py`):
+    product's own graph (atom-economical reaction ⇒ already contains all
+    donor+acceptor atoms) + reaction-aware tags (donor/acceptor-side BFS
+    split, new-bond edge flag on ketC–carbC) instead of 3 disconnected
+    graphs. Single-encoder. 30-seed default-hyperparam mean 0.572±0.012;
+    hyperparameter-swept (val-selected) config × 12-seed ensemble → **0.535**
+    (n=432 test) / **0.564** pooled test+validation (n=898) vs champion's
+    0.530/0.556 on the same rows — bootstrap 90% CI for the gap
+    **[-0.003, +0.019]** (P(CRG worse)=89%): close, probably still a touch
+    behind, not a clear win. Blending CRG with the tabular ensemble (champion's
+    own recipe) did **not** help (0.535, same as CRG alone) — CRG already
+    fuses the same 257-feat schema as its own `x_d`, so the tabular stack adds
+    nothing new. A real, validated, working alternative architecture, not
+    (yet) adopted as champion. Open follow-ups if continued: order-changed
+    edge feature (carbC–hydO), blending CRG with TripleGNN itself, and the
+    same CRG treatment for BDE (raised alongside this ask, not started).
+    See LAB_JOURNAL 2026-09-16 for the full build/debug narrative (2 real
+    bugs found+fixed along the way: `assemble_homo_standalone_table.py`
+    missing aldehyde mordred join; `train_cross_gnn.py`'s split broken by the
+    candidates_v3 retirement).
 
 ### 2.6 Blending & seed-ensembling — ✅
 - **Principle.** Two model families with decorrelated errors → a weighted
