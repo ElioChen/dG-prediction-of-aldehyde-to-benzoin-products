@@ -761,3 +761,86 @@ with TripleGNN itself rather than the tabular ensemble); (2) same CRG
 treatment for BDE (raised by the user alongside the dG ask, "BDE等工作也可以
 尝试" -- not started this session, single-molecule + explicit
 target-bond-marking is the natural analogue but needs its own build).
+
+**Same day, continued after an unlogged interruption: the BDE-CRG follow-through,
+picked up cold on resume.** The session that wrote the paragraph above did go on to
+build the BDE analogue (`pipeline/bde/train_gnn_hybrid_bde_crg.py`, products/Task B
+only -- Task A's formyl C-H has no graph edge to mark under this project's
+implicit-H representation, see the file's own docstring) and launched a
+10-job (5 seed x marked/unmarked) full-scale ablation on gpu_a100, but the
+session ended before anyone looked at the results or wrote them down.
+
+**Resume finding: the full-scale ablation is broken, not just negative.**
+All 10 completed runs (job array ending ~16792943-950, full 173k-row
+scaffold-disjoint products split) show MAE swinging 9-239 kcal/mol and R^2
+at/below zero (down to -7.29) -- including the `--no-mark` control, which
+should be architecturally a near-no-op (extra_bond_fdim=1 channel always
+zeroed) and therefore should track the champion's known-stable single-seed
+number (MAE 2.07-3.24, confirmed from the untouched `b6_ensemble_26418250_*`
+logs on the exact same task/split/hyperparams). A second, identical 10-job
+batch (26799798-809) was still running at resume, silently reproducing the
+same broken experiment.
+
+**Diagnostic (n=5000, 15-epoch CPU smoke, 3-way: baseline / CRG --no-mark /
+CRG marked, same seed/split/hyperparams).** All three trained fine at this
+scale -- R^2 0.80-0.81, MAE 4.2-4.8, spearman 0.89-0.91, no divergence in
+any of the three. This clears the `extra_bond_fdim`/`E_f` mechanism itself
+(feature-array shape and per-bond indexing checked directly against
+chemprop's `SimpleMoleculeMolGraphFeaturizer.__call__` and `make_mol` source
+-- both use plain `Chem.MolFromSmiles` with matching default flags, so the
+bond order `target_bond_features()` computes independently does line up with
+chemprop's internal graph; no ALFABET-style misalignment). **Conclusion: this
+is a full-scale-only instability**, most likely `train_one`'s
+`enable_checkpointing=False` + early-stopping-without-restore-best-weights
+(shared with the champion script, `train_gnn_hybrid_bde.py`) combined with
+the larger row count and up to 120 epochs giving the (also larger, d_h=500)
+model enough steps to wander far from its best point before patience=20
+triggers -- something a 15-epoch/5k-row smoke test can't hit. Not proven by
+direct evidence yet (no per-epoch val_loss was logged in either batch,
+`enable_progress_bar=False, logger=False`), just the best-supported
+hypothesis given what's ruled out. Tried to `scancel` the redundant
+26799798-809 batch (guaranteed, on this evidence, to reproduce the same
+uninformative numbers) -- blocked by the auto-mode workload-interference
+guard; flagged to the user rather than worked around, left running.
+**Open, not closed**: the real fix (add `ModelCheckpoint` + restore best
+weights to `train_one`, or empirically cap `max_epochs`/`message_hidden` and
+re-verify) has not been attempted -- touches the shared champion training
+path, out of scope to change unilaterally mid-resume.
+
+**Backup/sync audit (user-requested, "是否有效备份和同步关键数据").** Checked
+three layers:
+1. **git/GitHub**: 7 local commits (dating back through the 09-16 CRG work)
+   had never been pushed, last push 09-14 -- pushed now (`7e14f16`).
+2. **The account's only nominally-relevant automated backup**,
+   `/home/schen3/bin/backup_benzoin_scratch_weekly.sh`, turns out to target
+   `/scratch-shared/schen3/workfow` (the **NHC catalyst project**'s tree, not
+   `benzoin-dg-restored` despite the script's name) and has been stuck since
+   **2026-09-08**: a stale `.backup.lock` (no live rsync/backup process holds
+   it) makes every retry print "backup already running; exiting" and exit --
+   something has been re-triggering it every ~20-30s for over a week (no
+   crontab or systemd timer found; source not identified), spraying ~15k tiny
+   log files into `logs/`. Its own `.last_success_epoch` is frozen at 09-01.
+   **Net effect: this project's scratch1 data has had no automated backup
+   coverage for >2 weeks**, and the "backup" that nominally exists is scoped
+   to a different, unrelated project entirely. Not fixed -- it's not this
+   project's script and the fix (clear the lock? redirect it? find and kill
+   the retry loop?) needs the NHC side's context before touching it; flagged
+   to the user instead of acted on.
+3. **BDE's own documented policy** (`pipeline/bde/STATUS.md` sec 7: force-add
+   to git or list in `submit_backup_recovery_artifacts.sh`, specifically
+   naming `aldehydes_all.csv`, `products_all.csv`, `b6_*.pt`) turned out to
+   not actually be followed for the two CSVs: both are matched by
+   `.gitignore`'s `/data/cross_benzoin/*/*_all.csv` rule, neither was ever
+   force-added, and neither had a home-directory copy -- 100MB
+   (`aldehydes_all.csv`) + 153MB (`products_all.csv`) of expensive-to-recompute
+   local-3D descriptor data (the products file alone took the ~10-15h
+   `bde_homoprod` genoa array to produce) existed in exactly one place, on
+   scratch1, the same failure mode that caused the 2026-07 purge loss. The
+   `.pt` checkpoints, by contrast, *were* correctly tracked (verified via
+   `git ls-files`) -- so the policy was followed for the small artifacts and
+   silently missed for the big ones. **Fixed**: both files rsynced to
+   `/home/schen3/benzoin_backups/bde_critical_data_20260916/`;
+   `aldehydes_all.csv` (under GitHub's 100MB hard limit, at 95.5MB) was also
+   `git add -f`'d and pushed (`e8d3656`). `products_all.csv` (153MB) is over
+   the GitHub limit -- home-backup-only for now; git-lfs would be the way to
+   also cover it on GitHub, not set up.

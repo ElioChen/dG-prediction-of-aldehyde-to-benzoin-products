@@ -289,3 +289,35 @@ ckpt+deep-ensemble、B4/B5、GBM——数字见 §2.1b。B6 checkpoint 也已重
 BDE 侧要补的备份钩子:`aldehydes_all.csv`、`products_all.csv`、`b6_*.pt`、
 `runs/logs/scaffold_disjoint_bde/` 全部结果——重建后立即 `git add -f` 或纳入
 `submit_backup_recovery_artifacts.sh` 的归档清单。
+
+**2026-09-16 复查:这条政策实际上没被完整执行。** `b6_*.pt` checkpoint 确认已
+`git add -f`(`git ls-files` 验证,12 个文件都在)。但 `aldehydes_all.csv`
+(100MB)和 `products_all.csv`(153MB)——恰恰是本节点名要补的两个大文件——
+一直被 `.gitignore` 的 `/data/cross_benzoin/*/*_all.csv` 规则挡住,从未
+force-add,也没有 home 备份,只存在于 scratch1 上,和当年导致 purge 丢失的
+情形完全一样。已修复:两个文件都 rsync 到
+`/home/schen3/benzoin_backups/bde_critical_data_20260916/`;
+`aldehydes_all.csv`(95.5MB,在 GitHub 100MB 硬限以内)已 `git add -f` 并推送
+(`e8d3656`);`products_all.csv`(153MB,超过 GitHub 限制)目前只有 home 备份,
+要上 GitHub 需要 git-lfs,尚未配置。**以后每次重算这两个文件后,必须重复这个
+rsync + (能 add 的)git add -f 步骤——不会自动发生。**
+
+## 八、2026-09-16 BDE-CRG 消融实验——训练不稳定,未解决
+
+用户要求把 cross-benzoin dG 那边验证过的 CRG(condensed reaction graph,显式标记
+目标键)思路搬到 BDE 产物侧(Task B,ketC–carbC 有图边可标)试一下
+(`pipeline/bde/train_gnn_hybrid_bde_crg.py`)。全量(173k 行)消融的 10 个
+seed×marked/unmarked 结果全部异常:MAE 在 9~239 kcal/mol 之间乱跳,R² 普遍
+≤0——**包括理论上该是无操作的 `--no-mark` 对照组**,而同一套训练代码在
+champion B6 上单 seed 稳定给出 MAE 2.07–3.24。n=5000/15-epoch 的小规模三方
+对照(baseline / CRG no-mark / CRG marked)三个都训练正常(R²~0.80),排除了
+`extra_bond_fdim`/`E_f` 特征注入机制本身的 bug(bond-index 对齐也核对过,
+不是 ALFABET 那类问题)。**目前最可能的解释**:`train_one` 的
+`enable_checkpointing=False` + EarlyStopping 不 restore best weights,这个
+弱点 champion 脚本也有,但全量数据 + 最多 120 epoch + 较大模型(d_h=500)
+给了足够的步数让权重在 patience=20 触发前跑偏——15-epoch 的小规模测试摸不到
+这个失效模式。**未证实**(两批全量跑都没开 logger,没有逐 epoch 记录),
+**未修复**(动 `train_one` 会影响 champion 复现,未经用户确认不单方面改)。
+10 个正在重复跑同一个已知会坏的实验的 gpu_a100 job(26799798-809)本该取消
+但被 auto-mode 的 workload 保护拦下了,已转交用户处理。详见 LAB_JOURNAL
+2026-09-16 条目。

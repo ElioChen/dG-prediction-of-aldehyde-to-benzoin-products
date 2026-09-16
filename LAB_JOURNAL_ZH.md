@@ -521,3 +521,49 @@ candidates_v3 路径。对着真实的 b973c 表验证过：复现出了完全�
 CRG 和 TripleGNN 本身而不是 tabular ensemble 做 blend）；（2）同样的 CRG
 思路用在 BDE 上（用户和 dG 那个请求一起提的，"BDE等工作也可以尝试"——这次
 没开始，单分子 + 显式标记目标键是自然的类比，但需要单独搭建）。
+
+**同一天，会话在做 BDE-CRG 那段被中断，下次会话冷启动接手。** 上面那段写完后
+会话确实继续搭了 BDE 版本（`pipeline/bde/train_gnn_hybrid_bde_crg.py`，只做
+产物侧 Task B，醛侧 formyl C–H 在本项目隐式加氢表示下没有可标记的图边），
+也提交了全量消融（5 seed × marked/unmarked，gpu_a100），但会话在看结果之前
+就结束了，没人看、没记录。
+
+**恢复后发现：全量消融跑崩了，不是"效果不好"那种崩，是真的没训出东西。**
+已完成的 10 个 job 全部异常：MAE 在 9~239 kcal/mol 乱跳，R² 普遍 ≤0（最差
+-7.29）——**连理论上该是无操作的 `--no-mark` 对照组也崩**，而同一套底层训练
+代码在 champion B6 产物任务上单 seed 稳定给出 MAE 2.07–3.24（从未改动过的
+`b6_ensemble_26418250_*` 日志核实过）。更巧的是，恢复时发现第二批一模一样的
+10 个 job（26799798-809）还在跑，正在原样重复这个已知会崩的实验。
+
+**用 n=5000/15-epoch 的 CPU 小规模三方对照排查**（baseline 原始脚本 / CRG
+no-mark / CRG marked，同 seed 同 split 同超参）：三个全部训练正常
+（R²~0.80-0.81，MAE 4.2-4.8），排除了 `extra_bond_fdim`/`E_f` 特征注入机制
+本身有 bug（直接核对了 chemprop 的 featurizer 源码和 bond index 对齐，不是
+memory 里记过的那类 ALFABET 对齐 bug）。**目前最可能的解释**：`train_one`
+用 `enable_checkpointing=False` + EarlyStopping 不 restore best weights，
+champion 脚本也有这个弱点，但全量数据 + 最多 120 epoch + 更大模型
+（d_h=500）给了足够多步数让权重在 patience=20 触发前跑偏——15-epoch 小样本
+测试摸不到这种失效模式。**没有证实**（两批全量跑都没开 logger，没留逐 epoch
+记录），**没有修复**（碰 `train_one` 会影响 champion 的可复现性，没经用户
+确认不单方面改）。想 `scancel` 那 10 个重复的 job，被 auto-mode 的工作负载
+保护拦下了，已转交用户决定，任务本身没杀。
+
+**顺带查了用户问的备份/同步问题（"是否有效备份和同步关键数据"）**，三层：
+（1）git/GitHub：7 个本地 commit（一路到今天的 CRG 工作）一直没推送，
+上次推送是 09-14——已推送。（2）账号上唯一名字里带"benzoin"的自动备份脚本
+`backup_benzoin_scratch_weekly.sh` 实际指向的是 `/scratch-shared/schen3/workfow`
+（**NHC 催化剂项目**的目录，不是这个 benzoin-dg-restored 仓库），而且从
+09-08 起就卡死了——一个没有活跃进程持有的 `.backup.lock` 让每次重试都直接
+打印"backup already running"退出，某个每 20-30 秒触发一次的东西（没找到是
+cron 还是别的）已经这样空转了一周多，往 `logs/` 里塞了上万个小日志文件。
+**净效果：这个项目在 scratch1 上的数据已经两周多没有自动备份覆盖**，而且
+名义上存在的"备份"其实完全是另一个不相关项目的。这个不是本项目的脚本，
+没有动它，留给用户处理。（3）BDE 自己 STATUS.md §7 写明要 `git add -f` 的
+`aldehydes_all.csv`（100MB）和 `products_all.csv`（153MB）实际上根本没有
+执行——两个都被 `.gitignore` 挡住，从未 force-add，也没有 home 备份，只存在
+于 scratch1 一份，和当年造成 purge 丢失的情形一模一样。checkpoint（`.pt`）
+倒是确认有正常入库。**已修复**：两个文件都 rsync 到
+`/home/schen3/benzoin_backups/bde_critical_data_20260916/`；
+`aldehydes_all.csv`（95.5MB，在 GitHub 100MB 硬限以内）额外 `git add -f`
+推送（`e8d3656`）；`products_all.csv`（153MB，超限）目前只有 home 备份一份，
+上 GitHub 需要 git-lfs，还没配。
