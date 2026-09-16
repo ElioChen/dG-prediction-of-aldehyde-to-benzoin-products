@@ -117,6 +117,9 @@ def make_dataset(smiles, X, y, featurizer):
 
 
 def train_one(tr_dset, val_dset, params, seed, n_xd, model_override=None):
+    import tempfile
+
+    import torch
     from chemprop import data
     from lightning import pytorch as pl
     pl.seed_everything(seed, workers=True)
@@ -127,12 +130,27 @@ def train_one(tr_dset, val_dset, params, seed, n_xd, model_override=None):
                                        shuffle=True, num_workers=0)
     val_loader = data.build_dataloader(val_dset, batch_size=params["batch_size"],
                                         shuffle=False, num_workers=0)
-    cbs = [pl.callbacks.EarlyStopping(monitor="val_loss", mode="min",
-                                       patience=params["patience"])]
-    trainer = pl.Trainer(max_epochs=params["max_epochs"], accelerator="auto", devices=1,
-                          enable_progress_bar=False, enable_checkpointing=False,
-                          logger=False, callbacks=cbs, deterministic=False)
-    trainer.fit(model, tr_loader, val_loader)
+    # 2026-09-16: restore best-val-loss weights after fit. Previously EarlyStopping
+    # (patience-based) ran with enable_checkpointing=False -- training just stopped
+    # wherever the weights happened to be `patience` epochs after the last improvement,
+    # never rewinding to the actual best point. Usually harmless at small/moderate scale
+    # (short runs rarely wander far), but a real bug at full-scale/max_epochs=120: found
+    # via the BDE-CRG ablation going non-learning (MAE 9-239, R^2<=0) at full scale while
+    # training fine in a small smoke test -- see LAB_JOURNAL 2026-09-16.
+    with tempfile.TemporaryDirectory() as ckpt_dir:
+        ckpt_cb = pl.callbacks.ModelCheckpoint(dirpath=ckpt_dir, filename="best",
+                                                monitor="val_loss", mode="min", save_top_k=1)
+        cbs = [pl.callbacks.EarlyStopping(monitor="val_loss", mode="min",
+                                           patience=params["patience"]),
+               ckpt_cb]
+        trainer = pl.Trainer(max_epochs=params["max_epochs"], accelerator="auto", devices=1,
+                              enable_progress_bar=False, enable_checkpointing=True,
+                              logger=False, callbacks=cbs, deterministic=False)
+        trainer.fit(model, tr_loader, val_loader)
+        if ckpt_cb.best_model_path:
+            state = torch.load(ckpt_cb.best_model_path, map_location="cpu",
+                                weights_only=False)["state_dict"]
+            model.load_state_dict(state)
     return model, trainer
 
 
