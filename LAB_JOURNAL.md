@@ -581,3 +581,32 @@ surfaced to the user this session and still awaiting their call: Catalyst
 Space / NHC-repo integration scope, whether Rec-2's -0.11 finding is still
 worth re-testing now that the b973c floor changed, and the redone-AL
 acquisition strategy itself. ---
+
+## 2026-09-16
+
+**Status-check only, no code changes.** Resumed to a user request to report
+progress; everything actionable right now is gated on either the homo SP
+compute drain or a user decision already surfaced 09-15 (Catalyst Space
+scope, Rec-2 retest, AL redesign), so this was a health check, not new work
+-- writing filler tasks to look busy would be worse than reporting "still
+waiting."
+
+Progress since the 09-15 09:41 snapshot: archived track 6268/8972 ->
+**7350/8972 shards (81.9%)**; regen track 654/771 -> **771/771 (complete,
+766/771 `.done`-marked, remaining 5 mid-finalize)**. Combined throughput
+matches the ~50 shard/h archived-side bottleneck already diagnosed
+09-10/09-11 -- no new throttling needed. `sacct` across all 6 job-array IDs
+(genoa + rome top-up + fat_rome x2, archived and regen) shows 20,825
+COMPLETED / 159 RUNNING / 27 PENDING / only 3 CANCELLED+ (negligible,
+consistent with ordinary requeues) -- no failure pattern to chase. Quota
+checked given the standing [[scratch-disk-quota-risk]] concern: home
+61.8%/67.9% (GiB/inodes), scratch1 16.2%/31.6% -- healthy, no risk of a
+silent final-write loss right now. Remaining archived shards (1622) at
+~50/h implies **~32h more, i.e. still tracking the 09-17/18 ETA**, no
+revision needed.
+
+Not yet run: the drain sequence (`merge_homo_sp.py` -> QC -> `--full-library`
+assembler -> single XGB + single GNN, PROJECT_PLAN §6 item 1) -- correctly
+gated on the archived track actually reaching 100%, not just close. Will
+fire it without waiting for another prompt once shards complete, per the
+standing autonomous-advance authority ([[handoff-routine-and-autonomy]]).
