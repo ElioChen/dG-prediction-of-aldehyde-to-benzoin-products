@@ -190,7 +190,7 @@ def main() -> int:
         df = df.iloc[np.concatenate([tr_idx, va_idx, te_idx])].reset_index(drop=True)
         print(f"SMOKE MODE: subsampled to {len(df)} rows", flush=True)
 
-    train_mask = (df["new_scaffold_split"] == "train").to_numpy()
+    train_mask = df["new_scaffold_split"].isin(["train", "mixed"]).to_numpy()  # fold mixed into training, matching champion TripleGNN's convention (2026-09-17 fix)
     val_mask = (df["new_scaffold_split"] == "validation").to_numpy()
     test_mask = (df["new_scaffold_split"] == "test").to_numpy()
     print(f"rows: {len(df)} train={train_mask.sum()} val={val_mask.sum()} test={test_mask.sum()}", flush=True)
@@ -209,7 +209,7 @@ def main() -> int:
     print(f"  built {len(graphs)}/{len(df)} in {time.time() - t1:.0f}s", flush=True)
 
     id_to_split = dict(zip(df["id"].astype(str), df["new_scaffold_split"]))
-    tr_g = [g for g in graphs if id_to_split.get(g.row_id) == "train"]
+    tr_g = [g for g in graphs if id_to_split.get(g.row_id) in ("train", "mixed")]
     va_g = [g for g in graphs if id_to_split.get(g.row_id) == "validation"]
     te_g = [g for g in graphs if id_to_split.get(g.row_id) == "test"]
     print(f"  split: train={len(tr_g)} val={len(va_g)} test={len(te_g)}", flush=True)

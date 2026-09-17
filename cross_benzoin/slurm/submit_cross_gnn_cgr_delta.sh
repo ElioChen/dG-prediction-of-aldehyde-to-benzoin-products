@@ -28,7 +28,8 @@ export CB_TARGET_COL=dG_r2scan_kcal
 export CB_BASELINE_COL=dG_b973c_kcal
 
 SEED="${SEED:-0}"
-OUT="$REPO/data/cross_benzoin/cross_round10/gnn_cgr_delta_10rounds_b973c_seed${SEED}"
+TAG="${TAG:-}"
+OUT="$REPO/data/cross_benzoin/cross_round10/gnn_cgr_delta_10rounds_b973c_seed${SEED}${TAG:+_$TAG}"
 
 echo "cross-benzoin CGR-delta-GNN seed=$SEED $(date)"
 $PY -u "$CB/train_cross_gnn_cgr_delta.py" \
