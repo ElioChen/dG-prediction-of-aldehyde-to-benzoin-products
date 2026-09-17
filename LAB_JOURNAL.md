@@ -909,3 +909,41 @@ CPU (n=300) before launching GPU single-seed full runs (jobs 26832100
 CGR-delta, 26832101 WLDN; `gpu_a100`, `/home/schen3/venv/nequip`, same
 scaffold-disjoint b973c-baseline setup as plain CRG for a clean 4-way
 comparison against 0.528 champion blend / 0.535 tuned-CRG). Results pending.
+
+**4-seed mixedtrain results, fair comparison** (all three trained on the
+corrected 34,207/33,407-row population, jobs 26833735-757):
+
+| arch | 4-seed mean | pstdev | seeds |
+|---|---|---|---|
+| plain CRG | 0.5403 | 0.0086 | 0.5547/0.5327/0.5347/0.5392 |
+| CGR-delta | 0.5415 | 0.0141 | 0.5613/0.5251/0.5478/0.5318 |
+| WLDN | 0.5413 | 0.0048 | 0.5441/0.5474/0.5350/0.5386 |
+
+Fixing the mixed-fold-in bug moved plain CRG's mean from the old (under-
+trained) 0.572 to 0.540 -- most of the apparent CRG-vs-champion gap was a
+training-data-size confound, not an architecture difference. With that fixed,
+all three land within noise of each other (~0.540-0.542) and ~0.01 behind
+champion TripleGNN's 4-seed avg (0.531)/blend (0.528) -- same "close but
+still a bit behind" verdict tuned plain CRG reached earlier (0.535 vs
+0.5295), now reproduced independently by two more architectures.
+
+CGR-delta's bond-order-delta refinement shows NO improvement over plain CRG
+at this seed count (0.5415 vs 0.5403, well within noise) -- the extra
+carbC-hydO order-change edge feature isn't earning its keep, at least
+untuned. WLDN's mean ties the other two but its seed-to-seed pstdev (0.0048)
+is 3-6x tighter than CRG's (0.0086) or CGR-delta's (0.0141) -- a real
+secondary finding: the shared-weight difference-readout strategy appears
+substantially less sensitive to init/training noise than either
+disconnected-concat or graph-merge, independent of whether it wins on MAE.
+
+**Where this leaves things**: none of CRG/CGR-delta/WLDN beats the champion
+yet, all three are legitimate architectures worth keeping in mind (esp. WLDN
+for its stability) rather than a closed line. Natural next steps if
+continued: (1) hyperparameter tuning for CGR-delta/WLDN the way plain CRG got
+(30-seed default sweep -> HP search -> tuned multi-seed ensemble, which
+closed plain CRG's gap from 0.572 to 0.535); (2) blend WLDN/CGR-delta with
+the tabular ensemble the way plain CRG was tried (null result there, but
+worth re-checking under the b973c baseline); (3) retest all three once
+Rec-2's homo+cross unified table lands. Not pursued further this session --
+flagging as open threads rather than continuing to spend GPU budget without
+a specific next hypothesis.
