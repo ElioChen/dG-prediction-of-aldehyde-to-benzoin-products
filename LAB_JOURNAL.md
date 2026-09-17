@@ -882,3 +882,30 @@ best_blend_w_gnn 0.55→0.40. Something re-ran training on round9 with a
 different (smaller) split. Source still unidentified; round9 is superseded by
 round10 so low stakes, but per the handoff's own guidance ("不确定就先别动")
 leaving it uncommitted and untouched pending whoever remembers running it.
+
+**User asked to try other reaction-aware GNN architectures** ("尝试其他的基于
+反应的GNN"), scoped after a quick clarifying question to cross-benzoin dG
+only. Added two comparison points alongside the existing champion TripleGNN
+(concat, 3 separate encoders) and plain CRG (graph merge, 1 encoder):
+
+1. **CGR-delta** (`crg_builder.build_crg_delta()` + `train_cross_gnn_cgr_delta.py`):
+   the refinement plain CRG's own docstring flagged but didn't build --
+   proper "dynamic bond" before/after bond-order encoding instead of a single
+   is_new_bond flag. Two edges actually change order across the reaction
+   (not just one): ketC-carbC (new, 0->1) AND carbC-hydO (order-changed,
+   acceptor's CHO C=O -> product's C-OH, 2->1) -- the second one was
+   previously invisible to the model. Edge features grow 7->12 dims.
+2. **WLDN-style difference network** (`train_cross_gnn_wldn.py`): a SHARED
+   single encoder applied separately to product/donor/acceptor graphs (all
+   three land in a common embedding space, unlike TripleGNN's independently-
+   weighted per-role encoders), combined via h_P - (h_D + h_A) -- the
+   Weisfeiler-Lehman Difference Network reaction vector -- instead of
+   concatenation (TripleGNN) or graph merging (CRG).
+
+Both reuse the champion's exact atom/bond featurization (`af()`/`bf()`/
+`graph()` from `train_cross_gnn.py`) so any MAE delta is attributable to
+combination strategy, not a feature-set change. Both smoke-tested cleanly on
+CPU (n=300) before launching GPU single-seed full runs (jobs 26832100
+CGR-delta, 26832101 WLDN; `gpu_a100`, `/home/schen3/venv/nequip`, same
+scaffold-disjoint b973c-baseline setup as plain CRG for a clean 4-way
+comparison against 0.528 champion blend / 0.535 tuned-CRG). Results pending.

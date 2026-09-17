@@ -599,3 +599,25 @@ MAE 2.16→2.31,best_blend_w_gnn 0.55→0.40。有什么东西用不同(更小)�
 重跑了 round9 的训练。来源仍未查清;round9 已被 round10 取代,风险不高,
 按交接文档自己的建议("不确定就先别动")继续不提交、不动,等想起是谁跑的
 再说。
+
+**用户要求尝试其他基于反应的GNN架构**("尝试其他的基于反应的GNN")，经简单
+澄清后确定范围为 cross-benzoin dG。在已有的 champion TripleGNN(拼接、3个独立
+编码器)和纯CRG(图合并、单编码器)基础上新增两个对比点:
+
+1. **CGR-delta**(`crg_builder.build_crg_delta()` + `train_cross_gnn_cgr_delta.py`):
+   纯CRG自己文档标注过但没做的改进——把单一的is_new_bond标记升级为真正的
+   "动态键"前后键级编码。反应中实际有两条边键级会变(不只一条):ketC-carbC
+   (新建,0→1)和carbC-hydO(键级改变,受体的CHO C=O变成产物的C-OH,2→1)——
+   第二条之前对模型完全不可见。边特征从7维升到12维。
+2. **WLDN风格差分网络**(`train_cross_gnn_wldn.py`):单个共享权重编码器
+   分别应用于产物/donor/acceptor三个图(三者投影到同一个嵌入空间，不像
+   TripleGNN每个角色独立权重)，用 h_P - (h_D + h_A) 这个
+   Weisfeiler-Lehman差分网络反应向量做组合，而不是拼接(TripleGNN)或图合并
+   (CRG)。
+
+两者都复用champion的原子/键特征化(`train_cross_gnn.py`的`af()`/`bf()`/
+`graph()`)，确保MAE差异只归因于组合策略而非特征集变化。都在CPU上做了
+n=300冒烟测试确认无误后，提交了GPU单seed全量跑(job 26832100 CGR-delta，
+26832101 WLDN；gpu_a100，/home/schen3/venv/nequip，跟纯CRG同样的
+scaffold-disjoint b973c基线设置，方便跟0.528冠军blend/0.535调优后CRG
+做四方对比)。结果待定。
