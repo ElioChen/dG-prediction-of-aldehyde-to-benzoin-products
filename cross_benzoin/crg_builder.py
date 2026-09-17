@@ -161,6 +161,77 @@ def build_crg(smiles: str):
     return x, edge_index, edge_attr, core
 
 
+def build_crg_delta(smiles: str):
+    """Extended CGR with an explicit before/after bond-ORDER encoding on the two
+    reaction-core edges, not just a single is_new_bond flag -- the refinement
+    `build_crg()`'s own docstring (and LAB_JOURNAL 2026-09-16) flagged as noted
+    but not built, done 2026-09-17 on user request ("尝试其他的基于反应的GNN").
+    This is the proper "dynamic bond" formalism a Condensed Graph of Reaction
+    is normally defined by (bond order before -> bond order after), rather than
+    build_crg()'s single new/old flag.
+
+    Per this module's net atom mapping, exactly TWO edges change bond order
+    across the reaction (every other edge is a spectator bond, unchanged inside
+    donor's or acceptor's own substituent tree, since the coupling only touches
+    the 5-atom reactive core):
+      ketC-carbC : NEW bond,        before=none   -> after=single (order 0->1)
+      carbC-hydO : order-CHANGED,   before=double -> after=single (order 2->1;
+                   acceptor's CHO_C=CHO_O becomes carbC-hydO's C-OH)
+
+    Returns (x, edge_index_pairs, edge_attr, core) or None. Node features are
+    identical to build_crg() (base_feats(20) + side_onehot(2) + is_core(1)).
+    edge_attr grows from build_crg()'s 7 dims to 12:
+      base_feats(6, the bond's "after" state: type onehot(4) + conjugated +
+      in_ring) + order_before_onehot(4, all-zero means "no bond before") +
+      is_new_bond(1) + is_order_changed(1)
+    """
+    mol = Chem.MolFromSmiles(str(smiles))
+    if mol is None or mol.GetNumAtoms() == 0:
+        return None
+    core = find_reactive_core(mol)
+    if core is None:
+        return None
+    ket_c, ket_o, carb_c, hyd_o = core
+    labels = side_labels(mol, ket_c, carb_c)
+    if labels is None:
+        return None
+    core_atoms = {ket_c, ket_o, carb_c, hyd_o}
+
+    x = []
+    for a in mol.GetAtoms():
+        i = a.GetIdx()
+        is_core = int(i in core_atoms)
+        side_oh = [0, 0] if is_core else [1 - labels[i], labels[i]]  # [donor_side, acceptor_side]
+        x.append(_atom_feats(a) + side_oh + [is_core])
+
+    new_bond_pair = {ket_c, carb_c}
+    changed_bond_pair = {carb_c, hyd_o}
+    double_onehot = [0, 0, 0, 0]
+    double_onehot[BTD[Chem.BondType.DOUBLE]] = 1
+
+    edge_index = []
+    edge_attr = []
+    for b in mol.GetBonds():
+        i, j = b.GetBeginAtomIdx(), b.GetEndAtomIdx()
+        pair = {i, j}
+        after = _bond_feats(b)
+        is_new = int(pair == new_bond_pair)
+        is_changed = int(pair == changed_bond_pair)
+        if is_new:
+            before_onehot = [0, 0, 0, 0]  # no bond existed pre-reaction
+        elif is_changed:
+            before_onehot = double_onehot  # acceptor's CHO C=O
+        else:
+            before_onehot = after[:4]  # spectator bond, unchanged
+        f = after + before_onehot + [is_new, is_changed]
+        edge_index += [(i, j), (j, i)]
+        edge_attr += [f, f]
+
+    if not edge_index:
+        return None
+    return x, edge_index, edge_attr, core
+
+
 if __name__ == "__main__":
     import sys
     import random
@@ -173,10 +244,20 @@ if __name__ == "__main__":
     random.seed(0)
     idxs = random.sample(range(len(df)), min(2000, len(df)))
     ok = fail = 0
+    delta_ok = delta_fail = 0
+    edge_dim_seen = node_dim_seen = None
     for i in idxs:
         r = build_crg(df["smiles"].iloc[i])
         if r is None:
             fail += 1
         else:
             ok += 1
+        rd = build_crg_delta(df["smiles"].iloc[i])
+        if rd is None:
+            delta_fail += 1
+        else:
+            delta_ok += 1
+            node_dim_seen, edge_dim_seen = len(rd[0][0]), len(rd[2][0])
     print(f"build_crg: ok={ok} fail={fail} / {len(idxs)} ({ok / len(idxs):.1%} usable)")
+    print(f"build_crg_delta: ok={delta_ok} fail={delta_fail} / {len(idxs)} "
+          f"({delta_ok / len(idxs):.1%} usable), node_dim={node_dim_seen} edge_dim={edge_dim_seen}")
