@@ -844,3 +844,41 @@ three layers:
    `git add -f`'d and pushed (`e8d3656`). `products_all.csv` (153MB) is over
    the GitHub limit -- home-backup-only for now; git-lfs would be the way to
    also cover it on GitHub, not set up.
+
+## 2026-09-17
+
+Resumed from `HANDOFF_20260916.md`. First priority per its §1.2: checked the
+`train_one` checkpoint-restore fix's full-scale verification jobs.
+
+**Result**: `26807944` (marked, CRG target-bond flagged) COMPLETED cleanly in
+3:48:14 -- MAE 3.140, RMSE 5.338, R² 0.886, spearman 0.945 on the 170,996-row
+scaffold-disjoint products set (138268/15363/17365 train/val/test). This lands
+squarely in the expected 2-4 kcal/mol / R² 0.85-0.9 band (cf. B6 single-seed
+2.09/3.19 in STATUS.md sec 2.1b) -- **confirms the checkpoint-restore fix
+resolved the training instability**, not a data or architecture issue as
+originally suspected.
+
+`26807945` (unmarked `--no-mark` control) hit its 4h wall-time TIMEOUT without
+finishing -- notably, it hadn't converged early the way the marked run did,
+suggesting CRG target-bond marking may speed convergence (needs the unmarked
+result to confirm properly, not a conclusion yet). Resubmitted with
+`--time=08:00:00` and the correct `sbatch --export=ALL,SEED=0,MARK=0 ...`
+form (job `26829622`) -- confirmed queued correctly this time, no repeat of
+the 09-16 `SEED=0 sbatch` env-var-not-passed trap. Backgrounded a wait-loop to
+report when it lands. `pipeline/bde/STATUS.md` sec 9 now has the full table;
+sec 8's heading updated to point at it.
+
+homo SP archived track was at 8488/8972 (94.6%) on resume, up from 7841/8972
+(87.4%) at the 09-16 handoff -- regen track already complete at 771/771.
+Backgrounded a poll loop to flag when archived hits 8972/8972 so the Phase 2
+merge/assemble + Phase 3 single-XGB/single-GNN steps (CAMPAIGN_PLAN.md) can
+start without the session needing to sit and watch it.
+
+Noted but did not touch: the 6 `cross_round9` file diffs flagged unexplained
+in the 09-16 handoff sec 4 are confirmed to be a **real retrain**, not a stat
+artifact -- `gnn_attentive_9rounds_v1/models/metadata.json` shows
+n_train 39030→18728, n_val 4820→2565 (roughly halved) with MAE 2.16→2.31,
+best_blend_w_gnn 0.55→0.40. Something re-ran training on round9 with a
+different (smaller) split. Source still unidentified; round9 is superseded by
+round10 so low stakes, but per the handoff's own guidance ("不确定就先别动")
+leaving it uncommitted and untouched pending whoever remembers running it.

@@ -302,7 +302,7 @@ force-add,也没有 home 备份,只存在于 scratch1 上,和当年导致 purge 
 要上 GitHub 需要 git-lfs,尚未配置。**以后每次重算这两个文件后,必须重复这个
 rsync + (能 add 的)git add -f 步骤——不会自动发生。**
 
-## 八、2026-09-16 BDE-CRG 消融实验——训练不稳定,未解决
+## 八、2026-09-16 BDE-CRG 消融实验——训练不稳定,根因已定位并修复(见九)
 
 用户要求把 cross-benzoin dG 那边验证过的 CRG(condensed reaction graph,显式标记
 目标键)思路搬到 BDE 产物侧(Task B,ketC–carbC 有图边可标)试一下
@@ -321,3 +321,24 @@ champion B6 上单 seed 稳定给出 MAE 2.07–3.24。n=5000/15-epoch 的小规
 10 个正在重复跑同一个已知会坏的实验的 gpu_a100 job(26799798-809)本该取消
 但被 auto-mode 的 workload 保护拦下了,已转交用户处理。详见 LAB_JOURNAL
 2026-09-16 条目。
+
+## 九、2026-09-16/17 `train_one` checkpoint-restore 修复 + 全量验证结果
+
+根因确认:`train_one`(`pipeline/bde/train_gnn_hybrid_bde_crg.py` 复用的 BDE champion
+训练核心)在 `enable_checkpointing=False` + `EarlyStopping` 组合下,从未在训练结束后
+恢复 best-val-loss 权重——直接用 patience 触发时刻(已经过拟合/跑偏)的权重做 predict。
+已修复(commit `2518fdc`),小规模验证通过。
+
+**全量(170,996 行,scaffold-disjoint,depth=4,message_hidden=500)验证结果**:
+
+| tag | job | 状态 | n_train/val/test | MAE | RMSE | R² | spearman |
+|---|---|---|---|---|---|---|---|
+| marked (CRG 标记目标键) | `26807944` | COMPLETED,3:48:14 | 138268/15363/17365 | **3.140** | 5.338 | **0.886** | 0.945 |
+| unmarked (`--no-mark` 对照) | `26807945`→重提交 `26829622`(08:00:00 墙钟,`--export=ALL,SEED=0,MARK=0`) | 第一次 TIMEOUT(4h 墙钟不够,未跑完);第二次进行中 | — | — | — | — | — |
+
+marked 组的 MAE/R² 落在判断标准区间内(2-4 kcal/mol, R² 0.85-0.9,对照 B6 单 seed
+2.09/3.19),**确认修复生效**。unmarked 对照组比 marked 慢很多(同样 4 epoch 深度/
+500 隐藏维,marked 提前收敛但 unmarked 4 小时未跑完最大 120 epoch)——本身就是一个
+有意思的观察(标记目标键似乎让训练更快收敛),但严谨结论要等 unmarked 跑完两者对比才能下。
+**下一步**:unmarked 跑完后写最终对比 + 判断"CRG 标记对 BDE 有没有用"这个问题,再决定
+是否要跑多 seed 做显著性检验。

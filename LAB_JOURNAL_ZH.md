@@ -567,3 +567,35 @@ cron 还是别的）已经这样空转了一周多，往 `logs/` 里塞了上万
 `aldehydes_all.csv`（95.5MB，在 GitHub 100MB 硬限以内）额外 `git add -f`
 推送（`e8d3656`）；`products_all.csv`（153MB，超限）目前只有 home 备份一份，
 上 GitHub 需要 git-lfs，还没配。
+
+## 2026-09-17
+
+从 `HANDOFF_20260916.md` 续接。按其 §1.2 第一优先级,查了
+`train_one` checkpoint-restore 修复的全量验证结果。
+
+**结果**:`26807944`(marked,CRG 标记目标键)干净跑完,用时 3:48:14——
+MAE 3.140,RMSE 5.338,R² 0.886,spearman 0.945(170,996 行 scaffold-disjoint
+产物集,138268/15363/17365 train/val/test)。正好落在预期的 2-4 kcal/mol /
+R² 0.85-0.9 区间内(对照 STATUS.md §2.1b 的 B6 单 seed 2.09/3.19)——
+**确认 checkpoint-restore 修复解决了训练不稳定问题**,不是数据或架构的锅。
+
+`26807945`(unmarked `--no-mark` 对照组)撞了 4 小时墙钟超时没跑完——值得
+注意的是它没有像 marked 那样提前收敛,暗示 CRG 目标键标记可能加快收敛
+(这只是观察,要等 unmarked 跑完才能下结论)。已用 `--time=08:00:00` 重新
+提交,并用正确的 `sbatch --export=ALL,SEED=0,MARK=0 ...` 写法(job
+`26829622`)——确认这次变量正确传进去了,没有重复 09-16 踩过的
+`SEED=0 sbatch` 环境变量不传的坑。后台挂了一个等待循环,跑完会通知。
+`pipeline/bde/STATUS.md` §9 已写完整表格,§8 标题已改指向它。
+
+homo SP archived 分支续接时是 8488/8972(94.6%),比 09-16 交接时的
+7841/8972(87.4%)又推进了;regen 分支已完成 771/771。后台挂了一个轮询,
+archived 到 8972/8972 就提示,这样 Phase 2 合并/组表 + Phase 3
+单 XGB/单 GNN(CAMPAIGN_PLAN.md)可以及时启动,不用会话一直盯着。
+
+留意但没动:09-16 交接 §4 标为"来源不明"的 6 个 `cross_round9` 文件改动,
+确认是**真实的一次重训**,不是统计噪声——`gnn_attentive_9rounds_v1/models/
+metadata.json` 显示 n_train 39030→18728、n_val 4820→2565(近乎腰斩),
+MAE 2.16→2.31,best_blend_w_gnn 0.55→0.40。有什么东西用不同(更小)的划分
+重跑了 round9 的训练。来源仍未查清;round9 已被 round10 取代,风险不高,
+按交接文档自己的建议("不确定就先别动")继续不提交、不动,等想起是谁跑的
+再说。
