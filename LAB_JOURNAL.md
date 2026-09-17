@@ -959,3 +959,23 @@ within 15s (verified via squeue), only 3 left pending. Left meaningful
 headroom on each partition (well under idle capacity) rather than maxing out,
 per the standing "share the cluster with NHC" guidance. ~391 shards remained
 at the time of the bump (8581/8972).
+
+**BDE-CRG unmarked control landed** (job 26829622, COMPLETED 4:13:05 on the
+8h resubmit -- the first 4h attempt had timed out unconverged). Result:
+MAE=3.1377, RMSE=5.314, R2=0.8869, spearman=0.9454 -- essentially identical
+to marked's MAE=3.1404/R2=0.8859 (diff 0.0027 kcal/mol, noise-level).
+
+**Seed0 verdict: CRG target-bond marking shows no measurable benefit for BDE
+product-side prediction**, unlike the cross-benzoin dG side where CRG marking
+did show a measurable (if sub-champion) effect. Plausible explanation (the
+script's own docstring flagged this going in): every BDE row already only
+asks about its OWN ketC-carbC / formyl C-H by construction (one bond per
+row, molecule-class-homogeneous), so the marking is redundant information the
+model doesn't need -- different from the dG-CRG case where a single row's
+graph contains TWO reactant-derived halves and marking disambiguates which
+new bond ties them together.
+
+Launched 3 more seeds each (marked + unmarked, jobs 26843134-139, 8h wall
+time each) for a noise-robust 4-seed read before writing the final verdict,
+same precedent as the cross-dG CRG/CGR-delta/WLDN comparison. STATUS.md sec 9
+updated with the seed0 numbers and interim reasoning; final table pending.
