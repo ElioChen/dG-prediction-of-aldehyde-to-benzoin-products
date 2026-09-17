@@ -947,3 +947,15 @@ worth re-checking under the b973c baseline); (3) retest all three once
 Rec-2's homo+cross unified table lands. Not pursued further this session --
 flagging as open threads rather than continuing to spend GPU budget without
 a specific next hypothesis.
+
+**Bumped homo SP archived-track concurrency** (user: "队列不忙，是否可以
+增加并发，尽快完成drain"). Checked `sinfo`: genoa/rome/fat_rome all had huge
+idle capacity (genoa 14 fully-idle nodes + ~13.5k idle CPU in mixed nodes,
+rome 63 idle nodes, fat_rome 8 idle) and near-zero competing pending jobs
+(1/1/2 across the three partitions, all users). Raised ArrayTaskThrottle via
+`scontrol update`: genoa (26555994) 60->150, rome (26573745) 55->150,
+fat_rome (26684115) 25->55 -- combined running tasks jumped from ~140 to 261
+within 15s (verified via squeue), only 3 left pending. Left meaningful
+headroom on each partition (well under idle capacity) rather than maxing out,
+per the standing "share the cluster with NHC" guidance. ~391 shards remained
+at the time of the bump (8581/8972).
