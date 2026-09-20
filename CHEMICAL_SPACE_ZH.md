@@ -197,3 +197,35 @@ round10 表，5 个种子）：
 6. 之后才：把重做的 AL / 筛选指向它。
 
 **第 3 步的校验不能跳** —— 特征拼装的静默漂移会毒害之后每一个模型。
+
+### 第6步，零新算力试点（2026-09-20）
+
+用户："先不启动"新的 AL/DFT 战役——先把第6步的基础设施打通，看看真实空间
+长什么样。
+
+- 实现了 `FlyingDataset.sample(n, seed, exclude_known, only_computable)`
+  （之前只在 §7 文档里提过，代码没写；`iter_pairs()` 的无限制模式仍然会
+  故意抛 `NotImplementedError`，没变）。均匀随机抽地址，零 DFT/xTB 开销。
+- `cross_benzoin/train_lazy_absolute_screener.py`：只用 `pair()` 对一个
+  从未标记过的pair 现成能给的东西训练的筛选模型——没有 product QM/mordred，
+  也没有 Δ-learning 的基线（基线需要产物自己的几何构型，真正新的pair根本
+  没有；跟 §5b 的消融不一样，那边的基线是免费的，因为那些 pair 本来就已
+  经标记过了）。绝对值目标 XGB，99 个特征（冠军的166个lazy特征里，`pair()`
+  现在还给不出的67个基本都是醛的 Mordred——一个真实的、可修的缺口：
+  `_aldehyde_qm_cache()` 从来没把 `aldehydes_mordred_slim102.csv` 这个缓存
+  接进去，虽然原则上它完全是lazy的）。Holdout MAE 3.039 / R² 0.315——介于
+  无模型 g-xTB baseline（5.037）和冠军（0.528）之间，符合预期（零算力
+  特征集必然更弱）。
+- `cross_benzoin/screen_flying_dataset_sample.py` 对真实空间随机抽样5万个
+  pair 打分。**预测收益（dG<0）比例 23.2%，而历史上 AL 标记的 35,136 个
+  pair 里是 35.7%**——真实的、范围定对了的空间，可能比 `candidates_v3`
+  衍生出的 AL 挑出来的那批更不favorable。预测的标准差（2.6）明显低于
+  已知集合的真实标准差（5.1）——弱模型会往均值收缩，所以这只能当方向性
+  信号（真实空间大概率不像标记子集显示的那么普遍favorable），不是校准过
+  的总体估计。数字见
+  `data/chemical_space/flying_dataset_screen_pilot/summary_n50000_seed0.json`。
+- **真启动 AL 战役之前还缺**：(a) 把醛的 Mordred 接进 `pair()` 的 lazy 层
+  （补上面67个特征的缺口，应该能让筛选模型更准）；(b) 采集策略本身的决策
+  （不确定性 vs 决策边界 vs 覆盖度——PROJECT_PLAN.md §2.7），这次试点没有
+  解决，仍然待定；(c) 如果选了决策边界或覆盖度采样，`sample()` 需要一个
+  分层版本（按 `cho_class`/scaffold），现在只有均匀采样。

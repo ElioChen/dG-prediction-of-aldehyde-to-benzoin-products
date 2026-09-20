@@ -506,7 +506,13 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   plus a full re-run of the step-3/4/5 verification suite after the move.
 - **Missing.** Step 6 only: point the redone cross AL / Goal-3 screening at
   the now-complete flying dataset (needs §2.7's acquisition-strategy
-  redesign first — separate open item).
+  redesign first — separate open item). **2026-09-20 zero-new-compute pilot**
+  (user: wire up infra, don't spend DFT yet): `FlyingDataset.sample()`
+  implemented, a lazy-only absolute-target screener trained (MAE 3.039 vs
+  champion 0.528 / g-xTB-no-model 5.037), 50k-pair random sample of the real
+  space scored — 23.2% predicted favorable vs 35.7% in the historical
+  AL-labeled set (directional only, see `CHEMICAL_SPACE.md` for caveats).
+  Acquisition-strategy decision itself still open.
 
 ---
 

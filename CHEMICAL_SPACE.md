@@ -281,3 +281,41 @@ question into a compute-cost question.
 
 **Do not skip the verification in step 3** — a silent feature-assembly drift
 would poison every downstream model.
+
+### Step 6, zero-new-compute pilot (2026-09-20)
+
+User: don't launch a new AL/DFT campaign yet ("先不启动，只把基础设施打通") --
+wire up step 6's infrastructure and see what the real space looks like first.
+
+- `FlyingDataset.sample(n, seed, exclude_known, only_computable)` implemented
+  (was documented in sec7 but not written; `iter_pairs()`'s unrestricted mode
+  still deliberately raises `NotImplementedError`, unchanged). Uniform random
+  address draw, zero DFT/xTB.
+- `cross_benzoin/train_lazy_absolute_screener.py`: a screening model using
+  ONLY what `pair()` already returns for a never-labeled pair -- no product
+  QM/Mordred, and no Delta baseline either (a baseline needs the product's
+  own geometry, which a genuinely new pair doesn't have -- unlike the sec5b
+  ablation, which Delta-learned against a baseline that was free because
+  those pairs were already labeled). Absolute-target XGB, 99 features (166
+  champion lazy feats minus 67 that `pair()` doesn't populate yet -- almost
+  all aldehyde Mordred, a real gap: `_aldehyde_qm_cache()` never joined the
+  `aldehydes_mordred_slim102.csv` cache in, even though it's fully lazy in
+  principle). Holdout MAE 3.039 / R² 0.315 -- between the no-model g-xTB
+  baseline (5.037) and the champion (0.528), as expected for a weaker,
+  zero-compute-only feature set.
+- `cross_benzoin/screen_flying_dataset_sample.py` scored a 50,000-pair
+  uniform sample of the real space. **23.2% predicted favorable (dG<0) vs
+  35.7% in the historical 35,136 AL-labeled pairs** -- the true, correctly-
+  scoped space may run less favorable than what `candidates_v3`-derived AL
+  surfaced. Predicted std (2.6) is well under the known set's true std (5.1)
+  -- the weak model compresses toward its mean, so treat this as a
+  directional signal (the space is probably *not* uniformly as favorable as
+  the labeled subset suggested), not a calibrated population estimate.
+  Numbers: `data/chemical_space/flying_dataset_screen_pilot/summary_n50000_seed0.json`.
+- **Missing before a real AL campaign**: (a) join aldehyde Mordred into
+  `pair()`'s lazy tier (fixes the 67-feature gap above, should tighten the
+  screener); (b) the acquisition-strategy decision itself (uncertainty vs
+  decision-boundary vs coverage -- PROJECT_PLAN.md sec2.7), still open, not
+  resolved by this pilot; (c) if decision-boundary or coverage sampling is
+  chosen, a stratified variant of `sample()` (by `cho_class`/scaffold),
+  currently uniform-only.
