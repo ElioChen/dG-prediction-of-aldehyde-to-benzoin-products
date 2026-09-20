@@ -822,3 +822,27 @@ job（`26957456`，`submit_homo_cross_joint_v2_robustness.sh`，21.8分钟），
    设施接受这个浪费——提交整个array之前先用1对做了smoke test（写这条记录
    时还在跑，~2-3 CPU小时/对本身就需要一点时间才能确认）。跑完预计能把
    homo覆盖率从92.1%推到~95.8%。
+
+**SP重试job（`26957533`）跑完了：58/58 task全部COMPLETED。** 重跑
+`merge_homo_sp.py`——覆盖率172,513/184,052=**93.73%**（比92.1%高）。
+1,154个重试的失败里，**1,018个成功了**（88%恢复率）——只剩76个
+r2SCAN-3c单点失败+52+7个热力学异常+1个通用错误（6,784个几何提取失败
+不变，那是另一个还在跑的aldgap job的事）。**顺便查出`merge_homo_sp.py`
+自己汇报逻辑里的一个真bug**：它打印了`INCONCLUSIVE: no label-carrying
+rows merged yet`和`qc_repro_r2scan_vs_stored_30k: {n:0}`，看着很吓人
+（好像merge把数据全丢了），但查下来是脚本计算QC子集那部分的bug
+（`repro_r2scan`非空计数返回了0，但底层`dG_r2scan_kcal`列直接查有
+172,513个真实值）——不是数据丢失。没完全查清根因（怀疑是regen_shards
+的glob模式把aldgap job还在写的、schema略有不同的shard也捞进来了，
+搞乱了QC子集的过滤逻辑），但直接检查确认标签数据本身是完好的。等aldgap
+job跑完做最终merge时再回头看。以后碰到这个INCONCLUSIVE提示，先直接
+`df['dG_r2scan_kcal'].notna().sum()`确认一下，别直接信这句话。
+
+**另外这次会话里git已提交的历史文件又消失了两次**（round2-8的模型/图表、
+`figs/*.png`）——40个，然后70+个，大约30分钟后又变成115个，一次比一次
+严重。每次都用`git checkout`恢复了（都是git已跟踪的，GitHub上是好的）。
+专门查过这次会话正在跑的几个campaign的**未跟踪**shard输出有没有受影响——
+每次查都没事（`.done`标记正常推进，没有0字节文件）。已经明确提醒用户，
+鉴于这个趋势在恶化，建议找集群支持看一下，这看起来是用户层面诊断不了的
+文件系统问题。详见`[[unexplained-tracked-file-deletions-20260920]]`
+memory——以后再碰到，第一件事是查`git status --short | grep '^ D'`。

@@ -77,8 +77,12 @@ def main() -> int:
     df = (df.sort_values(["id", "_has"]).drop_duplicates("id", keep="last")
             .drop(columns="_has").reset_index(drop=True))
 
-    err = df["error"].astype(str).str.strip()
-    is_err = err.ne("") & err.ne("nan")
+    # pandas 3's default string dtype makes astype(str) on a real NaN produce a
+    # value that reprs as "nan" but isn't string-equal to the literal "nan"
+    # (2026-09-20: this silently flagged every clean row as an error, emptying
+    # _labels.csv) -- check notna() on the raw column first, only stringify
+    # for the "empty string" case which notna() doesn't catch.
+    is_err = df["error"].notna() & df["error"].astype(str).str.strip().ne("")
     ok = df[df["dG_r2scan_kcal"].notna() & ~is_err].copy()
     true_fail = df[df["dG_r2scan_kcal"].isna()]
 

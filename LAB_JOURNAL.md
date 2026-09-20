@@ -1163,3 +1163,36 @@ now-built `FlyingDataset.sample()`.
    running as of this entry, ~2-3 CPU-h is a real per-pair cost so the
    smoke test itself takes a while to confirm). Should push homo coverage
    92.1% -> ~95.8% once it drains.
+
+**SP-retry job (`26957533`) fully drained: 58/58 tasks COMPLETED.** Re-ran
+`merge_homo_sp.py` -- coverage 172,513/184,052 = **93.73%** (up from 92.1%).
+Of the 1,154 retried failures, **1,018 succeeded** (88% recovery rate) --
+only 76 r2SCAN-3c:sp_fail + 52+7 bad_thermal + 1 generic error remain
+(the 6,784 geom_extract_fail are unchanged, that's the separate aldgap job's
+job, still running). **Caught a real bug in `merge_homo_sp.py`'s own
+reporting** while checking this: it printed `INCONCLUSIVE: no label-carrying
+rows merged yet` and `qc_repro_r2scan_vs_stored_30k: {n:0}`, which looked
+alarming (like the merge had somehow lost all data) but turned out to be
+a script-level bug in how it computes the QC-block subset (`repro_r2scan`
+notna count came back empty even though the underlying `dG_r2scan_kcal`
+column has 172,513 real values, verified directly) -- not a data-loss issue.
+Root cause not fully chased down (suspect the regen_shards glob picking up
+the aldgap job's still-in-progress shards, whose column schema differs
+slightly, confuses the QC-block filter), but the actual label data is
+confirmed intact by direct inspection. Will revisit once the aldgap job
+fully drains and a clean final merge is warranted; don't trust the
+INCONCLUSIVE verdict string over a direct `df['dG_r2scan_kcal'].notna().sum()`
+check in the meantime.
+
+**Also, twice more this session, git-tracked historical files (round2-8
+models/figures, `figs/*.png`) vanished from the working tree with no
+identifiable cause** -- 40 files, then 70+, then 115 on a third check
+roughly 30min apart, escalating each time. Restored via `git checkout` each
+time (all git-tracked, safe on GitHub). Explicitly checked whether this
+session's actively-running campaigns' UNTRACKED shard outputs were affected
+-- they were not, as of each check (`.done` markers advancing normally, 0
+zero-byte files). Flagged to the user prominently given the escalating
+trend; recommended looping in cluster support since this looks like a
+filesystem-level issue beyond user-space diagnosis. See
+`[[unexplained-tracked-file-deletions-20260920]]` memory -- if this recurs
+again, check `git status --short | grep '^ D'` first thing.

@@ -1,26 +1,26 @@
 {
-  "n_shards": 9743,
+  "n_shards": 9880,
   "n_unique_id": 179433,
-  "n_ok": 169493,
-  "n_resid_outlier_excluded": 2334,
-  "n_labels": 167159,
-  "n_true_fail": 7939,
-  "n_error_tagged": 9940,
+  "n_ok": 170502,
+  "n_resid_outlier_excluded": 2347,
+  "n_labels": 168155,
+  "n_true_fail": 6920,
+  "n_error_tagged": 8931,
   "manifest_n": 184052,
-  "coverage": 169492,
-  "coverage_pct": 92.09,
+  "coverage": 170501,
+  "coverage_pct": 92.64,
   "qc_repro_r2scan_vs_stored_30k": {
-    "n": 20470,
-    "mean": -0.043,
-    "mean_abs": 1.5,
-    "std": 2.722,
+    "n": 20580,
+    "mean": -0.042,
+    "mean_abs": 1.499,
+    "std": 2.718,
     "median_abs": 0.571,
-    "p90_abs": 4.28
+    "p90_abs": 4.274
   },
   "groups": {
     "overall": {
       "resid_b973c": {
-        "n": 169493,
+        "n": 170502,
         "mean": -5.074,
         "mean_abs": 5.075,
         "std": 1.081,
@@ -28,35 +28,35 @@
         "p90_abs": 6.356
       },
       "repro_r2scan": {
-        "n": 22725,
-        "mean": -3.38,
-        "mean_abs": 4.967,
-        "std": 12.561,
+        "n": 22847,
+        "mean": -3.379,
+        "mean_abs": 4.965,
+        "std": 12.558,
         "median_abs": 0.712,
         "p90_abs": 14.346
       }
     },
     "test": {
       "resid_b973c": {
-        "n": 17333,
-        "mean": -5.031,
-        "mean_abs": 5.032,
-        "std": 1.151,
+        "n": 17445,
+        "mean": -5.032,
+        "mean_abs": 5.033,
+        "std": 1.153,
         "median_abs": 5.014,
-        "p90_abs": 6.371
+        "p90_abs": 6.374
       },
       "repro_r2scan": {
-        "n": 3080,
-        "mean": -3.861,
-        "mean_abs": 5.734,
-        "std": 14.461,
-        "median_abs": 0.898,
+        "n": 3102,
+        "mean": -3.867,
+        "mean_abs": 5.739,
+        "std": 14.462,
+        "median_abs": 0.894,
         "p90_abs": 17.422
       }
     },
     "train": {
       "resid_b973c": {
-        "n": 133728,
+        "n": 134513,
         "mean": -5.087,
         "mean_abs": 5.088,
         "std": 1.062,
@@ -64,8 +64,8 @@
         "p90_abs": 6.356
       },
       "repro_r2scan": {
-        "n": 16598,
-        "mean": -3.164,
+        "n": 16687,
+        "mean": -3.166,
         "mean_abs": 4.636,
         "std": 11.892,
         "median_abs": 0.653,
@@ -74,22 +74,22 @@
     },
     "validation": {
       "resid_b973c": {
-        "n": 17407,
-        "mean": -5.023,
-        "mean_abs": 5.024,
-        "std": 1.148,
-        "median_abs": 5.008,
-        "p90_abs": 6.356
+        "n": 17510,
+        "mean": -5.022,
+        "mean_abs": 5.023,
+        "std": 1.149,
+        "median_abs": 5.007,
+        "p90_abs": 6.355
       },
       "repro_r2scan": {
-        "n": 3047,
-        "mean": -4.072,
-        "mean_abs": 5.99,
-        "std": 13.927,
+        "n": 3058,
+        "mean": -4.052,
+        "mean_abs": 5.974,
+        "std": 13.907,
         "median_abs": 0.982,
-        "p90_abs": 19.464
+        "p90_abs": 19.365
       }
     }
   },
-  "verdict": "GREEN: new r2SCAN-3c SPs reproduce the stored 30k labels (repro mean -0.043, std 2.722 <= 2.9 floor). No protocol offset. Proceed to assemble + train."
+  "verdict": "GREEN: new r2SCAN-3c SPs reproduce the stored 30k labels (repro mean -0.042, std 2.718 <= 2.9 floor). No protocol offset. Proceed to assemble + train."
 }
