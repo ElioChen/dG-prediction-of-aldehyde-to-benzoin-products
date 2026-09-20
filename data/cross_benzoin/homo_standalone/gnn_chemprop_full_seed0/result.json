@@ -1,0 +1,31 @@
+{
+  "built_by": "cross_benzoin/train_cross_gnn_chemprop.py",
+  "smoke": false,
+  "table": "/gpfs/scratch1/shared/schen3/benzoin-dg-restored/data/cross_benzoin/homo_standalone/homo_standalone_full_library_table_slim260.parquet",
+  "target_col": "dG_orca_kcal",
+  "baseline_col": "dG_b973c_kcal",
+  "n_train": 132093,
+  "n_val": 17044,
+  "n_test": 16996,
+  "n_xd": 257,
+  "ym": -5.085864674772066,
+  "ysd": 1.0514701456907736,
+  "params": {
+    "depth": 4,
+    "hidden": 300,
+    "ffn_hidden": 300,
+    "ffn_layers": 2,
+    "dropout": 0.0,
+    "batch_size": 64,
+    "max_epochs": 150,
+    "seed": 0
+  },
+  "val_mae": 0.5761911763455625,
+  "test_mae": 0.5820871433003534,
+  "cross_reference_champion_gnn": {
+    "best_single_seed_mae": 0.556,
+    "4seed_avg_mae": 0.531,
+    "blend_mae": 0.528
+  },
+  "runtime_min": 135.7
+}
