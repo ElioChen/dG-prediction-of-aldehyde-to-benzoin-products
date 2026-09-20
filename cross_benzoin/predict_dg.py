@@ -39,6 +39,14 @@ error| (4.94 vs 4.98) -- B97-3c itself isn't failing on these structures, someth
 about them is harder for the Delta-model, so treat baseline_risk=True there as "expect worse
 accuracy," not specifically "the cheap baseline is unreliable, use DFT instead."
 
+Scope (PROJECT_PLAN.md sec3, 2026-09-10): this predicts the UNCATALYZED reaction
+free energy only -- a thermodynamic pre-filter ("worth a closer look"), not a
+statement that the reaction proceeds, how fast, or with what enantioselectivity.
+It does not model the NHC catalyst, kinetic barriers (energy span), or ee -- that
+is a separate, mature effort in the sibling nhc-benzoin-pipeline/-active-learning
+repos. A favorable dg_favorable=True pair still needs a real catalyst/kinetics
+call before anyone treats it as "will work".
+
 Aldehydes MUST already be in data/library (checked by canonical SMILES); truly
 novel aldehydes need their own cb_featurize --emit-aldehydes pass first (not yet
 wired here). NOTE (2026-09-07): donor_G_gxtb/acceptor_G_gxtb (2/260 frozen features) are

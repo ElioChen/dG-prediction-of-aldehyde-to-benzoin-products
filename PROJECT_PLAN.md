@@ -518,7 +518,7 @@ model the NHC catalyst, the kinetic barriers, or the enantioselectivity.
 
 - **Boundary.** Read the model's favorable / rank output as "worth a closer
   look", not "will work" — a **thermodynamic pre-filter**. `predict_dg.py` docs
-  should say so explicitly (small ❌ to add).
+  now say so explicitly (added 2026-09-20).
 - **The catalyst side is a separate, mature effort** in sibling repos
   (`ElioChen/nhc-benzoin-pipeline`, `nhc-benzoin-active-learning`,
   `nhc-active-learning`, `stereo-catalyst-engine`, `nhc-pkah-predictor`):

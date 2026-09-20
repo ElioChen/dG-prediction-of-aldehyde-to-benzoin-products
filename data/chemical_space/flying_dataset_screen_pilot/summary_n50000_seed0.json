@@ -1,0 +1,29 @@
+{
+  "built_by": "cross_benzoin/screen_flying_dataset_sample.py",
+  "n_sampled": 50000,
+  "dft_or_xtb_calls_spent": 0,
+  "pred_dG_stats": {
+    "mean": 1.9642205238342285,
+    "std": 2.615107536315918,
+    "p10": -1.1963703632354736,
+    "median": 1.7860641479492188,
+    "p90": 5.504221439361572,
+    "frac_favorable_lt0": 0.232
+  },
+  "known_labeled_pairs_dG_stats_for_comparison": {
+    "n": 35136,
+    "mean": 1.6157928321731205,
+    "std": 5.064719363528883,
+    "median": 1.577773518428888,
+    "frac_favorable_lt0": 0.3572119763205829
+  },
+  "reaction_type_counts": {
+    "aliph-carbo": 13419,
+    "carbo-hetero": 10686,
+    "aliph-hetero": 8937,
+    "carbo-carbo": 7870,
+    "aliph-aliph": 5522,
+    "hetero-hetero": 3566
+  },
+  "note": "pred is from the lazy-only ABSOLUTE screener (holdout MAE 3.039, R2 0.315 on labeled pairs) -- a first-pass ranking signal only, not a substitute for the deployed champion (needs real product geometry it doesn't have here)."
+}

@@ -1,18 +1,24 @@
 #!/bin/bash
 #SBATCH --job-name=homo_sa_gnn_full
-#SBATCH --partition=fat_rome
+#SBATCH --partition=gpu_a100
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
+#SBATCH --gpus=1
 #SBATCH --mem=64G
-#SBATCH --time=24:00:00
+#SBATCH --time=04:00:00
 #SBATCH --output=/gpfs/scratch1/shared/schen3/benzoin-dg-restored/slurm_logs/homo_sa_gnn_full_%j.out
 #
 # Full-library homo standalone GNN leg (CAMPAIGN_PLAN.md Phase 3): single
-# attentive-pooling GNN on the ~184k homo table, same B97-3c-baseline Delta
-# target as the tabular leg. CPU-trained (same as the r1-10 champion GNN).
-# Submit with --dependency=afterok:<tabular jobid> once
-# submit_homo_standalone_full.sh has written the table.
+# attentive-pooling GNN on the ~167k-row homo table, same B97-3c-baseline
+# Delta target as the tabular leg. 2026-09-20: moved from fat_rome CPU to
+# gpu_a100 (idle capacity, cluster otherwise quiet) -- train_cross_gnn_arch_sweep.py
+# already auto-selects cuda when available (torch.cuda.is_available()), the
+# original CPU pin was just partition choice, not a code requirement; the
+# nequip env's torch (2.11+cu130) supports it. Same script/seed, only faster
+# hardware -- does not change what's being measured. Submit with
+# --dependency=afterok:<tabular jobid> once submit_homo_standalone_full.sh has
+# written the table.
 set -o pipefail
 REPO=/gpfs/scratch1/shared/schen3/benzoin-dg-restored
 PY=/home/schen3/venv/nequip/bin/python

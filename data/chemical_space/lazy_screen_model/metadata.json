@@ -1,0 +1,11 @@
+{
+  "built_by": "cross_benzoin/train_lazy_absolute_screener.py",
+  "target": "absolute dG_r2scan_kcal (no Delta baseline -- none available for new pairs)",
+  "n_feats": 99,
+  "n_feats_dropped_no_mordred": 67,
+  "n_train": 22529,
+  "n_test": 448,
+  "holdout_MAE": 3.0392931238453036,
+  "holdout_R2": 0.3151166069837352,
+  "known_pairs_excluded_from_screening": 35136
+}

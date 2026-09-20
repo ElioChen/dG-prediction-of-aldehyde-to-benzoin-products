@@ -68,6 +68,7 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from rdkit import Chem, RDLogger
 
@@ -284,6 +285,44 @@ class FlyingDataset:
             for out_key, cands in BASELINE_COLS.items():
                 _, result[out_key] = _first_present(row, cands)
         return result
+
+    def sample(self, n: int, seed: int = 0, exclude_known: bool = True,
+               only_computable: bool = True) -> list[dict]:
+        """Uniform random sample of `n` cross-space addresses (donor_idx !=
+        acceptor_idx), each resolved through `pair()` -- i.e. only the lazy
+        tier is populated (no DFT/xTB spent; `computed_full` is True only for
+        the rare sampled address that happens to already be in `known_pairs`,
+        which is skipped by default via `exclude_known`). This is
+        build-order step 6's entry point for both a fresh AL acquisition pass
+        and any zero-new-compute screening pilot -- see CHEMICAL_SPACE.md
+        sec7/sec8. Not stratified (uniform over ald_idx x ald_idx); a
+        stratified variant (by cho_class / scaffold) can be layered on top
+        once an acquisition strategy is chosen."""
+        rng = np.random.default_rng(seed)
+        if only_computable:
+            # `computable` is still all-NA at the index level (step 1 left it
+            # "unknown", nothing has populated it since) -- treat unknown as
+            # not-yet-disproven-computable rather than excluding everything.
+            comp = self._idx["computable"].fillna(True).astype(bool)
+            ids = self._idx.index[comp].to_numpy()
+        else:
+            ids = self._idx.index.to_numpy()
+        known = self._known_by_pair or {}
+        out: list[dict] = []
+        seen: set[tuple[int, int]] = set()
+        attempts = 0
+        max_attempts = n * 50
+        while len(out) < n and attempts < max_attempts:
+            attempts += 1
+            d, a = rng.choice(ids, size=2, replace=False)
+            d, a = int(d), int(a)
+            if (d, a) in seen:
+                continue
+            seen.add((d, a))
+            if exclude_known and (d, a) in known:
+                continue
+            out.append(self.pair(d, a))
+        return out
 
     def iter_pairs(self, donor_idx=None, acceptor_idx=None):
         """Generator over addresses -- never materializes a pair table.
