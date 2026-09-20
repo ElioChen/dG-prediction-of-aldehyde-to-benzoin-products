@@ -416,7 +416,7 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   `--full-library` assembler → the two models → results in
   `data/cross_benzoin/homo_standalone/README.md`.
 
-#### 2.10.c Homo + cross unification (Rec-2) — 🟡 AMBER, real-table result in, GNN path still open
+#### 2.10.c Homo + cross unification (Rec-2) — 🟢 GREEN (confirmed 2026-09-20), GNN path still open
 - **Principle.** If homo and cross ΔG are the same physics at matched conditions
   (work-set B showed they are — the apparent gap is split regime + data scale,
   not task difficulty), then pooling both into one model with an `is_homo` flag
@@ -444,8 +444,18 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   and was silently SIGKILLed partway through with no exception/exit code —
   see `[[login-node-background-bash-silent-kill]]` memory. Re-submitted as
   a real SLURM job, completed cleanly in 6.8 min.
-- **Missing.** A multi-seed or bootstrap-resampled version of this check
-  before trusting the AMBER gain further. The GNN homo-pretrain -> finetune
+- **Robustness check (2026-09-20, same day, user-requested): upgraded to
+  GREEN.** 5-seed refit: naive_merge beats cross_only in **5/5 seeds**, gap
+  0.0526 ± 0.0029 kcal (tight across seeds — this isn't a lucky single fit).
+  10,000-resample bootstrap of the fixed 448-row holdout: 95% CI for the gap
+  is **[+0.0287, +0.0719], excludes zero**, 100% of resamples favor
+  naive_merge. The AMBER caution from the single-run script's own threshold
+  (0.10) turned out to be conservative, not wrong-direction — the effect is
+  small but real. Still not switched into `CHAMPION.md` as the deployed
+  default (0.05 kcal is a real but modest win, and this is single-XGB not
+  the full ensemble/GNN blend champion), but the "is this noise" question is
+  now settled: no.
+- **Missing.** The GNN homo-pretrain -> finetune
   path (current champion GNN is pure-cross, never rebuilt post-purge) —
   not attempted this pass, still open. (Provisional 09-16 numbers, for
   history: `naive_merge` on the 116,740-row partial table gave +0.11 kcal

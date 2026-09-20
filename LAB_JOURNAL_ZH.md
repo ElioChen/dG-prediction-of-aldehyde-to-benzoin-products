@@ -788,3 +788,37 @@ kcal）刚好卡在脚本自己设的AMBER/GREEN判断阈值（0.10）的边界�
 PROJECT_PLAN.md标注的"GNN homo-pretrain"这条还开着的线继续投入之前，
 值得先做一次多seed或bootstrap重采样的版本——n=448这么小的holdout，单跑
 一次得到的0.05 kcal差距不足以让人完全放心。
+
+**用户同意（"同意，同步推进"）跑这个稳健性检验。结果：升级为GREEN。**
+5-seed重训cross_only/naive_merge/naive_merge_weighted：naive_merge在
+**5/5个seed上都赢**cross_only（差距0.0526±0.0029 kcal，很紧，不是运气好
+的单次拟合）。对固定448行holdout做1万次重采样bootstrap（用seed-0的
+预测）：差距的95%置信区间**[+0.0287, +0.0719]，不包含零**，100%的重采样
+都是naive_merge赢。所以：之前的AMBER判断只是脚本自己设的保守阈值（0.10）
+在起作用，不是效应可能是假的信号——它小但是真实的。这次正常提交了SLURM
+job（`26957456`，`submit_homo_cross_joint_v2_robustness.sh`，21.8分钟），
+没再碰到登录节点的问题。
+
+**接着：用户问（队列空闲）能不能扩充cross数据/提高之前模拟的成功率。**
+查了homo SP重标活动的失败明细（7,939个true_fail + resid-outlier剔除的
+那些）：`geom_extract_fail(p=True,a=False)` 6,784个（产物提取成功，
+醛自身提取失败——档案tar包里缺那个xyz成员，**不是**算不出来的问题，因为
+产物那边已经证明这个化学反应是通的）；`r2SCAN-3c:sp_fail` 997个 +
+`bad_thermal` 157个（几何本身没问题，只是DFT单点这一步失败了）。用户选择：
+两类失败都重试，另外单独跑一小批（~500-1000对）全新的cross pair做探索性
+标注，用已经建好的`FlyingDataset.sample()`。
+
+**已启动（全部用正规SLURM job，不再用登录节点后台Bash）：**
+1. `submit_homo_sp_retry_spfail.sh`（job `26957533`，genoa，58个task）——
+   在已经成功的几何基础上重试那1,154个便宜的SP步骤失败。输出直接写进
+   `merge_homo_sp.py`已经在glob的`shards/`目录（`shard_retry_*.csv`依然
+   匹配`shard_*.csv`），它自己"按成功优先排序+按id去重"的逻辑意味着
+   重试成功的结果会在下次merge时自动盖过旧的失败记录，不需要手动对账。
+2. `submit_homo_regen_aldgap.sh`（genoa，1,131个task，`%40`并发）——
+   用`rec_homo_relabel_worker.py`（跟原regen track一样~2-3 CPU小时/对的
+   配方）从SMILES重新生成产物+醛两边的几何，处理那6,784个
+   `geom_extract_fail`的pair。产物那边其实已经算好了，重新算一遍是浪费，
+   但这个worker没有"只重算一个物种"的模式，为了零风险复用已验证的基础
+   设施接受这个浪费——提交整个array之前先用1对做了smoke test（写这条记录
+   时还在跑，~2-3 CPU小时/对本身就需要一点时间才能确认）。跑完预计能把
+   homo覆盖率从92.1%推到~95.8%。

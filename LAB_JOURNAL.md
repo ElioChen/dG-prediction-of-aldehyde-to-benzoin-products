@@ -1123,3 +1123,43 @@ Not switching CHAMPION.md's deployed default over this. Worth a multi-seed
 or bootstrap-resampled version of this check before spending more effort
 on the homo-pretrain GNN path PROJECT_PLAN.md flags as still open --
 n=448 is a small holdout to be confident in a 0.05 kcal gap from a single run.
+
+**User agreed ("同意，同步推进") to run that robustness check. Result: upgraded
+to GREEN.** 5-seed refit of cross_only/naive_merge/naive_merge_weighted:
+naive_merge beats cross_only in **5/5 seeds** (gap 0.0526 +/- 0.0029 kcal,
+tight -- not a lucky single fit). 10,000-resample bootstrap of the fixed
+448-row holdout (using seed-0's predictions): 95% CI for the gap
+**[+0.0287, +0.0719], excludes zero**, 100% of resamples favor naive_merge.
+So: the AMBER caution was the script's own conservative threshold (0.10)
+doing its job, not a sign the effect might be fake -- it's small but real.
+Ran as a proper SLURM job (`26957456`, submit_homo_cross_joint_v2_robustness.sh,
+21.8 min) this time, no login-node issues.
+
+**Then: user asked (queue idle) about growing cross data / improving prior
+simulation success rates.** Checked the homo SP relabel's failure
+breakdown (7,939 true_fail + the resid-outlier-excluded rows):
+`geom_extract_fail(p=True,a=False)` 6,784 (product extracted fine, aldehyde
+didn't -- a missing xyz member in the archive tar, NOT a computability
+issue, since the product side proves the chemistry works), `r2SCAN-3c:sp_fail`
+997 + `bad_thermal` 157 (geometry was fine, just the DFT-SP step itself
+failed). User chose: retry both failure classes, and separately run a small
+(~500-1000 pair) exploratory batch of brand-new cross pairs via the
+now-built `FlyingDataset.sample()`.
+
+**Launched (all via proper SLURM jobs, not login-node background Bash):**
+1. `submit_homo_sp_retry_spfail.sh` (job `26957533`, genoa, 58 tasks) --
+   retries the 1,154 cheap SP-step failures on their EXISTING (successful)
+   geometry. Output lands in the same `shards/` dir merge_homo_sp.py already
+   globs (`shard_retry_*.csv` still matches `shard_*.csv`), and its own
+   sort-by-success/dedupe-by-id logic means a successful retry automatically
+   wins over the old failed row on the next merge -- no manual reconciliation.
+2. `submit_homo_regen_aldgap.sh` (genoa, 1,131 tasks, `%40` throttle) --
+   regenerates BOTH product and aldehyde geometry from SMILES via
+   `rec_homo_relabel_worker.py` (same 2-3 CPU-h/pair recipe as the original
+   regen track) for the 6,784 `geom_extract_fail` pairs. Redoing the
+   already-good product too is wasted compute, but the worker has no
+   species-selective mode and this reuses proven infra with zero new code
+   risk -- smoke-tested on 1 pair before committing the full array (still
+   running as of this entry, ~2-3 CPU-h is a real per-pair cost so the
+   smoke test itself takes a while to confirm). Should push homo coverage
+   92.1% -> ~95.8% once it drains.
