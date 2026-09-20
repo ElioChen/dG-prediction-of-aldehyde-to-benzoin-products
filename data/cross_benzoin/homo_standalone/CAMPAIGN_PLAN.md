@@ -83,7 +83,29 @@ Submit: `submit_homo_standalone.sh` (assemble+XGB, fat_genoa/rome) → dependent
 
 ## Benchmarks
 
-cross champion blend MAE 2.215 (n=448) · g-xTB baseline 5.037 · pre-purge
-full-library homo model ≈ MAE 10 on a wider distribution.
+cross champion blend MAE 2.215 (n=448, superseded by r1-10-b973c 0.528) ·
+g-xTB baseline 5.037 · pre-purge full-library homo model ≈ MAE 10 on a wider
+distribution.
 Target: honest scaffold-disjoint holdout MAE for the two simple models on the
 full self-consistently-relabelled homo library.
+
+## Result (2026-09-20)
+
+Phase 1-3 all done. 166,133-row full-library table (92.1% coverage of the
+184,052-row manifest), scaffold-disjoint 132,093/17,044/16,996 train/val/test,
+0 scaffold overlap between train and test (checked explicitly, see LAB_JOURNAL
+09-20 -- this project has been burned by scaffold leakage before).
+
+| model | scaffold-disjoint holdout MAE | R² |
+|---|---|---|
+| **single XGBoost Δ-model** (the number to quote) | **0.684** | 0.997 |
+| MLP+XGB ensemble (context only, not the reported number) | 0.585 | 0.997 |
+| single attentive GNN | pending (job 26947605, gpu_a100) | |
+| raw baseline, no model | 5.029 | 0.900 |
+
+Both land far ahead of the pre-purge full-library homo model (~MAE 10) and
+close to the cross champion (0.528) -- likely because a homo row (donor ==
+acceptor) is a structurally simpler learning problem than a cross row, on top
+of the same b973c-baseline lever. See LAB_JOURNAL.md(+ZH) 09-20 for the full
+writeup, including a note to revisit PROJECT_PLAN.md's "homo is not harder
+than cross" line now that it looks *easier* at full scale.

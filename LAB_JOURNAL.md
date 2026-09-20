@@ -1027,3 +1027,41 @@ dependency chain so both legs land without further babysitting. Per
 `CAMPAIGN_PLAN.md` these are reported independently (no blend) per the
 2026-09-10 user directive. Will update this entry with the XGB/GNN MAE once
 they land.
+
+**User asked to keep going autonomously, plus: is the queue idle and can
+26947514/26947515 be sped up, and remember to back up.** Checked `sinfo`:
+26 idle `gpu_a100` nodes, 12 idle `gpu_h100`. `train_cross_gnn_arch_sweep.py`
+already auto-selects `cuda` when available -- the GNN leg's fat_rome-CPU pin
+was just a partition choice, not a code requirement. Cancelled `26947515`,
+resubmitted as **`26947605`** on `gpu_a100` (1 GPU, 4h wall instead of 24h),
+same `--dependency=afterok:26947514`. The tabular leg didn't need splitting
+(XGB itself is fast; the time was going into a 50-fold repeated-CV stability
+estimate on 132k rows, not something worth interrupting a live job to shrink).
+
+**Homo full-library single-XGB result (job 26947514, COMPLETED 1h remotely
+after the merge)**: table assembled to 166,133 rows x 394 features (166,133
+of the 169,493-usable-coverage pairs after dropping 1,025 rows with no split
+label and excluding the validation split), scaffold-disjoint split
+132,093/17,044/16,996 (train/validation/test). **Single-XGB Δ-model:
+holdout MAE 0.684, R² 0.997** (n=16,996; raw-baseline-no-model MAE 5.029 --
+the near-constant ~-5 kcal r2SCAN-vs-b973c offset the Δ-model absorbs).
+MLP+XGB ensemble (context only, not the reported number per
+`CAMPAIGN_PLAN.md`): MAE 0.585. **Checked for the BDE-style scaffold-leakage
+trap before trusting this** (`[[bde_scaffold_leakage_finding]]` memory) --
+train/test scaffold sets have **zero overlap** (13,908 train scaffolds,
+11,934 test scaffolds, 0 shared), so this is a genuinely clean scaffold-
+disjoint number, not leakage-inflated. This lands close to the cross
+champion's 0.528 and dramatically ahead of the pre-purge full-library homo
+model (~MAE 10) -- most likely because homo pairs (donor==acceptor) are a
+structurally simpler learning problem than cross (one molecule's identity
+determines the whole row, not two), on top of the same b973c-baseline lever
+that helped cross. Worth revisiting the settled "homo is not harder than
+cross at matched scale" line (PROJECT_PLAN.md sec5) -- at full scale with
+the b973c baseline, homo looks *easier*, not just equal. Backed up: model
+files (`tabular_full/`, 6.3MB) `git add`'d directly; the 478MB full-library
+table is gitignored (`*.parquet`) and over GitHub's limit -- rsynced to
+`~/benzoin_backups/homo_full_library_table_20260920/` instead, same
+discipline as `products_all.csv`.
+
+GNN leg (`26947605`) now running on the freed-up GPU slot, confirmed
+`cuda True` in its log. Will update this entry once it lands.

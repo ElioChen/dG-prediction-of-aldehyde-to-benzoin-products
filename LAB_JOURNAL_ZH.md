@@ -707,3 +707,35 @@ merge：覆盖率169,493/184,052(**92.1%**，比旧快照高很多)，QC结论**
 attentive GNN，同样的基线)，串成依赖链让两条腿都能跑完而不需要人盯着。
 按CAMPAIGN_PLAN.md的2026-09-10用户指示，两个结果独立汇报，不做blend。
 跑完后会把XGB/GNN的MAE补进这条记录。
+
+**用户要求继续自主推进，并问队列是否空闲、26947514/26947515是否需要拆分
+加速、记得备份同步。** 查了`sinfo`：`gpu_a100`空闲26个节点，`gpu_h100`空闲
+12个。`train_cross_gnn_arch_sweep.py`本身就会自动选`cuda`——GNN那条腿之前
+钉在fat_rome纯CPU只是分区选择问题，不是代码限制。取消`26947515`，重新
+提交为**`26947605`**，跑在`gpu_a100`（1块GPU，墙钟从24h砍到4h），依赖关系
+不变。表格那条腿不需要拆分（XGB本身很快，慢的是132k行上的50折重复CV稳定性
+估计，不值得为了缩短它去打断一个正在跑的job）。
+
+**homo全库单XGB结果出来了（job 26947514，merge之后大约1小时COMPLETED）**：
+表组装出166,133行×394特征（169,493个可用覆盖的pair里，去掉1,025行没有
+split标签的、排除validation split之后剩下的），scaffold-disjoint切分
+132,093/17,044/16,996（train/validation/test）。**单XGB Δ模型：holdout MAE
+0.684，R² 0.997**（n=16,996；无模型的原始baseline MAE是5.029——Δ模型要
+吸收的那个接近常数的~-5 kcal r2SCAN对b973c偏移量）。MLP+XGB ensemble
+（只作参考，不是CAMPAIGN_PLAN.md要求汇报的数字）：MAE 0.585。**信这个数字
+之前先查了一遍BDE那次的scaffold泄漏陷阱**（`[[bde_scaffold_leakage_finding]]`
+memory）——train/test的scaffold集合**完全没有重叠**（train 13,908个，
+test 11,934个，0个共有），所以这是一个真正干净的scaffold-disjoint数字，
+不是泄漏撑起来的。这个结果接近cross champion的0.528，远好于purge之前的
+全库homo模型（MAE≈10）——最可能的原因是homo的pair（donor==acceptor）本身
+是个结构上更简单的学习问题（一个分子的身份就决定了整行，不像cross要两个），
+加上跟cross一样吃到了b973c基线这个杠杆。值得回头看一下"homo在同等规模下
+不比cross难"这条已定结论（PROJECT_PLAN.md §5）——在全量规模+b973c基线下，
+homo看起来不只是"不比cross难"，而是**明显更容易**。已备份：模型文件
+（`tabular_full/`，6.3MB）直接`git add`了；478MB的全库表被`.gitignore`
+（`*.parquet`）挡住而且超过GitHub限制——rsync到了
+`~/benzoin_backups/homo_full_library_table_20260920/`，跟`products_all.csv`
+一样的处理方式。
+
+GNN那条腿（`26947605`）现在跑在腾出来的GPU上，日志确认了`cuda True`。
+跑完后会补进这条记录。
