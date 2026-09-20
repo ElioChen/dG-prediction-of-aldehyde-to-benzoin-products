@@ -1,0 +1,24 @@
+{
+  "random_forest": {
+    "MAE": 0.6503950642851801,
+    "RMSE": 0.9217423398167748,
+    "R2": 0.9967913250185084,
+    "train_n": 132093,
+    "fit_seconds": 1629.0635168552399
+  },
+  "linear_svr": {
+    "MAE": 0.687120188674104,
+    "RMSE": 0.9417891189150722,
+    "R2": 0.9966502376974425,
+    "train_n": 132093,
+    "fit_seconds": 1083.309252023697
+  },
+  "rbf_svr_subsampled": {
+    "MAE": 0.6792062384141909,
+    "RMSE": 0.9275599690688348,
+    "R2": 0.9967506937289036,
+    "train_n": 20000,
+    "fit_seconds": 878.7431478500366,
+    "note": "subsampled to 20000/132093 training rows -- RBF-kernel SVR is O(n^2)-O(n^3), the full 132k-row training set is not tractable here"
+  }
+}
