@@ -85,6 +85,7 @@ from qc import norm_id  # noqa: E402
 ALDEHYDE_INDEX = REPO / "data/chemical_space/aldehyde_index.parquet"
 ALDEHYDE_QM = REPO / "data/cross_benzoin/homo_v6/aldehydes_all.csv"
 ALDEHYDE_BDE = REPO / "data/cross_benzoin/homo_v6/aldehydes_bdfe_gxtb_descriptors.csv"
+ALDEHYDE_MORDRED = REPO / "data/cross_benzoin/homo_v6/aldehydes_mordred_slim102.csv"
 
 # Same list as assemble_cross_training_table.ALDEHYDE_FEATS (kept independent
 # here on purpose -- this module must not import that pilot-era assembler,
@@ -138,7 +139,10 @@ def _aldehyde_index() -> pd.DataFrame:
 
 @lru_cache(maxsize=1)
 def _aldehyde_qm_cache() -> pd.DataFrame:
-    """ald_idx -> ALDEHYDE_FEATS (minus bde_gxtb_kcal, joined separately)."""
+    """ald_idx -> ALDEHYDE_FEATS (minus bde_gxtb_kcal, joined separately) +
+    ald_mordred_* (2026-09-20: was missing from the lazy tier despite being
+    a fully per-aldehyde, zero-new-compute cache like everything else here --
+    see CHEMICAL_SPACE.md step-6 pilot note)."""
     ald = pd.read_csv(ALDEHYDE_QM, usecols=["id"] + [f for f in ALDEHYDE_FEATS if f != "bde_gxtb_kcal"],
                        low_memory=False)
     ald["id"] = norm_id(ald["id"]).astype(int)
@@ -146,6 +150,9 @@ def _aldehyde_qm_cache() -> pd.DataFrame:
     bde["id"] = norm_id(bde["id"]).astype(int)
     bde.loc[bde["bde_gxtb_kcal"].abs() > 200, "bde_gxtb_kcal"] = None
     ald = ald.merge(bde, on="id", how="left")
+    mordred = pd.read_csv(ALDEHYDE_MORDRED, low_memory=False)
+    mordred["id"] = norm_id(mordred["id"]).astype(int)
+    ald = ald.merge(mordred.drop_duplicates("id"), on="id", how="left")
     return ald.drop_duplicates("id").set_index("id")
 
 
@@ -225,7 +232,7 @@ class FlyingDataset:
         if ald_idx not in self._idx.index:
             return {"idx": ald_idx, "found": False}
         row = self._idx.loc[ald_idx]
-        qm = self._qm.loc[ald_idx].to_dict() if ald_idx in self._qm.index else {f: None for f in ALDEHYDE_FEATS}
+        qm = self._qm.loc[ald_idx].to_dict() if ald_idx in self._qm.index else {f: None for f in self._qm.columns}
         out = {
             "idx": ald_idx, "found": True,
             "smiles": row["smiles_canonical"], "cho_class": row["cho_class"],

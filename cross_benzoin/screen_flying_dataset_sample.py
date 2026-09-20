@@ -42,6 +42,7 @@ def main() -> int:
     model = joblib.load(MODEL_DIR / "model.joblib")
     feats = json.loads((MODEL_DIR / "feature_list.json").read_text())
     medians = pd.read_json(MODEL_DIR / "medians.json", typ="series")
+    model_meta = json.loads((MODEL_DIR / "metadata.json").read_text())
 
     known = pd.read_parquet(KNOWN_PAIRS)
     fd = FlyingDataset(known_pairs=known)
@@ -84,9 +85,11 @@ def main() -> int:
             "frac_favorable_lt0": float(np.mean(known_labels < 0)),
         },
         "reaction_type_counts": out_df["reaction_type"].value_counts(dropna=False).to_dict(),
-        "note": "pred is from the lazy-only ABSOLUTE screener (holdout MAE 3.039, R2 0.315 "
-                "on labeled pairs) -- a first-pass ranking signal only, not a substitute for "
-                "the deployed champion (needs real product geometry it doesn't have here).",
+        "screener_holdout_MAE": model_meta.get("holdout_MAE"),
+        "screener_holdout_R2": model_meta.get("holdout_R2"),
+        "note": "pred is from the lazy-only ABSOLUTE screener (see screener_holdout_MAE/R2 "
+                "above) -- a first-pass ranking signal only, not a substitute for the deployed "
+                "champion (needs real product geometry it doesn't have here).",
     }
     (OUT / f"summary_n{args.n}_seed{args.seed}.json").write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary, indent=2))
