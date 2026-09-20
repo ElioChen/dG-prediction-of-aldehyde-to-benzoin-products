@@ -1088,3 +1088,22 @@ Also started the Rec-2 unification retrain (`homo_cross_joint_tabular_v2.py
 this was flagged in the 09-16 handoff as "once homo labels land," no new
 decision needed. Running as of this entry; will report cross_only vs
 naive_merge vs naive_merge_weighted once it lands.
+
+**Rec-2 unification result, real full-library homo table (142,521 homo rows
+after feature alignment, cross clean-train 22,529, cross holdout 448, ratio
+6.33:1)**: cross_only MAE 0.621, naive_merge 0.571 (-0.050), naive_merge_weighted
+(w_homo=0.158) 0.570 (-0.051). **The homo+cross unification lever still
+helps** at the new b973c-baseline scale -- smaller than the old provisional
+09-16 estimate on the 116,740-row partial table (+0.11), but real and in the
+same direction, and this time on the actual complete table rather than a
+provisional one. Unweighted naive_merge and the weighted variant land within
+noise of each other, unlike the provisional run where weighting mattered more
+-- plausibly because the real full table's homo:cross ratio (6.33:1) is much
+tamer than what the dilution-warning scenario in `homo_cross_joint_tabular_v2.py`'s
+own docstring worried about (~219k:35k =~ 6:1, actually matches almost
+exactly, so the fear was correctly anticipated but the naive-vs-weighted gap
+turned out small in practice). Not switching CHAMPION.md's deployed default
+over this alone -- 0.05 kcal on n=448 is a real but modest gain, worth
+another look with more seeds/holdout resampling before treating it as
+settled, but it's the strongest signal yet that homo and cross data really
+do share transferable structure once both are on the b973c baseline.

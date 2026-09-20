@@ -416,19 +416,26 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   `--full-library` assembler → the two models → results in
   `data/cross_benzoin/homo_standalone/README.md`.
 
-#### 2.10.c Homo + cross unification (Rec-2) — 🟡 AMBER-GREEN, prep in progress
+#### 2.10.c Homo + cross unification (Rec-2) — 🟢 GREEN, real-table result in, GNN path still open
 - **Principle.** If homo and cross ΔG are the same physics at matched conditions
   (work-set B showed they are — the apparent gap is split regime + data scale,
   not task difficulty), then pooling both into one model with an `is_homo` flag
   should help via more data / broader chemistry coverage.
-- **Status.** `naive_merge` (homo:cross ≈ 1:1, 72-feat) gives a reproducible
-  **−0.11 kcal** on both model classes; `finetune` is a null. Product Mordred
-  restored (2026-09-09). Assembler `--full-library` mode pending.
-- **Missing.** Wait for the from-scratch homo labels (2.10.b) → assemble a
-  unified 260-feat table → retrain champion + GNN with `is_homo`/`sample_weight`
-  → does −0.11 survive at 260-feat + GNN scale? If yes, add a GNN
-  homo-pretrain→finetune path (the current champion GNN is pure-cross, never
-  rebuilt post-purge).
+- **Status (2026-09-20, real full-library table, superseding the provisional
+  09-16 numbers below).** `homo_cross_joint_tabular_v2.py` re-run against the
+  actual 166,133-row homo table (not the 116,740-row provisional one):
+  cross_only MAE 0.621 -> naive_merge 0.571 (**-0.050**) -> naive_merge_weighted
+  0.570 (-0.051), homo:cross ratio 6.33:1 (n_homo 142,521 after feature
+  alignment, cross clean-train 22,529, holdout n=448). **The lever survives**
+  at the new b973c-baseline/257-feat scale, smaller than the old provisional
+  +0.11 estimate but real and same-direction; naive and weighted now land
+  within noise of each other (unlike the provisional run). Not yet switched
+  into CHAMPION.md -- 0.05 kcal on n=448 warrants a multi-seed/resampling
+  check before calling it settled.
+- **Missing.** The GNN homo-pretrain -> finetune path (current champion GNN
+  is pure-cross, never rebuilt post-purge) -- not attempted this pass, still
+  open. (Provisional 09-16 numbers, for history: `naive_merge` on the
+  116,740-row partial table gave +0.11 kcal at 72-feat/g-xTB-era scale.)
 
 #### 2.10.d Cheap-baseline lever — cross Tier B relabel (Rec-1 / work-set D) — ✅ done, deployed
 - **Principle.** §1.5: swap the Δ-learning baseline g-xTB → B97-3c. The pilot

@@ -759,3 +759,18 @@ homo重标）这次会话都解决了。模型权重已提交（`gnn_state.pt`�
 <真正的全库表>`）——现在真实标签有了，09-16交接里标注的"等homo标签落地"
 条件满足，不需要新决策。正在跑，跑完会汇报cross_only vs naive_merge vs
 naive_merge_weighted三个结果。
+
+**Rec-2统一结果，用的是真正的全库homo表**（特征对齐后142,521行homo，
+cross clean-train 22,529，cross holdout 448，比例6.33:1）：cross_only
+MAE 0.621，naive_merge 0.571（-0.050），naive_merge_weighted
+（w_homo=0.158）0.570（-0.051）。**homo+cross联合训练这个杠杆在新的
+b973c基线规模下依然有效**——比09-16那次在11.6万行provisional表上得到的
+旧估计（+0.11）小，但方向一致、是真实的，而且这次是在真正完整的表上跑的，
+不是provisional版本。不加权的naive_merge和加权版本这次差不多（跟
+provisional那次不一样，那次加权更重要）——大概率是因为真实全库表的
+homo:cross比例（6.33:1）跟`homo_cross_joint_tabular_v2.py`文档里担心的
+稀释场景（~219k:35k≈6:1，其实预判得很准）虽然规模吻合，但实践中naive和
+加权的差距反而不大。不会单凭这个就把`CHAMPION.md`的部署默认切过去——
+n=448上0.05 kcal是真实但不算大的收益，值得多跑几个seed/holdout重采样再
+确认，但这是目前为止最强的信号，说明homo和cross数据在都上了b973c基线
+之后，确实共享可迁移的结构。
