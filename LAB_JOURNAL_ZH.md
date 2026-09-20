@@ -739,3 +739,23 @@ homo看起来不只是"不比cross难"，而是**明显更容易**。已备份�
 
 GNN那条腿（`26947605`）现在跑在腾出来的GPU上，日志确认了`cuda True`。
 跑完后会补进这条记录。
+
+**homo全库单GNN结果出来了（job 26947605，在gpu_a100上大约46分钟就
+COMPLETED——如果留在fat_rome纯CPU上很可能要跑掉原本24h墙钟的大半）**：
+同一张表，同样scaffold-disjoint切分（train 118,884 / val 30,253 /
+test 16,996——GNN脚本自己切val/test的方式跟表格脚本略有不同，是预期的，
+不是bug）。**gnn_only_mae 0.558**——比单XGB的0.684还好，这在这个项目里
+不常见（cross那边一般是XGB/blend领先）。Ensemble-only是0.585，跟表格
+那个job的MLP+XGB数字完全一致，应该如此（复用的是同一个champion-dir
+ensemble）。Blend（w_gnn=0.60）能到0.543，但按CAMPAIGN_PLAN.md不做blend
+的指示，这个不是要汇报的数字。
+
+**homo全库战役到此彻底收尾**：两个要求的模型都训练完并独立汇报了
+（XGB 0.684，GNN 0.558），09-16交接留下的两大开放线索（BDE-CRG消融、
+homo重标）这次会话都解决了。模型权重已提交（`gnn_state.pt`虽然被
+`.gitignore`的`*.pt`规则挡住，但只有3.4MB，强制加进去了）。
+
+顺手启动了Rec-2统一重训（`homo_cross_joint_tabular_v2.py --homo-table
+<真正的全库表>`）——现在真实标签有了，09-16交接里标注的"等homo标签落地"
+条件满足，不需要新决策。正在跑，跑完会汇报cross_only vs naive_merge vs
+naive_merge_weighted三个结果。

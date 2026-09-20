@@ -1065,3 +1065,26 @@ discipline as `products_all.csv`.
 
 GNN leg (`26947605`) now running on the freed-up GPU slot, confirmed
 `cuda True` in its log. Will update this entry once it lands.
+
+**Homo full-library single-GNN result (job 26947605, COMPLETED in ~46min on
+gpu_a100 -- would very plausibly have taken most of the original 24h on
+fat_rome CPU)**: same table, same scaffold-disjoint split (train 118,884 /
+val 30,253 / test 16,996 -- the GNN script's own val/test carve differs
+slightly from the tabular script's, expected, not a bug). **gnn_only_mae
+0.558** -- beats the single-XGB's 0.684, unusual for this project (XGB/blend
+usually leads on the cross side). Ensemble-only 0.585 matches the tabular
+job's MLP+XGB number exactly, as it should (same champion-dir ensemble
+reused). Blend (w_gnn=0.60) gives 0.543 but that's explicitly not the number
+to report per CAMPAIGN_PLAN.md's no-blend directive.
+
+**Homo full-library campaign is now fully closed out**: both required models
+trained and reported independently (XGB 0.684, GNN 0.558), both major open
+threads from the 09-16 handoff (BDE-CRG ablation, homo relabel) resolved
+this session. Model weights committed (gnn_state.pt force-added despite
+*.pt's normal gitignore -- 3.4MB, cheap to keep).
+
+Also started the Rec-2 unification retrain (`homo_cross_joint_tabular_v2.py
+--homo-table <the real full-library table>`) now that real labels exist --
+this was flagged in the 09-16 handoff as "once homo labels land," no new
+decision needed. Running as of this entry; will report cross_only vs
+naive_merge vs naive_merge_weighted once it lands.
