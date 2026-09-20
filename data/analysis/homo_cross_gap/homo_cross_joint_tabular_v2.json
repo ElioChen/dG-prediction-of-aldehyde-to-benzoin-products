@@ -1,0 +1,46 @@
+{
+  "built_by": "cross_benzoin/homo_cross_joint_tabular_v2.py",
+  "provisional": false,
+  "homo_table": "data/cross_benzoin/homo_standalone/homo_standalone_full_library_table_slim260.parquet",
+  "n_homo": 142521,
+  "n_cross_train": 22529,
+  "n_cross_holdout": 448,
+  "homo_cross_ratio": 6.326113009898354,
+  "w_homo_per_row": 0.15807495035819283,
+  "features": "257 champion schema (v2, no n_CHO) + is_homo",
+  "results": {
+    "cross_only": {
+      "mae": 0.6210567349072625,
+      "r2": 0.971862773306229,
+      "rmse": 0.8242131345640044
+    },
+    "naive_merge": {
+      "mae": 0.5708681720519764,
+      "r2": 0.975844872182803,
+      "rmse": 0.7636661774791161
+    },
+    "naive_merge_weighted": {
+      "mae": 0.5701155461420925,
+      "r2": 0.9764124024633041,
+      "rmse": 0.7546415975690302
+    },
+    "homo_only_zeroshot": {
+      "mae": 0.6282131513852927,
+      "r2": 0.9715637760886646,
+      "rmse": 0.8285807683556704
+    },
+    "finetune": {
+      "mae": 0.5907418918933649,
+      "r2": 0.97396392429692,
+      "rmse": 0.7928420013521416
+    }
+  },
+  "cross_reference_full_champion": {
+    "ensemble_only_mae": 0.603,
+    "blend_mae": 0.528,
+    "single_xgb_mae": 0.632,
+    "b973c_baseline_mae": null
+  },
+  "verdict": "AMBER: marginal homo-transfer gain (+0.051 kcal), likely within noise at n=448.",
+  "runtime_min": 6.8
+}

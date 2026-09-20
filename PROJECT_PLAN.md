@@ -416,26 +416,41 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   `--full-library` assembler → the two models → results in
   `data/cross_benzoin/homo_standalone/README.md`.
 
-#### 2.10.c Homo + cross unification (Rec-2) — 🟢 GREEN, real-table result in, GNN path still open
+#### 2.10.c Homo + cross unification (Rec-2) — 🟡 AMBER, real-table result in, GNN path still open
 - **Principle.** If homo and cross ΔG are the same physics at matched conditions
   (work-set B showed they are — the apparent gap is split regime + data scale,
   not task difficulty), then pooling both into one model with an `is_homo` flag
   should help via more data / broader chemistry coverage.
-- **Status (2026-09-20, real full-library table, superseding the provisional
-  09-16 numbers below).** `homo_cross_joint_tabular_v2.py` re-run against the
-  actual 166,133-row homo table (not the 116,740-row provisional one):
-  cross_only MAE 0.621 -> naive_merge 0.571 (**-0.050**) -> naive_merge_weighted
-  0.570 (-0.051), homo:cross ratio 6.33:1 (n_homo 142,521 after feature
-  alignment, cross clean-train 22,529, holdout n=448). **The lever survives**
-  at the new b973c-baseline/257-feat scale, smaller than the old provisional
-  +0.11 estimate but real and same-direction; naive and weighted now land
-  within noise of each other (unlike the provisional run). Not yet switched
-  into CHAMPION.md -- 0.05 kcal on n=448 warrants a multi-seed/resampling
-  check before calling it settled.
-- **Missing.** The GNN homo-pretrain -> finetune path (current champion GNN
-  is pure-cross, never rebuilt post-purge) -- not attempted this pass, still
-  open. (Provisional 09-16 numbers, for history: `naive_merge` on the
-  116,740-row partial table gave +0.11 kcal at 72-feat/g-xTB-era scale.)
+- **Status (2026-09-20, real full-library table + complete result, superseding
+  both the provisional 09-16 numbers and an earlier incomplete run of this
+  same command).** `homo_cross_joint_tabular_v2.py` against the actual
+  166,133-row homo table (not the 116,740-row provisional one), all four
+  transfer strategies: cross_only MAE 0.621, naive_merge 0.571 (-0.050),
+  naive_merge_weighted 0.570 (-0.051), homo_only_zeroshot 0.628 (worse, as
+  expected for a zero-shot cross-domain application), finetune 0.591
+  (-0.030). homo:cross ratio 6.33:1 (n_homo 142,521 after feature alignment,
+  cross clean-train 22,529, holdout n=448). **Script's own verdict: AMBER —
+  "marginal homo-transfer gain (+0.051 kcal), likely within noise at
+  n=448."** All three transfer variants beat cross_only in the same
+  direction (a mild positive signal), but the effect size sits right at the
+  script's own AMBER/GREEN boundary (0.10) — not confident enough to call
+  this settled off one run on a 448-row holdout. Not switched into
+  CHAMPION.md. naive and weighted land within noise of each other (unlike
+  the provisional run, likely because the real table's homo:cross ratio
+  matches what the dilution-warning scenario anticipated almost exactly, so
+  weighting matters less in practice than feared).
+- **Trap hit getting this number**: the first attempt at this re-run was
+  launched as a raw background Bash process on the interactive login node
+  and was silently SIGKILLed partway through with no exception/exit code —
+  see `[[login-node-background-bash-silent-kill]]` memory. Re-submitted as
+  a real SLURM job, completed cleanly in 6.8 min.
+- **Missing.** A multi-seed or bootstrap-resampled version of this check
+  before trusting the AMBER gain further. The GNN homo-pretrain -> finetune
+  path (current champion GNN is pure-cross, never rebuilt post-purge) —
+  not attempted this pass, still open. (Provisional 09-16 numbers, for
+  history: `naive_merge` on the 116,740-row partial table gave +0.11 kcal
+  at 72-feat/g-xTB-era scale — that number does not survive at full scale;
+  the real gain is smaller.)
 
 #### 2.10.d Cheap-baseline lever — cross Tier B relabel (Rec-1 / work-set D) — ✅ done, deployed
 - **Principle.** §1.5: swap the Δ-learning baseline g-xTB → B97-3c. The pilot

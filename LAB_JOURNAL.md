@@ -1092,18 +1092,34 @@ naive_merge vs naive_merge_weighted once it lands.
 **Rec-2 unification result, real full-library homo table (142,521 homo rows
 after feature alignment, cross clean-train 22,529, cross holdout 448, ratio
 6.33:1)**: cross_only MAE 0.621, naive_merge 0.571 (-0.050), naive_merge_weighted
-(w_homo=0.158) 0.570 (-0.051). **The homo+cross unification lever still
-helps** at the new b973c-baseline scale -- smaller than the old provisional
-09-16 estimate on the 116,740-row partial table (+0.11), but real and in the
-same direction, and this time on the actual complete table rather than a
-provisional one. Unweighted naive_merge and the weighted variant land within
-noise of each other, unlike the provisional run where weighting mattered more
--- plausibly because the real full table's homo:cross ratio (6.33:1) is much
-tamer than what the dilution-warning scenario in `homo_cross_joint_tabular_v2.py`'s
-own docstring worried about (~219k:35k =~ 6:1, actually matches almost
-exactly, so the fear was correctly anticipated but the naive-vs-weighted gap
-turned out small in practice). Not switching CHAMPION.md's deployed default
-over this alone -- 0.05 kcal on n=448 is a real but modest gain, worth
-another look with more seeds/holdout resampling before treating it as
-settled, but it's the strongest signal yet that homo and cross data really
-do share transferable structure once both are on the b973c baseline.
+(w_homo=0.158) 0.570 (-0.051). Unweighted naive_merge and the weighted variant
+land within noise of each other, unlike the provisional run where weighting
+mattered more -- plausibly because the real full table's homo:cross ratio
+(6.33:1) is much tamer than what the dilution-warning scenario in
+`homo_cross_joint_tabular_v2.py`'s own docstring worried about (~219k:35k
+=~ 6:1, actually matches almost exactly, so the fear was correctly
+anticipated but the naive-vs-weighted gap turned out small in practice).
+
+**Correction to the first version of this entry**: that run (via a raw
+background Bash process on the login node) silently died right after
+`naive_merge_weighted` -- no exception, no exit code -- and I mis-reported it
+as complete. Turned out to be the login node (`int4`) killing long-running
+background processes with no trace (see `[[login_node_background_bash_silent_kill]]`
+memory), not a script bug; the fix was to resubmit as a real SLURM job
+(`26957114`, 6.8min, completed cleanly). The two conditions that never ran
+the first time: **homo_only_zeroshot MAE 0.628** (worse than cross_only,
+expected -- a homo-trained model applied zero-shot to cross data without
+any cross-specific fitting shouldn't be great) and **finetune MAE 0.591**
+(better than cross_only by -0.030, but worse than naive_merge). **The
+script's own verdict: AMBER -- "marginal homo-transfer gain (+0.051 kcal),
+likely within noise at n=448."** This is more cautious than my first-pass
+read of the partial results as "the lever still helps" -- the honest
+takeaway is: naive_merge is the best of the four transfer strategies tried,
+the direction is consistently positive across all three transfer variants
+(naive_merge, naive_merge_weighted, finetune all beat cross_only), but the
+effect size (0.03-0.05 kcal) sits at exactly the boundary the script's own
+AMBER/GREEN threshold (0.10) was set to distinguish real from noise-level.
+Not switching CHAMPION.md's deployed default over this. Worth a multi-seed
+or bootstrap-resampled version of this check before spending more effort
+on the homo-pretrain GNN path PROJECT_PLAN.md flags as still open --
+n=448 is a small holdout to be confident in a 0.05 kcal gap from a single run.

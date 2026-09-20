@@ -763,14 +763,28 @@ naive_merge_weighted三个结果。
 **Rec-2统一结果，用的是真正的全库homo表**（特征对齐后142,521行homo，
 cross clean-train 22,529，cross holdout 448，比例6.33:1）：cross_only
 MAE 0.621，naive_merge 0.571（-0.050），naive_merge_weighted
-（w_homo=0.158）0.570（-0.051）。**homo+cross联合训练这个杠杆在新的
-b973c基线规模下依然有效**——比09-16那次在11.6万行provisional表上得到的
-旧估计（+0.11）小，但方向一致、是真实的，而且这次是在真正完整的表上跑的，
-不是provisional版本。不加权的naive_merge和加权版本这次差不多（跟
-provisional那次不一样，那次加权更重要）——大概率是因为真实全库表的
+（w_homo=0.158）0.570（-0.051）。不加权的naive_merge和加权版本这次差不多
+（跟provisional那次不一样，那次加权更重要）——大概率是因为真实全库表的
 homo:cross比例（6.33:1）跟`homo_cross_joint_tabular_v2.py`文档里担心的
 稀释场景（~219k:35k≈6:1，其实预判得很准）虽然规模吻合，但实践中naive和
-加权的差距反而不大。不会单凭这个就把`CHAMPION.md`的部署默认切过去——
-n=448上0.05 kcal是真实但不算大的收益，值得多跑几个seed/holdout重采样再
-确认，但这是目前为止最强的信号，说明homo和cross数据在都上了b973c基线
-之后，确实共享可迁移的结构。
+加权的差距反而不大。
+
+**纠正这条记录的第一版**：那次（用登录节点上的后台Bash直接跑）在
+`naive_merge_weighted`之后就悄无声息地死掉了——没有异常，没有退出码——
+我当时误报成"跑完了"。后来查出来是登录节点（`int4`）会无痕迹地杀掉
+长时间跑的后台进程（见memory `[[login_node_background_bash_silent_kill]]`），
+不是脚本本身的bug；解决办法是改成正常提交SLURM job（`26957114`，实际只用
+6.8分钟，干净跑完）。第一次没跑到的两个条件：**homo_only_zeroshot MAE
+0.628**（比cross_only还差，符合预期——一个纯homo训练的模型直接零样本
+用到cross数据上，没有任何cross专属的拟合，本来就不该好）和**finetune
+MAE 0.591**（比cross_only好0.030，但不如naive_merge）。**脚本自己给出的
+verdict是AMBER——"marginal homo-transfer gain (+0.051 kcal), likely within
+noise at n=448"**（边际的homo迁移收益，在n=448下很可能就是噪声）。这比我
+第一遍只看到部分结果时"这个杠杆依然有效"的判断要谨慎——诚实的结论是：
+naive_merge是四种迁移策略里最好的，方向在三种迁移变体（naive_merge、
+naive_merge_weighted、finetune）上都一致地为正，但效应量（0.03-0.05
+kcal）刚好卡在脚本自己设的AMBER/GREEN判断阈值（0.10）的边界上，够不上
+"确定是真实信号"。不会单凭这个切换`CHAMPION.md`的部署默认。在往
+PROJECT_PLAN.md标注的"GNN homo-pretrain"这条还开着的线继续投入之前，
+值得先做一次多seed或bootstrap重采样的版本——n=448这么小的holdout，单跑
+一次得到的0.05 kcal差距不足以让人完全放心。
