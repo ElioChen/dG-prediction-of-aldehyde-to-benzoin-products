@@ -669,3 +669,41 @@ cross-benzoin dG那边（标记确实有可衡量效果，虽然不如champion�
 已补跑3个seed(marked+unmarked各3个，job 26843134-139，各8小时墙钟)拿
 4-seed稳健读数再下最终结论，跟cross-dG那边CRG/CGR-delta/WLDN对比用的
 同一套方法论。STATUS.md §9已更新seed0数字和中间推理，最终表格待补。
+
+## 2026-09-20
+
+时隔约3天重新捡起这个项目(最后一条commit是`116ceac`，周四09-17 14:39；
+用户确认周四中午后没有主动推进)。实际上有两条线在这段空窗期里已经跑完了
+算力，只是没人回来收尾——现在补上，都不需要新跑算力。
+
+**BDE-CRG消融，最终4-seed结论。** Job 26843134-139(seed1-3，marked+
+unmarked)早在09-18 01:44-05:45就全部COMPLETED，但落地不到一天就被搁置、
+从未分析。合并seed0后：marked均值MAE 3.1779(方差std 0.0640) vs unmarked
+均值MAE 3.1374(std 0.0123)——marked反而**更差**0.040 kcal/mol，方向跟"标记
+有帮助"相反，且这个差距完全落在marked自身的seed噪声范围内。确认seed0的
+结论：**CRG目标键标记对BDE产物侧预测没有可衡量的收益**，B6不采用这个思路。
+次要发现：marked组的seed间方差是unmarked组的~5倍——多余的标记信息似乎让
+训练对初始化更敏感，跟cross-dG那边WLDN比CRG更稳的发现是同一类现象(方向
+相反：那边是"多余结构帮助稳定"，这里是"多余标记增加不稳定")。另外排查
+标注同目录下两个陈旧的`*_seed4`文件(日期09-16，早于checkpoint-restore
+修复提交`2518fdc`)——`marked_seed4`的MAE=19.6/R²≈0是修复前的已知坏结果，
+不属于这次4-seed分析，已明确排除避免以后误读。完整表格见
+`pipeline/bde/STATUS.md`§十。这条线到此结束。
+
+**homo SP relabel活动：两条track周四都已跑到100%，但merge一直没重跑。**
+直接查shard完成情况：archived track 8972/8972个`.done`标记，regen track
+771/771——两条track都在周四(09-17)收尾前跑满了(shards/目录最后写入时间
+17:20)，但提高并发之后`merge_homo_sp.py`没有再跑过，磁盘上的
+`homo_sp_summary.json`还停留在09-16 09:44的75.4%覆盖率旧快照。现在重跑
+merge：覆盖率169,493/184,052(**92.1%**，比旧快照高很多)，QC结论**GREEN**
+(`repro_r2scan`对比幸存的3万条旧标签，均值-0.043，标准差2.722，在2.9 kcal
+的单构象噪声下限之内，没有系统性偏移)。
+
+直接进入CAMPAIGN_PLAN.md的Phase 2/3——两个提交脚本周四早上就已经预先
+写好(`789ffb8`)，不需要改动：提交了`submit_homo_standalone_full.sh`
+(job `26947514`，fat_genoa，6小时——组装全库260特征表，用`dG_b973c_kcal`
+做Delta基线，然后训练单个XGB champion)和`submit_homo_standalone_gnn_full.sh`
+(job `26947515`，fat_rome，24小时，`--dependency=afterok:26947514`——单个
+attentive GNN，同样的基线)，串成依赖链让两条腿都能跑完而不需要人盯着。
+按CAMPAIGN_PLAN.md的2026-09-10用户指示，两个结果独立汇报，不做blend。
+跑完后会把XGB/GNN的MAE补进这条记录。

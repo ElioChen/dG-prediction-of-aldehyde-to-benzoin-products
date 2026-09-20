@@ -979,3 +979,51 @@ Launched 3 more seeds each (marked + unmarked, jobs 26843134-139, 8h wall
 time each) for a noise-robust 4-seed read before writing the final verdict,
 same precedent as the cross-dG CRG/CGR-delta/WLDN comparison. STATUS.md sec 9
 updated with the seed0 numbers and interim reasoning; final table pending.
+
+## 2026-09-20
+
+Resuming after a ~3-day gap (last commit was 116ceac, Thu 09-17 14:39; user
+confirmed no proactive work happened after Thursday noon). Two threads had
+actually finished compute during that gap but were never closed out --
+closing both now, no new compute needed for either.
+
+**BDE-CRG ablation, final 4-seed verdict.** Jobs 26843134-139 (seed1-3,
+marked+unmarked) COMPLETED 09-18 01:44-05:45 -- landed less than a day after
+the Thursday handoff but sat unanalyzed. Merged with the existing seed0:
+marked mean MAE 3.1779 (pstdev 0.0640) vs unmarked mean MAE 3.1374 (pstdev
+0.0123) -- marked is *worse* by 0.040 kcal/mol, in the wrong direction for
+"marking helps," and well inside marked's own seed noise. Confirms the seed0
+finding: **CRG target-bond marking gives no measurable benefit on the BDE
+product side**; not adopting it for B6. Secondary finding: marked's seed-to-
+seed variance is ~5x unmarked's -- the redundant marking appears to make
+training more sensitive to init, mirroring (but inverting) the WLDN-vs-CRG
+stability finding on the cross-dG side. Also flagged and excluded two stale
+`*_seed4` files in the same directory (dated 09-16, pre-dating the
+checkpoint-restore fix commit 2518fdc) so they don't get mistaken for part of
+this 4-seed set -- marked_seed4's MAE=19.6/R²≈0 is the known pre-fix failure
+mode, not a regression. Full table in `pipeline/bde/STATUS.md` sec 10. This
+line is done; BDE champion (B6) does not use CRG marking.
+
+**Homo SP relabel campaign: both tracks hit 100% Thursday, merge never run.**
+Checked shard completion directly: archived track 8972/8972 `.done` markers,
+regen track 771/771 -- both tracks were fully drained by end of day Thursday
+(shards/ dir last write 09-17 17:20), but `merge_homo_sp.py` was never re-run
+after the throttle bump, so `homo_sp_summary.json` on disk was still the
+stale 75.4%-coverage snapshot from 09-16 09:44. Re-ran the merge now (`merge_homo_sp.py`, ~10min, I/O-bound over 9,743 shard
+files): coverage vs the 184,052-row manifest is **169,493 usable (92.1%)**,
+up from the stale 75.4% snapshot. QC verdict **GREEN**: `repro_r2scan`
+(new r2SCAN-3c SP vs the surviving 30k stored labels, n=22,725) mean -0.043,
+std 2.722 -- inside the 2.9 kcal single-conformer noise floor, no protocol
+offset. Split test/train/validation 17,333/133,728/17,407.
+
+Proceeding straight to Phase 2/3 per `CAMPAIGN_PLAN.md` -- both submit
+scripts were already pre-staged Thursday morning (`789ffb8`) and needed no
+changes: submitted `submit_homo_standalone_full.sh` (job `26947514`,
+fat_genoa, 6h -- assembles the full-library 260-feat table with
+`dG_b973c_kcal` as the Delta-baseline, then trains the single-XGB champion)
+and `submit_homo_standalone_gnn_full.sh` (job `26947515`, fat_rome, 24h,
+`--dependency=afterok:26947514` -- single attentive GNN, same baseline) as a
+dependency chain so both legs land without further babysitting. Per
+`CAMPAIGN_PLAN.md` these are reported independently (no blend) per the
+2026-09-10 user directive. Will update this entry with the XGB/GNN MAE once
+they land.

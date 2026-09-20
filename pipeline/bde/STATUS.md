@@ -346,3 +346,36 @@ unmarked 几乎完全相同**(MAE 差 0.0027 kcal/mol,noise量级)——CRG 显�
 
 已补跑 seed1-3(marked+unmarked各3个,job `26843134-139`,08:00:00墙钟)拿4-seed
 稳健读数,跑完更新本节结论。
+
+## 十、2026-09-20 补跑的 seed1-3 已分析——4-seed 最终结论
+
+`26843134-139` 六个 job 早在 09-18 05:45 就全部 COMPLETED,但结果落在
+`runs/logs/scaffold_disjoint_bde/crg_ablation/{marked,unmarked}_seed{1,2,3}_result.json`
+之后没人合并分析(09-17 中午后这条线跟其余项目工作一起被搁置了)。现在补上:
+
+| tag | seed0 | seed1 | seed2 | seed3 | mean | pstdev |
+|---|---|---|---|---|---|---|
+| marked MAE | 3.1404 | 3.2871 | 3.1576 | 3.1266 | **3.1779** | 0.0640 |
+| unmarked MAE | 3.1377 | 3.1376 | 3.1546 | 3.1198 | **3.1374** | 0.0123 |
+| marked R² | 0.8859 | 0.8831 | 0.8846 | 0.8848 | 0.8846 | — |
+| unmarked R² | 0.8869 | 0.8869 | 0.8852 | 0.8869 | 0.8865 | — |
+
+**4-seed 最终结论(确认 seed0 单点结论)**:marked 均值反而比 unmarked 高
+0.040 kcal/mol,方向与"标记有帮助"相反,且这个差距完全落在 marked 自身
+seed-to-seed 噪声(std 0.064)之内——**CRG 显式标记目标键对 BDE 产物侧预测
+没有可衡量的收益**,不建议在 BDE 侧采用。
+
+**次要发现**:marked 组的 seed 间方差(std 0.064)是 unmarked 组(std 0.012)
+的 ~5 倍——多余的标记信息不仅没有帮助,似乎还让训练对 init/seed 更敏感。
+与 cross-benzoin dG 侧 WLDN 比 CRG/CGR-delta 更稳定的发现是同一类现象(共享/
+简单的特征表示比额外的显式标记更抗噪),但方向相反(那边是"额外结构帮助
+稳定性",这里是"额外标记增加不稳定性")——提示"标记有没有用"要看这条边
+是否真的对该行任务有区分度信息,而不是一概而论。
+
+**注意**:`crg_ablation/` 目录里还留有 `marked_seed4`/`unmarked_seed4` 两个
+文件(2026-09-16 16:27/20:37,早于 checkpoint-restore 修复提交 `2518fdc`
+20:01),`marked_seed4` 是修复前的坏结果(MAE 19.6, R²≈-0.001,典型的
+"chaotic per-seed" 未修复症状)——**不属于本次4-seed分析,已排除**,保留
+只是历史存档,以后不要被这两个文件误导。
+
+此消融线到此结束,无需继续跑更多 seed。BDE champion(B6)不采用 CRG 标记。
