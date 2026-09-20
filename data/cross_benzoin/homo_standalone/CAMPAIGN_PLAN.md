@@ -115,3 +115,24 @@ including a note to revisit PROJECT_PLAN.md's "homo is not harder than cross"
 line now that it looks *easier* at full scale.
 
 **Phase 1-3 all done, campaign complete.**
+
+## Mainstream-model benchmark (2026-09-20, user-requested)
+
+Beyond the two required models, benchmarked both legs against other
+mainstream estimators on the identical table/split/features. Full writeup +
+visualizations: `notebooks/cross_benzoin/homo_full_library_model_benchmark.ipynb`.
+
+| model | MAE |
+|---|---|
+| Attentive GNN (champion) | **0.558** |
+| Plain-pooling GNN | 0.577 |
+| Chemprop D-MPNN (external framework) | 0.582 |
+| Random Forest | 0.650 |
+| RBF SVR (20k-row subsample) | 0.679 |
+| single XGBoost (champion) | 0.684 |
+| Linear SVR | 0.687 |
+
+Takeaway: neither champion is beaten by a lot, but Random Forest edges out
+XGBoost on the tabular side (0.650 vs 0.684) -- worth remembering next time
+the tabular leg gets revisited. GNN family (all three variants) clearly beats
+every tabular model here.
