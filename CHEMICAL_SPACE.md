@@ -327,3 +327,25 @@ wire up step 6's infrastructure and see what the real space looks like first.
   PROJECT_PLAN.md sec2.7), still open, not resolved by this pilot; (b) if
   decision-boundary or coverage sampling is chosen, a stratified variant of
   `sample()` (by `cho_class`/scaffold), currently uniform-only.
+
+### Real-DFT validation of the pilot's directional call (2026-09-20/21)
+
+The `cross_explore_20260920` batch (`build_cross_explore_pairs.py` +
+`rec1_b973c_tierB_worker.py`, same `sample()` uniform draw, 750 pairs,
+genuinely new self-consistent DFT labels, 0 errors) gives real ground truth
+to check the zero-compute screener's 23.1%-favorable call against:
+**32.4% of the 750 real-labeled pairs are favorable (dG<0)** -- much closer
+to the historical AL-labeled set's 35.7% than to the screener's 23.1%.
+**The screener's directional claim ("the true space runs less favorable
+than the AL-labeled subset suggested") looks overstated, possibly wrong** --
+750 real DFT labels is a far better-powered, unbiased estimate of the true
+population rate than a MAE-3.0 zero-compute proxy model's point predictions
+on 50,000 pairs (the earlier caveat about the screener compressing toward
+its mean applies more here than initially weighted). Treat 32.4% (binomial
+SE ~1.7% at n=750) as the current best estimate of the real favorable
+fraction, not 23.1%. Doesn't retract the flying-dataset infra work itself
+(still correct and useful), just corrects the one directional inference
+drawn from the weak screening model alone. resid_b973c on this batch:
+mean -5.05, std 0.87 -- consistent with the established ~-5 kcal offset,
+confirms these are clean self-consistent labels. Data:
+`data/cross_benzoin/cross_explore_20260920/cross_explore_merged.csv`.
