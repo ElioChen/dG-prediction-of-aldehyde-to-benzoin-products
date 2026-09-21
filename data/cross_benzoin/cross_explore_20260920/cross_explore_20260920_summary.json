@@ -1,0 +1,44 @@
+{
+  "n_shards": 94,
+  "n_unique_pid": 750,
+  "n_ok": 750,
+  "n_true_fail": 0,
+  "n_error_tagged": 0,
+  "master_n": 750,
+  "coverage": 750,
+  "coverage_pct": 100.0,
+  "pilot_ref_same_pairs": {
+    "resid_gxtb_std": 4.32,
+    "resid_b973c_std": 1.11,
+    "std_ratio": 0.257
+  },
+  "groups": {
+    "overall": {
+      "resid_gxtb": {
+        "n": 750,
+        "mean": -1.3,
+        "mean_abs": 2.214,
+        "std": 2.413,
+        "median_abs": 1.888,
+        "p90_abs": 4.45
+      },
+      "resid_b973c": {
+        "n": 750,
+        "mean": -5.048,
+        "mean_abs": 5.048,
+        "std": 0.87,
+        "median_abs": 5.009,
+        "p90_abs": 6.1
+      },
+      "repro_r2scan": {
+        "n": 0
+      },
+      "repro_gxtb": {
+        "n": 0
+      },
+      "std_ratio_b973c_over_gxtb": 0.361
+    }
+  },
+  "verdict": "GREEN: B97-3c keeps low scatter at full scale (std 0.87 vs g-xTB 2.413, ratio 0.361). Proceed with BASELINE_COL=dG_b973c_kcal champion+GNN retrain.",
+  "notes": []
+}

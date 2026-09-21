@@ -546,7 +546,15 @@ and lets any later step (relabel, feature, audit) reuse the intermediates.*
   5.037; 50k-pair random sample of the real space scored — 23.1% predicted
   favorable vs 35.7% in the historical AL-labeled set (directional only, see
   `CHEMICAL_SPACE.md` for caveats). Acquisition-strategy decision itself
-  still open.
+  still open. **2026-09-21: 750-pair real-DFT exploratory batch landed**
+  (`data/cross_benzoin/cross_explore_20260920/`, sampled via
+  `FlyingDataset.sample()`, labeled through the same self-consistent
+  Tier-B/B97-3c recipe) — 100% success (750/750, 0 fails), std-ratio QC
+  0.361 (GREEN), confirming the B97-3c lever holds on genuinely fresh
+  never-labeled pairs. **Not yet folded into any training table** — 750
+  pairs against a ~22.5k-pair current cross train set is a real
+  cost/benefit call (retrain cadence, marginal value) left for the user
+  rather than auto-launched.
 
 ---
 

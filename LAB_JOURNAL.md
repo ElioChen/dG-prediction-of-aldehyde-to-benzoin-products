@@ -1196,3 +1196,46 @@ trend; recommended looping in cluster support since this looks like a
 filesystem-level issue beyond user-space diagnosis. See
 `[[unexplained-tracked-file-deletions-20260920]]` memory -- if this recurs
 again, check `git status --short | grep '^ D'` first thing.
+
+## 2026-09-21
+
+Resumed after an unannounced 3-day-free gap in commits but not in compute --
+the 09-20 session actually kept working past its own handoff doc (written
+12:16) all the way to 23:38 and never wrote a fresh one. Reconstructed
+state from `git log` + this file's own tail rather than a handoff: homo
+full-library campaign fully closed (XGB 0.684, GNN 0.558), Rec-2
+unification upgraded to GREEN (naive_merge beats cross_only 5/5 seeds,
+bootstrap CI excludes zero), `merge_homo_sp.py`'s pandas-3.0 `astype(str)`-
+on-NaN bug fixed (commit `2ea243f`, coverage 92.5% after the SP-retry
+recovery), and a 750-pair cross-explore batch (`26961707`) was submitted
+at 23:23 but the session ended before it could land. Checked
+`git status --short | grep '^ D'` per the still-open tracked-file-deletion
+lead -- clean, 0 deleted files this time.
+
+**Cross-explore 750-pair batch: fully drained (94/94 shards), 100%
+labeled, 0 failures.** Merged with `merge_rec1_b973c_tierB.py` pointed at
+the new shard dir (script is generic over shard schema, no changes
+needed) -- **coverage 750/750 (100%)**, all usable, zero true-fails or
+error-tagged rows. Residual-scatter QC (same self-consistent-geometry
+framing the script was built for): `resid_gxtb` std 2.413, `resid_b973c`
+std 0.87, **std ratio 0.361** -- **GREEN**, close to the original D-pilot's
+0.26 and clearly inside the <=0.45 threshold. This is the B97-3c baseline
+lever holding up on a genuinely fresh, never-labeled batch of cross pairs
+(not a re-check of already-labeled data), which is a stronger validation
+than the earlier retrospective checks. These 750 pairs are new, real
+DFT-labeled cross data -- not yet folded into any training table; that's
+a real decision (retrain cadence, whether 750 pairs moves the needle at
+n=22,529+ current cross train size) worth flagging to the user rather than
+just doing, so leaving `CAMPAIGN_PLAN.md`/`PROJECT_PLAN.md` to note it as
+available inventory for now rather than launching a retrain unprompted.
+
+**Homo aldgap-regen job (`26957684`, 1,131 tasks, `%40` throttle, started
+09-20 20:13) still running**: 204/1131 COMPLETED, 40 RUNNING as of this
+entry, everything else queued behind the throttle. At the observed
+~2-2.5 CPU-h/pair pace this is a multi-day campaign (rough order:
+~2-3 more days to drain at the current completion rate) -- no action
+needed, just let it run and merge with the now-fixed `merge_homo_sp.py`
+once it's done or near-done. Not re-running an interim merge this entry
+since the last one (93.73% coverage, SP-retry only) is still current and
+the aldgap track hasn't meaningfully moved the geom_extract_fail count yet
+at 204/6,784-pair-equivalent tasks.
